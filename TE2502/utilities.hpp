@@ -2,6 +2,7 @@
 #include <string>
 #include <iostream>
 
+// Clears "output.txt"
 void clear_output_file()
 {
 #ifdef _DEBUG
@@ -11,6 +12,7 @@ void clear_output_file()
 #endif // DEBUG
 }
 
+// Prints string to console and "output.txt"
 void print(const std::string& str)
 {
 #ifdef _DEBUG
@@ -23,6 +25,7 @@ void print(const std::string& str)
 #endif // DEBUG
 }
 
+// Prints string, WITH newline, to console and "output.txt"
 void println(const std::string& str)
 {
 #ifdef _DEBUG

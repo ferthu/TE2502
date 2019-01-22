@@ -44,8 +44,8 @@ void Camera::update(const float dt)
 	// Handle mouse input
 	double x_pos, y_pos;
 	glfwGetCursorPos(m_window, &x_pos, &y_pos);
-	const float dx = (x_pos - m_window_width) * m_mouse_sensitivity;
-	const float dy = (y_pos - m_window_height) * m_mouse_sensitivity;
+	const float dx = ((float)x_pos - m_window_width) * m_mouse_sensitivity;
+	const float dy = ((float)y_pos - m_window_height) * m_mouse_sensitivity;
 	m_yaw += dx;
 	m_pitch += dy;
 
@@ -60,6 +60,7 @@ void Camera::update(const float dt)
 	m_position += forward_dir * horiz_dir.y + left_dir * horiz_dir.x + up;
 
 	m_view = glm::lookAt(m_position, m_position + forward_dir, glm::vec3(0, 1, 0));
+	m_vp = m_perspective * m_view;
 }
 
 const glm::vec3 & Camera::get_pos() const
@@ -74,7 +75,7 @@ const glm::mat4 & Camera::get_view() const
 
 const glm::mat4 & Camera::get_vp() const
 {
-	return m_perspective * m_view;
+	return m_vp;
 }
 
 const glm::mat4 & Camera::get_perspective() const

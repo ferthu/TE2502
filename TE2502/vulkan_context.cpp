@@ -65,11 +65,20 @@ VulkanContext::VulkanContext()
 #endif
 
 	create_device(m_physical_device);
+
+	get_queues();
+
+	create_command_pools();
 }
 
 VulkanContext::~VulkanContext()
 {
 	vkDeviceWaitIdle(m_device);
+
+	vkDestroyCommandPool(m_device, m_graphics_command_pool, m_allocation_callbacks);
+	vkDestroyCommandPool(m_device, m_compute_command_pool, m_allocation_callbacks);
+	vkDestroyCommandPool(m_device, m_transfer_command_pool, m_allocation_callbacks);
+
 	vkDestroyDevice(m_device, m_allocation_callbacks);
 
 #ifdef _DEBUG
@@ -482,6 +491,53 @@ void VulkanContext::write_required_features(VkPhysicalDeviceFeatures& features)
 	features.shaderCullDistance = VK_TRUE;
 }
 
+void VulkanContext::get_queues()
+{
+	// Get graphics queues
+	m_graphics_queue_family.queues.resize(m_graphics_queue_family.queue_count);
+	for (uint32_t i = 0; i < m_graphics_queue_family.queue_count; i++)
+	{
+		vkGetDeviceQueue(m_device, m_graphics_queue_family.family_index, i, &m_graphics_queue_family.queues[i]);
+	}
+
+	// Get compute queues
+	m_compute_queue_family.queues.resize(m_compute_queue_family.queue_count);
+	for (uint32_t i = 0; i < m_compute_queue_family.queue_count; i++)
+	{
+		vkGetDeviceQueue(m_device, m_compute_queue_family.family_index, i, &m_compute_queue_family.queues[i]);
+	}
+
+	// Get transfer queues
+	m_transfer_queue_family.queues.resize(m_transfer_queue_family.queue_count);
+	for (uint32_t i = 0; i < m_transfer_queue_family.queue_count; i++)
+	{
+		vkGetDeviceQueue(m_device, m_transfer_queue_family.family_index, i, &m_transfer_queue_family.queues[i]);
+	}
+}
+
+void VulkanContext::create_command_pools()
+{
+	// Create graphics command pool
+	VkCommandPoolCreateInfo command_pool_info;
+	command_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	command_pool_info.pNext = nullptr;
+	command_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+	command_pool_info.queueFamilyIndex = m_graphics_queue_family.family_index;
+
+	VkResult result = vkCreateCommandPool(m_device, &command_pool_info, m_allocation_callbacks, &m_graphics_command_pool);
+	assert(result == VK_SUCCESS);
+
+	// Create compute command pool
+	command_pool_info.queueFamilyIndex = m_compute_queue_family.family_index;
+	result = vkCreateCommandPool(m_device, &command_pool_info, m_allocation_callbacks, &m_compute_command_pool);
+	assert(result == VK_SUCCESS);
+
+	// Create transfer command pool
+	command_pool_info.queueFamilyIndex = m_transfer_queue_family.family_index;
+	result = vkCreateCommandPool(m_device, &command_pool_info, m_allocation_callbacks, &m_transfer_command_pool);
+	assert(result == VK_SUCCESS);
+}
+
 void VulkanContext::init_instance_layer_descriptions()
 {
 	VkResult result;
@@ -610,7 +666,37 @@ const VkPhysicalDeviceProperties& VulkanContext::get_device_properties()
 	return m_device_properties;
 }
 
-VkAllocationCallbacks * VulkanContext::get_allocation_callbacks()
+VkAllocationCallbacks* VulkanContext::get_allocation_callbacks()
 {
 	return m_allocation_callbacks;
+}
+
+size_t VulkanContext::graphics_queues_count()
+{
+	return m_graphics_queue_family.queue_count;
+}
+
+size_t VulkanContext::compute_queue_count()
+{
+	return m_compute_queue_family.queue_count;
+}
+
+size_t VulkanContext::transfer_queues_count()
+{
+	return m_transfer_queue_family.queue_count;
+}
+
+VkQueue VulkanContext::get_graphics_queue(size_t index)
+{
+	return m_graphics_queue_family.queues[index];
+}
+
+VkQueue VulkanContext::get_compute_queue(size_t index)
+{
+	return m_compute_queue_family.queues[index];
+}
+
+VkQueue VulkanContext::get_transfer_queue(size_t index)
+{
+	return m_transfer_queue_family.queues[index];
 }

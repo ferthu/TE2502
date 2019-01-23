@@ -36,6 +36,24 @@ public:
 	// Returns allocation callbacks
 	VkAllocationCallbacks* get_allocation_callbacks();
 
+	// Returns number of graphics queues
+	size_t graphics_queues_count();
+
+	// Returns number of compute queues
+	size_t compute_queue_count();
+
+	// Returns number of transfer queues
+	size_t transfer_queues_count();
+
+	// Get graphics queue with specified index
+	VkQueue get_graphics_queue(size_t index);
+
+	// Get compute queue with specified index
+	VkQueue get_compute_queue(size_t index);
+
+	// Get transfer queue with specified index
+	VkQueue get_transfer_queue(size_t index);
+
 private:
 	// Creates the VkInstance
 	void create_instance();
@@ -83,6 +101,12 @@ private:
 	// Writes the required features into a VkPhysicalDeviceFeatures struct
 	void write_required_features(VkPhysicalDeviceFeatures& features);
 
+	// Gets queues from device and places them in m_graphics_queue_family etc.
+	void get_queues();
+
+	// Creates command pools for queue families
+	void create_command_pools();
+
 	VkInstance m_instance;
 	VkPhysicalDevice m_physical_device;
 	VkDevice m_device;
@@ -104,12 +128,17 @@ private:
 		uint32_t family_index;
 		uint32_t queue_count;
 		VkBool32 supports_presentation;
+		std::vector<VkQueue> queues;
 	};
 
 	// Index of queue families for different capabilities
 	QueueFamily m_graphics_queue_family;
 	QueueFamily m_compute_queue_family;
 	QueueFamily m_transfer_queue_family;
+
+	VkCommandPool m_graphics_command_pool;
+	VkCommandPool m_compute_command_pool;
+	VkCommandPool m_transfer_command_pool;
 
 #ifdef _DEBUG
 	VkDebugReportCallbackEXT m_error_callback;

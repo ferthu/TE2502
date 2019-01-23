@@ -24,6 +24,15 @@ public:
 	// Returns Vulkan instance
 	VkInstance get_instance();
 
+	// Returns Vulkan device
+	VkDevice get_device();
+
+	// Returns Vulkan physical device
+	VkPhysicalDevice get_physical_device();
+
+	// Returns Vulkan device properties struct
+	const VkPhysicalDeviceProperties& get_device_properties();
+
 	// Returns allocation callbacks
 	VkAllocationCallbacks* get_allocation_callbacks();
 
@@ -75,6 +84,7 @@ private:
 	void write_required_features(VkPhysicalDeviceFeatures& features);
 
 	VkInstance m_instance;
+	VkPhysicalDevice m_physical_device;
 	VkDevice m_device;
 	VkPhysicalDeviceProperties m_device_properties;
 	VkPhysicalDeviceFeatures m_device_features;

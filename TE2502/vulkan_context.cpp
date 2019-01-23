@@ -53,10 +53,10 @@ VulkanContext::VulkanContext()
 
 	create_instance();
 
-	VkPhysicalDevice selected_physical_device = select_physical_device();
-	init_device_extension_descriptions(selected_physical_device);
-	get_memory_properties(selected_physical_device);
-	get_queue_family_properties(selected_physical_device);
+	m_physical_device = select_physical_device();
+	init_device_extension_descriptions(m_physical_device);
+	get_memory_properties(m_physical_device);
+	get_queue_family_properties(m_physical_device);
 
 #ifdef _DEBUG
 	print_device_extensions();
@@ -64,7 +64,7 @@ VulkanContext::VulkanContext()
 	print_queue_family_properties();
 #endif
 
-	create_device(selected_physical_device);
+	create_device(m_physical_device);
 }
 
 VulkanContext::~VulkanContext()
@@ -593,6 +593,21 @@ bool VulkanContext::device_extension_available(const char* extension_name)
 VkInstance VulkanContext::get_instance()
 {
 	return m_instance;
+}
+
+VkDevice VulkanContext::get_device()
+{
+	return m_device;
+}
+
+VkPhysicalDevice VulkanContext::get_physical_device()
+{
+	return m_physical_device;
+}
+
+const VkPhysicalDeviceProperties& VulkanContext::get_device_properties()
+{
+	return m_device_properties;
 }
 
 VkAllocationCallbacks * VulkanContext::get_allocation_callbacks()

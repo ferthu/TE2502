@@ -2,8 +2,10 @@
 #include <iostream>
 #include <assert.h>
 #include <intrin.h>
+#include <fstream>
 
 #include "vulkan_context.hpp"
+#include "utilities.hpp"
 
 VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_error_callback(
 	VkDebugReportFlagsEXT       flags,
@@ -480,6 +482,69 @@ void VulkanContext::write_required_features(VkPhysicalDeviceFeatures& features)
 	features.shaderClipDistance = VK_TRUE;
 	assert(m_device_features.shaderCullDistance);
 	features.shaderCullDistance = VK_TRUE;
+}
+
+void VulkanContext::create_graphics_pipeline()
+{
+	auto vert_shader_code = compile_from_file("shaders/shader.frag", shaderc_shader_kind::shaderc_glsl_vertex_shader);
+	auto frag_shader_code = compile_from_file("shaders/shader.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
+
+	VkShaderModule vert_shader_module = create_shader_module(vert_shader_code);
+	VkShaderModule frag_shader_module = create_shader_module(frag_shader_code);
+}
+
+std::vector<char> VulkanContext::compile_from_file(
+	const std::string& file_name,
+	shaderc_shader_kind kind,
+	bool optimize) 
+{
+	shaderc::Compiler compiler;
+	shaderc::CompileOptions options;
+
+	if (optimize) options.SetOptimizationLevel(shaderc_optimization_level_performance);
+
+	std::ifstream file(file_name, std::ios::ate);
+
+	if (!file.is_open()) {
+#ifdef _DEBUG
+		__debugbreak();
+#else
+		println("Failed to open file: " + file_name);
+		exit();
+#endif
+	}
+
+	size_t file_size = (size_t)file.tellg();
+	std::vector<char> buffer(file_size);
+	file.seekg(0);
+	file.read(buffer.data(), file_size);
+	
+	file.close();
+
+	shaderc::SpvCompilationResult module =
+		compiler.CompileGlslToSpv(buffer.data(), kind, file_name.c_str(), options);
+
+	if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
+		std::cerr << module.GetErrorMessage();
+		return std::vector<char>();
+	}
+
+	return buffer;
+}
+
+VkShaderModule VulkanContext::create_shader_module(const std::vector<char>& code)
+{
+	VkShaderModuleCreateInfo create_info;
+	create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	create_info.codeSize = code.size();
+	create_info.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+	VkShaderModule shader_module;
+	if (vkCreateShaderModule(m_device, &create_info, nullptr, &shader_module) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create shader module!");
+	}
+
+	return shader_module;
 }
 
 void VulkanContext::init_instance_layer_descriptions()

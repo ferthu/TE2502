@@ -1,6 +1,8 @@
 #pragma once
 
 #include <vector>
+
+#define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 
 // Class for handling Vulkan instance
@@ -9,6 +11,22 @@ class VulkanContext
 public:
 	VulkanContext();
 	~VulkanContext();
+
+	// Returns true if the specified layer is available in m_instance_layer_properties
+	bool instance_layer_available(const char* layer_name);
+
+	// Returns true if the specified extension is available in m_instance_extension_properties
+	bool instance_extension_available(const char* extension_name);
+
+	// Returns true if the specified extension is available in m_device_extension_properties
+	bool device_extension_available(const char* extension_name);
+
+	// Returns Vulkan instance
+	VkInstance get_instance();
+
+	// Returns allocation callbacks
+	VkAllocationCallbacks* get_allocation_callbacks();
+
 private:
 	// Creates the VkInstance
 	void create_instance();
@@ -31,22 +49,37 @@ private:
 	// Prints the available device extensions
 	void print_device_extensions();
 
-	// Returns true if the specified layer is available in m_instance_layer_properties
-	bool instance_layer_available(const char* layer_name);
-
-	// Returns true if the specified extension is available in m_instance_extension_properties
-	bool instance_extension_available(const char* extension_name);
-
-	// Returns true if the specified extension is available in m_device_extension_properties
-	bool device_extension_available(const char* extension_name);
-
 	// Selects an appropriate physical Vulkan device and returns it
 	VkPhysicalDevice select_physical_device();
+
+	// Gets and stores memory properties of a physical device
+	void get_memory_properties(VkPhysicalDevice physical_device);
+
+	// Prints info on device memory properties from m_memory_properties
+	void print_memory_properties();
+
+	// Gets and stores queue family properties of a physical device
+	void get_queue_family_properties(VkPhysicalDevice physical_device);
+
+	// Prints info on device queue family properties from m_queue_family_properties
+	void print_queue_family_properties();
+
+	// Creates a VkDevice from a VkPhysicalDevice
+	void create_device(VkPhysicalDevice physical_device);
+
+	// Attempts to find an appropriate queue family from m_queue_family_properties
+	// Does not write to output if not found
+	void find_queue_family(uint32_t& output, VkQueueFlagBits required, VkQueueFlagBits not_allowed);
+
+	// Writes the required features into a VkPhysicalDeviceFeatures struct
+	void write_required_features(VkPhysicalDeviceFeatures& features);
 
 	VkInstance m_instance;
 	VkDevice m_device;
 	VkPhysicalDeviceProperties m_device_properties;
 	VkPhysicalDeviceFeatures m_device_features;
+	VkPhysicalDeviceMemoryProperties m_memory_properties;
+	std::vector<VkQueueFamilyProperties> m_queue_family_properties;
 
 	std::vector<VkLayerProperties> m_instance_layer_properties;
 
@@ -54,6 +87,19 @@ private:
 	std::vector<VkExtensionProperties> m_device_extension_properties;
 
 	VkAllocationCallbacks* m_allocation_callbacks;
+
+	// Info on a created device queue
+	struct QueueFamily
+	{
+		uint32_t family_index;
+		uint32_t queue_count;
+		VkBool32 supports_presentation;
+	};
+
+	// Index of queue families for different capabilities
+	QueueFamily m_graphics_queue_family;
+	QueueFamily m_compute_queue_family;
+	QueueFamily m_transfer_queue_family;
 
 #ifdef _DEBUG
 	VkDebugReportCallbackEXT m_error_callback;

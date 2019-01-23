@@ -55,13 +55,23 @@ VulkanContext::VulkanContext()
 
 	VkPhysicalDevice selected_physical_device = select_physical_device();
 	init_device_extension_descriptions(selected_physical_device);
+	get_memory_properties(selected_physical_device);
+	get_queue_family_properties(selected_physical_device);
+
 #ifdef _DEBUG
 	print_device_extensions();
+	print_memory_properties();
+	print_queue_family_properties();
 #endif
+
+	create_device(selected_physical_device);
 }
 
 VulkanContext::~VulkanContext()
 {
+	vkDeviceWaitIdle(m_device);
+	vkDestroyDevice(m_device, m_allocation_callbacks);
+
 #ifdef _DEBUG
 	// Destroy debug callbacks
 	PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT =
@@ -122,7 +132,7 @@ void VulkanContext::create_instance()
 	extensions.push_back("VK_EXT_debug_report");
 #endif
 
-	instance_info.enabledExtensionCount = extensions.size();
+	instance_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
 	instance_info.ppEnabledExtensionNames = extensions.data();
 
 	VkResult result = vkCreateInstance(&instance_info, m_allocation_callbacks, &m_instance);
@@ -168,7 +178,7 @@ void VulkanContext::create_instance()
 
 	vkDebugReportMessageEXT(m_instance, VK_DEBUG_REPORT_INFORMATION_BIT_EXT, 
 		VkDebugReportObjectTypeEXT::VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, 0, 0, 
-		"manual validation test", 
+		"Timmie", 
 		">>> Initializing Vulkan validation layer callbacks <<<");
 #endif
 }
@@ -223,6 +233,253 @@ VkPhysicalDevice VulkanContext::select_physical_device()
 	m_device_features = physical_device_features[0];
 
 	return physical_devices[0];
+}
+
+void VulkanContext::get_memory_properties(VkPhysicalDevice physical_device)
+{
+	vkGetPhysicalDeviceMemoryProperties(physical_device, &m_memory_properties);
+}
+
+void VulkanContext::print_memory_properties()
+{
+	std::cout << "Memory Heaps:\n";
+
+	for (uint32_t i = 0; i < m_memory_properties.memoryHeapCount; i++)
+	{
+		std::cout << i << ": " << m_memory_properties.memoryHeaps[i].size / 1024 / 1024 << "MB\n";
+		std::cout << "\tFlags: ";
+		if (m_memory_properties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) std::cout << "VK_MEMORY_HEAP_DEVICE_LOCAL_BIT ";
+		if (m_memory_properties.memoryHeaps[i].flags & VK_MEMORY_HEAP_MULTI_INSTANCE_BIT) std::cout << "VK_MEMORY_HEAP_MULTI_INSTANCE_BIT ";
+		std::cout << "\n";
+	}
+
+	std::cout << "\nMemory Types:\n";
+
+	for (uint32_t i = 0; i < m_memory_properties.memoryTypeCount; i++)
+	{
+		std::cout << i << ": Heap " << m_memory_properties.memoryTypes[i].heapIndex << "\n";
+		std::cout << "\tFlags: ";
+		if (m_memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) std::cout << "VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT ";
+		if (m_memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) std::cout << "VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT ";
+		if (m_memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) std::cout << "VK_MEMORY_PROPERTY_HOST_COHERENT_BIT ";
+		if (m_memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) std::cout << "VK_MEMORY_PROPERTY_HOST_CACHED_BIT ";
+		if (m_memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT) std::cout << "VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT ";
+		if (m_memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_PROTECTED_BIT) std::cout << "VK_MEMORY_PROPERTY_PROTECTED_BIT ";
+		std::cout << "\n";
+	}
+	std::cout << "\n";
+
+}
+
+void VulkanContext::get_queue_family_properties(VkPhysicalDevice physical_device)
+{
+	uint32_t queue_family_count = 0;
+
+	vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, nullptr);
+
+	assert(queue_family_count > 0);
+
+	m_queue_family_properties.resize(queue_family_count);
+	vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, m_queue_family_properties.data());
+
+	assert(queue_family_count == m_queue_family_properties.size());
+}
+
+void VulkanContext::print_queue_family_properties()
+{
+	std::cout << "Queue Family Properties:\n";
+
+	for (size_t i = 0; i < m_queue_family_properties.size(); i++)
+	{
+		std::cout << i << ": " << m_queue_family_properties[i].queueCount << " queues, timestampValidBits: " << m_queue_family_properties[i].timestampValidBits << ", flags: ";
+		if (m_queue_family_properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) std::cout << "VK_QUEUE_GRAPHICS_BIT ";
+		if (m_queue_family_properties[i].queueFlags & VK_QUEUE_COMPUTE_BIT) std::cout << "VK_QUEUE_COMPUTE_BIT ";
+		if (m_queue_family_properties[i].queueFlags & VK_QUEUE_TRANSFER_BIT) std::cout << "VK_QUEUE_TRANSFER_BIT ";
+		if (m_queue_family_properties[i].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT) std::cout << "VK_QUEUE_SPARSE_BINDING_BIT ";
+		if (m_queue_family_properties[i].queueFlags & VK_QUEUE_PROTECTED_BIT) std::cout << "VK_QUEUE_PROTECTED_BIT ";
+		std::cout << "\n";
+	}
+}
+
+void VulkanContext::create_device(VkPhysicalDevice physical_device)
+{
+	// Select queues to use for different operations
+	const uint32_t not_found = 999999;
+	m_graphics_queue_family.family_index = not_found;
+
+	// Try to find exclusive graphics family
+	find_queue_family(m_graphics_queue_family.family_index, VK_QUEUE_GRAPHICS_BIT, VK_QUEUE_COMPUTE_BIT);
+
+	// If no exclusive family was found, find any graphics family
+	if (m_graphics_queue_family.family_index == not_found)
+	{
+		find_queue_family(m_graphics_queue_family.family_index, VK_QUEUE_GRAPHICS_BIT, (VkQueueFlagBits)0);
+	}
+
+	assert(m_graphics_queue_family.family_index != not_found);
+	m_graphics_queue_family.queue_count = m_queue_family_properties[m_graphics_queue_family.family_index].queueCount;
+	m_graphics_queue_family.supports_presentation = vkGetPhysicalDeviceWin32PresentationSupportKHR(physical_device, m_graphics_queue_family.family_index);
+	assert(m_graphics_queue_family.supports_presentation == VK_TRUE);
+
+	m_compute_queue_family.family_index = not_found;
+
+	// Try to find exclusive compute family
+	find_queue_family(m_compute_queue_family.family_index, VK_QUEUE_COMPUTE_BIT, VK_QUEUE_GRAPHICS_BIT);
+
+	// If no exclusive family was found, find any compute family
+	if (m_compute_queue_family.family_index == not_found)
+	{
+		find_queue_family(m_compute_queue_family.family_index, VK_QUEUE_COMPUTE_BIT, (VkQueueFlagBits)0);
+	}
+
+	assert(m_compute_queue_family.family_index != not_found);
+	m_compute_queue_family.queue_count = m_queue_family_properties[m_compute_queue_family.family_index].queueCount;
+	m_compute_queue_family.supports_presentation = vkGetPhysicalDeviceWin32PresentationSupportKHR(physical_device, m_compute_queue_family.family_index);
+
+
+	m_transfer_queue_family.family_index = not_found;
+
+	// Try to find exclusive transfer family
+	find_queue_family(m_transfer_queue_family.family_index, VK_QUEUE_TRANSFER_BIT, VK_QUEUE_GRAPHICS_BIT);
+
+	// If no exclusive family was found, find any transfer family
+	if (m_transfer_queue_family.family_index == not_found)
+	{
+		find_queue_family(m_transfer_queue_family.family_index, VK_QUEUE_TRANSFER_BIT, (VkQueueFlagBits)0);
+	}
+
+	assert(m_transfer_queue_family.family_index != not_found);
+	m_transfer_queue_family.queue_count = m_queue_family_properties[m_transfer_queue_family.family_index].queueCount;
+	m_transfer_queue_family.supports_presentation = vkGetPhysicalDeviceWin32PresentationSupportKHR(physical_device, m_transfer_queue_family.family_index);
+
+
+	std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+
+	// Add graphics queue
+	{
+		VkDeviceQueueCreateInfo graphics_queue;
+		graphics_queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		graphics_queue.pNext = nullptr;
+		graphics_queue.flags = 0;
+		graphics_queue.queueFamilyIndex = m_graphics_queue_family.family_index;
+		graphics_queue.queueCount = m_graphics_queue_family.queue_count;
+		graphics_queue.pQueuePriorities = nullptr;
+
+		queue_create_infos.push_back(graphics_queue);
+	}
+
+	// Add compute queue
+	if (m_compute_queue_family.family_index != m_graphics_queue_family.family_index)
+	{
+		VkDeviceQueueCreateInfo compute_queue;
+		compute_queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		compute_queue.pNext = nullptr;
+		compute_queue.flags = 0;
+		compute_queue.queueFamilyIndex = m_compute_queue_family.family_index;
+		compute_queue.queueCount = m_compute_queue_family.queue_count;
+		compute_queue.pQueuePriorities = nullptr;
+
+		queue_create_infos.push_back(compute_queue);
+	}
+
+	// Add transfer queue
+	if (m_transfer_queue_family.family_index != m_graphics_queue_family.family_index && 
+		m_transfer_queue_family.family_index != m_compute_queue_family.family_index)
+	{
+		VkDeviceQueueCreateInfo transfer_queue;
+		transfer_queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		transfer_queue.pNext = nullptr;
+		transfer_queue.flags = 0;
+		transfer_queue.queueFamilyIndex = m_transfer_queue_family.family_index;
+		transfer_queue.queueCount = m_transfer_queue_family.queue_count;
+		transfer_queue.pQueuePriorities = nullptr;
+
+		queue_create_infos.push_back(transfer_queue);
+	}
+
+#ifdef _DEBUG
+	std::cout << "\nSelected Queues:\nGraphics:\t" << m_graphics_queue_family.family_index << ", " << m_graphics_queue_family.queue_count << " queues, can present: " << m_graphics_queue_family.supports_presentation << "\n";
+	std::cout << "Compute:\t" << m_compute_queue_family.family_index << ", " << m_compute_queue_family.queue_count << " queues, can present: " << m_compute_queue_family.supports_presentation << "\n";
+	std::cout << "Transfer:\t" << m_transfer_queue_family.family_index << ", " << m_transfer_queue_family.queue_count << " queues, can present: " << m_transfer_queue_family.supports_presentation << "\n\n";
+#endif
+
+	// Select device extensions
+	assert(device_extension_available("VK_KHR_swapchain"));
+
+	const char* extensions[] = { "VK_KHR_swapchain" };
+
+	// Select device features
+	VkPhysicalDeviceFeatures device_features;
+	write_required_features(device_features);
+
+	VkDeviceCreateInfo device_create_info;
+	device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	device_create_info.pNext = nullptr;
+	device_create_info.flags = 0;
+	device_create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
+	device_create_info.pQueueCreateInfos = queue_create_infos.data();
+	device_create_info.enabledLayerCount = 0;
+	device_create_info.ppEnabledLayerNames = nullptr;
+	device_create_info.enabledExtensionCount = 1;
+	device_create_info.ppEnabledExtensionNames = extensions;
+	device_create_info.pEnabledFeatures = &device_features;
+
+	VkResult result = vkCreateDevice(physical_device, &device_create_info, m_allocation_callbacks, &m_device);
+	assert(result == VK_SUCCESS);
+}
+
+void VulkanContext::find_queue_family(uint32_t& output, VkQueueFlagBits required, VkQueueFlagBits not_allowed)
+{
+	for (size_t i = 0; i < m_queue_family_properties.size(); i++)
+	{
+		if (((m_queue_family_properties[i].queueFlags & required) == required) && ((m_queue_family_properties[i].queueFlags & not_allowed) == 0))
+		{
+			output = static_cast<uint32_t>(i);
+			return;
+		}
+	}
+}
+
+void VulkanContext::write_required_features(VkPhysicalDeviceFeatures& features)
+{
+	// Set all contents to zero
+	memset(&features, 0, sizeof(VkPhysicalDeviceFeatures));
+
+	// Enable required features
+	assert(m_device_features.dualSrcBlend);
+	features.dualSrcBlend = VK_TRUE;
+	assert(m_device_features.logicOp);
+	features.logicOp = VK_TRUE;
+	assert(m_device_features.fillModeNonSolid);
+	features.fillModeNonSolid = VK_TRUE;
+	assert(m_device_features.depthBounds);
+	features.depthBounds = VK_TRUE;
+	assert(m_device_features.wideLines);
+	features.wideLines = VK_TRUE;
+	assert(m_device_features.largePoints);
+	features.largePoints = VK_TRUE;
+	assert(m_device_features.samplerAnisotropy);
+	features.samplerAnisotropy = VK_TRUE;
+	assert(m_device_features.textureCompressionBC);
+	features.textureCompressionBC = VK_TRUE;
+	assert(m_device_features.vertexPipelineStoresAndAtomics);
+	features.vertexPipelineStoresAndAtomics = VK_TRUE;
+	assert(m_device_features.shaderImageGatherExtended);
+	features.shaderImageGatherExtended = VK_TRUE;
+	assert(m_device_features.shaderStorageImageExtendedFormats);
+	features.shaderStorageImageExtendedFormats = VK_TRUE;
+	assert(m_device_features.shaderUniformBufferArrayDynamicIndexing);
+	features.shaderUniformBufferArrayDynamicIndexing = VK_TRUE;
+	assert(m_device_features.shaderSampledImageArrayDynamicIndexing);
+	features.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
+	assert(m_device_features.shaderStorageBufferArrayDynamicIndexing);
+	features.shaderStorageBufferArrayDynamicIndexing = VK_TRUE;
+	assert(m_device_features.shaderStorageImageArrayDynamicIndexing);
+	features.shaderStorageImageArrayDynamicIndexing = VK_TRUE;
+	assert(m_device_features.shaderClipDistance);
+	features.shaderClipDistance = VK_TRUE;
+	assert(m_device_features.shaderCullDistance);
+	features.shaderCullDistance = VK_TRUE;
 }
 
 void VulkanContext::init_instance_layer_descriptions()
@@ -331,4 +588,14 @@ bool VulkanContext::device_extension_available(const char* extension_name)
 	}
 
 	return false;
+}
+
+VkInstance VulkanContext::get_instance()
+{
+	return m_instance;
+}
+
+VkAllocationCallbacks * VulkanContext::get_allocation_callbacks()
+{
+	return m_allocation_callbacks;
 }

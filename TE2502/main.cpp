@@ -11,11 +11,8 @@ int main() {
 	srand((unsigned int)(time(NULL)));
 	clear_output_file();
 
-	//Application app;
-	//app.run();
+	Application app;
+	app.run();
 
-	{
-		VulkanContext vc;
-	}
 	return 0;
 }

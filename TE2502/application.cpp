@@ -54,6 +54,8 @@ void Application::run()
 		glfwSetWindowTitle(m_window->get_glfw_window(), title.c_str());
 
 		draw();
+
+		Sleep(16);
 	}
 }
 

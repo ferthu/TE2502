@@ -28,5 +28,8 @@ private:
 	Camera* m_current_camera;
 	VulkanContext m_vulkan_context;
 	std::chrono::time_point<std::chrono::steady_clock> m_timer;
+
+	std::unique_ptr<Pipeline> m_compute_pipeline;
+	std::unique_ptr<Pipeline> m_graphics_pipeline;
 };
 

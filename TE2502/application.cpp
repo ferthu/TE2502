@@ -27,8 +27,9 @@ Application::Application()
 	m_debug_camera = new Camera(m_window->get_glfw_window());
 	m_current_camera = m_main_camera;
 
-	m_vulkan_context.create_render_pass(*m_window);
-	m_vulkan_context.create_graphics_pipeline(*m_window);
+	m_vulkan_context.create_render_pass(m_window);
+	m_compute_pipeline = m_vulkan_context.create_compute_pipeline();
+	m_graphics_pipeline = m_vulkan_context.create_graphics_pipeline(m_window->get_size());
 
 	glfwSetKeyCallback(m_window->get_glfw_window(), key_callback);
 }

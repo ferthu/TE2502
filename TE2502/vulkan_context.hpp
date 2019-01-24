@@ -1,10 +1,14 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 //#include <shaderc/shaderc.hpp>
+#include <glm/glm.hpp>
+
+#include "pipeline.h"
 
 class Window;
 
@@ -40,13 +44,13 @@ public:
 	VkAllocationCallbacks* get_allocation_callbacks();
 
 	// Creates the render pass 
-	void create_render_pass(const Window& window);
+	void create_render_pass(const Window* window);
 
 	// Create a compute pipeline
-	void create_compute_pipeline(const Window& window);
+	std::unique_ptr<Pipeline> create_compute_pipeline();
 
 	// Create a graphics pipeline
-	void create_graphics_pipeline(const Window& window);
+	std::unique_ptr<Pipeline> create_graphics_pipeline(const glm::vec2 window_size);
 
 private:
 	// Creates the VkInstance
@@ -101,9 +105,7 @@ private:
 	// Return a VkShaderModule using the given byte code
 	VkShaderModule create_shader_module(const std::vector<char>& code);
 
-	VkPipeline m_graphics_pipeline;
 	VkRenderPass m_render_pass;
-	VkPipelineLayout m_pipeline_layout;
 
 	VkInstance m_instance;
 	VkPhysicalDevice m_physical_device;

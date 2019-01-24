@@ -521,7 +521,7 @@ void VulkanContext::create_command_pools()
 	VkCommandPoolCreateInfo command_pool_info;
 	command_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	command_pool_info.pNext = nullptr;
-	command_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+	command_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 	command_pool_info.queueFamilyIndex = m_graphics_queue_family.family_index;
 
 	VkResult result = vkCreateCommandPool(m_device, &command_pool_info, m_allocation_callbacks, &m_graphics_command_pool);
@@ -699,4 +699,31 @@ VkQueue VulkanContext::get_compute_queue(size_t index)
 VkQueue VulkanContext::get_transfer_queue(size_t index)
 {
 	return m_transfer_queue_family.queues[index];
+}
+
+GraphicsQueue VulkanContext::create_graphics_queue()
+{
+	assert(m_graphics_queue_family.next_free < m_graphics_queue_family.queue_count);
+
+	m_graphics_queue_family.next_free++;
+
+	return GraphicsQueue(*this, m_graphics_command_pool, m_graphics_queue_family.queues[m_graphics_queue_family.next_free - 1]);
+}
+
+ComputeQueue VulkanContext::create_compute_queue()
+{
+	assert(m_compute_queue_family.next_free < m_compute_queue_family.queue_count);
+
+	m_compute_queue_family.next_free++;
+
+	return ComputeQueue(*this, m_compute_command_pool, m_compute_queue_family.queues[m_compute_queue_family.next_free - 1]);
+}
+
+TransferQueue VulkanContext::create_transfer_queue()
+{
+	assert(m_transfer_queue_family.next_free < m_transfer_queue_family.queue_count);
+
+	m_transfer_queue_family.next_free++;
+
+	return TransferQueue(*this, m_transfer_command_pool, m_transfer_queue_family.queues[m_transfer_queue_family.next_free - 1]);
 }

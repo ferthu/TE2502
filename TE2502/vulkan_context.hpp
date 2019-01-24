@@ -5,6 +5,10 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 
+#include "graphics_queue.hpp"
+#include "compute_queue.hpp"
+#include "transfer_queue.hpp"
+
 // Class for handling Vulkan instance
 class VulkanContext
 {
@@ -53,6 +57,18 @@ public:
 
 	// Get transfer queue with specified index
 	VkQueue get_transfer_queue(size_t index);
+
+	// Creates and returns a GraphicsQueue object
+	// Will fail if there are no more queues available
+	GraphicsQueue create_graphics_queue();
+
+	// Creates and returns a ComputeQueue object
+	// Will fail if there are no more queues available
+	ComputeQueue create_compute_queue();
+
+	// Creates and returns a TransferQueue object
+	// Will fail if there are no more queues available
+	TransferQueue create_transfer_queue();
 
 private:
 	// Creates the VkInstance
@@ -127,6 +143,7 @@ private:
 	{
 		uint32_t family_index;
 		uint32_t queue_count;
+		uint32_t next_free = 0; // Index of next unused queue
 		VkBool32 supports_presentation;
 		std::vector<VkQueue> queues;
 	};

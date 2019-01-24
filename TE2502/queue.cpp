@@ -1,6 +1,8 @@
 #include <assert.h>
 
+#include "vulkan_context.hpp"
 #include "queue.hpp"
+
 
 Queue::Queue(VulkanContext& context, VkCommandPool command_pool, VkQueue queue) : m_context(context), m_command_pool(command_pool), m_queue(queue), m_recording(false), m_has_recorded(false)
 {

@@ -2,6 +2,9 @@
 
 #include "queue.hpp"
 
+class VulkanContext;
+
+
 class GraphicsQueue : public Queue
 {
 public:

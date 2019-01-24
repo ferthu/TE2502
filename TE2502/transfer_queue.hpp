@@ -2,6 +2,8 @@
 
 #include "queue.hpp"
 
+class VulkanContext;
+
 class TransferQueue : public Queue
 {
 public:

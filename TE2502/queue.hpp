@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include "vulkan_context.hpp"
+class VulkanContext;
 
 class Queue
 {

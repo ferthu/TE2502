@@ -21,10 +21,14 @@ Application::Application()
 	int err = glfwInit();
 	assert(err == GLFW_TRUE);
 
+
 	m_window = new Window(1080, 720, "TE2502", m_vulkan_context);
 	m_main_camera = new Camera(m_window->get_glfw_window());
 	m_debug_camera = new Camera(m_window->get_glfw_window());
 	m_current_camera = m_main_camera;
+
+	m_vulkan_context.create_render_pass(*m_window);
+	m_vulkan_context.create_graphics_pipeline(*m_window);
 
 	glfwSetKeyCallback(m_window->get_glfw_window(), key_callback);
 }

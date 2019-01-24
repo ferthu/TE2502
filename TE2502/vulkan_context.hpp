@@ -4,7 +4,9 @@
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
-#include <shaderc/shaderc.hpp>
+//#include <shaderc/shaderc.hpp>
+
+class Window;
 
 // Class for handling Vulkan instance
 class VulkanContext
@@ -36,6 +38,15 @@ public:
 
 	// Returns allocation callbacks
 	VkAllocationCallbacks* get_allocation_callbacks();
+
+	// Creates the render pass 
+	void create_render_pass(const Window& window);
+
+	// Create a compute pipeline
+	void create_compute_pipeline(const Window& window);
+
+	// Create a graphics pipeline
+	void create_graphics_pipeline(const Window& window);
 
 private:
 	// Creates the VkInstance
@@ -84,14 +95,15 @@ private:
 	// Writes the required features into a VkPhysicalDeviceFeatures struct
 	void write_required_features(VkPhysicalDeviceFeatures& features);
 
-	// Create a graphics pipeline
-	void create_graphics_pipeline();
-
 	// Compiles a shader to a SPIR-V binary. Returns the binary as a vector of 32-bit words.
-	std::vector<char> compile_from_file(const std::string& file_name, shaderc_shader_kind kind, bool optimize = false);
+	//std::vector<char> compile_from_file(const std::string& file_name, shaderc_shader_kind kind);
 
 	// Return a VkShaderModule using the given byte code
 	VkShaderModule create_shader_module(const std::vector<char>& code);
+
+	VkPipeline m_graphics_pipeline;
+	VkRenderPass m_render_pass;
+	VkPipelineLayout m_pipeline_layout;
 
 	VkInstance m_instance;
 	VkPhysicalDevice m_physical_device;

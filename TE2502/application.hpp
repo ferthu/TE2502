@@ -1,10 +1,12 @@
 #pragma once
-#include <GLFW/glfw3.h>
+
 #include <chrono>
 
-#include "camera.hpp"
 #include "window.hpp"
 #include "vulkan_context.hpp"
+#include "camera.hpp"
+
+#include <GLFW/glfw3.h>
 
 // Main class for the program
 class Application

@@ -18,6 +18,9 @@ public:
 	// Allocates memory of the given size. Offset into VkDeviceMemory returned is written to output_offset
 	VkDeviceMemory allocate_memory(VkDeviceSize byte_size, VkDeviceSize& output_offset);
 
+	// Returns memory type this object was created from
+	uint32_t get_memory_type() { return m_memory_type; }
+
 private:
 	// Reference to Vulkan context
 	VulkanContext& m_context;
@@ -30,5 +33,8 @@ private:
 
 	// Offset of the next free memeory
 	VkDeviceSize m_next_free;
+
+	// The memory type this memory object was created from
+	uint32_t m_memory_type;
 };
 

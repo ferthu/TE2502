@@ -1,11 +1,12 @@
 #include <assert.h>
+#include <intrin.h>
 
 #include "gpu_memory.hpp"
 #include "vulkan_context.hpp"
 #include "utilities.hpp"
 
 
-GPUMemory::GPUMemory(VulkanContext& context, uint32_t memory_type, VkDeviceSize byte_size) : m_context(context), m_size(byte_size)
+GPUMemory::GPUMemory(VulkanContext& context, uint32_t memory_type, VkDeviceSize byte_size) : m_context(context), m_size(byte_size), m_memory_type(memory_type)
 {
 	VkMemoryAllocateInfo allocate_info;
 	allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;

@@ -4,6 +4,7 @@
 #include <intrin.h>
 
 #include "vulkan_context.hpp"
+#include "utilities.hpp"
 
 VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_error_callback(
 	VkDebugReportFlagsEXT       flags,
@@ -247,6 +248,29 @@ VkPhysicalDevice VulkanContext::select_physical_device()
 void VulkanContext::get_memory_properties(VkPhysicalDevice physical_device)
 {
 	vkGetPhysicalDeviceMemoryProperties(physical_device, &m_memory_properties);
+
+	// Select memory types to use for allocation
+
+	// Select device memory type
+	VkMemoryPropertyFlagBits flags = (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	if (!find_memory_type(m_device_memory_type, flags))
+	{
+		print("Could not find device local memory!\n");
+		exit(1);
+	}
+
+	// Select host memory type. First look for a cached type
+	flags = (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+	if (!find_memory_type(m_host_memory_type, flags))
+	{
+		// If a cached memory type could not be found, just try to find a coherent one
+		flags = (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		if (!find_memory_type(m_host_memory_type, flags))
+		{
+			print("Could not find coherent host visible memory!\n");
+			exit(1);
+		}
+	}
 }
 
 void VulkanContext::print_memory_properties()
@@ -447,6 +471,21 @@ void VulkanContext::find_queue_family(uint32_t& output, VkQueueFlagBits required
 			return;
 		}
 	}
+}
+
+bool VulkanContext::find_memory_type(uint32_t& output, VkMemoryPropertyFlagBits flags)
+{
+	for (uint32_t i = 0; i < m_memory_properties.memoryTypeCount; i++)
+	{
+		if ((m_memory_properties.memoryTypes[i].propertyFlags & flags) == flags)
+		{
+			output = i;
+			return true;
+		}
+		
+	}
+
+	return false;
 }
 
 void VulkanContext::write_required_features(VkPhysicalDeviceFeatures& features)
@@ -726,4 +765,14 @@ TransferQueue VulkanContext::create_transfer_queue()
 	m_transfer_queue_family.next_free++;
 
 	return TransferQueue(*this, m_transfer_command_pool, m_transfer_queue_family.queues[m_transfer_queue_family.next_free - 1]);
+}
+
+GPUMemory VulkanContext::allocate_device_memory(VkDeviceSize byte_size)
+{
+	return GPUMemory(*this, m_device_memory_type, byte_size);
+}
+
+GPUMemory VulkanContext::allocate_host_memory(VkDeviceSize byte_size)
+{
+	return GPUMemory(*this, m_host_memory_type, byte_size);
 }

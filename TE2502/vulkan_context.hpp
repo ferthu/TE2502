@@ -8,6 +8,7 @@
 #include "graphics_queue.hpp"
 #include "compute_queue.hpp"
 #include "transfer_queue.hpp"
+#include "gpu_memory.hpp"
 
 // Class for handling Vulkan instance
 class VulkanContext
@@ -70,6 +71,12 @@ public:
 	// Will fail if there are no more queues available
 	TransferQueue create_transfer_queue();
 
+	// Returns a memory object allocated from GPU
+	GPUMemory allocate_device_memory(VkDeviceSize byte_size);
+
+	// Returns a memory object allocated from host
+	GPUMemory allocate_host_memory(VkDeviceSize byte_size);
+
 private:
 	// Creates the VkInstance
 	void create_instance();
@@ -114,6 +121,9 @@ private:
 	// Does not write to output if not found
 	void find_queue_family(uint32_t& output, VkQueueFlagBits required, VkQueueFlagBits not_allowed);
 
+	// Attempts to find memory type with specified flags in m_memory_properties. If found, return true and write index to 'output', else return false and do not write
+	bool find_memory_type(uint32_t& output, VkMemoryPropertyFlagBits flags);
+
 	// Writes the required features into a VkPhysicalDeviceFeatures struct
 	void write_required_features(VkPhysicalDeviceFeatures& features);
 
@@ -156,6 +166,12 @@ private:
 	VkCommandPool m_graphics_command_pool;
 	VkCommandPool m_compute_command_pool;
 	VkCommandPool m_transfer_command_pool;
+
+	// Memory type to use when allocating device memory
+	uint32_t m_device_memory_type;
+
+	// Memory type to use when allocating host memory
+	uint32_t m_host_memory_type;
 
 #ifdef _DEBUG
 	VkDebugReportCallbackEXT m_error_callback;

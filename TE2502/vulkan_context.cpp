@@ -255,6 +255,10 @@ void VulkanContext::get_memory_properties(VkPhysicalDevice physical_device)
 	VkMemoryPropertyFlagBits flags = (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	if (!find_memory_type(m_device_memory_type, flags))
 	{
+#ifdef _DEBUG
+		__debugbreak();
+#endif
+
 		print("Could not find device local memory!\n");
 		exit(1);
 	}
@@ -267,6 +271,10 @@ void VulkanContext::get_memory_properties(VkPhysicalDevice physical_device)
 		flags = (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 		if (!find_memory_type(m_host_memory_type, flags))
 		{
+#ifdef _DEBUG
+			__debugbreak();
+#endif
+
 			print("Could not find coherent host visible memory!\n");
 			exit(1);
 		}

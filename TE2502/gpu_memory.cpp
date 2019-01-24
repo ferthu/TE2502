@@ -16,6 +16,10 @@ GPUMemory::GPUMemory(VulkanContext& context, uint32_t memory_type, VkDeviceSize 
 	VkResult result = vkAllocateMemory(context.get_device(), &allocate_info, context.get_allocation_callbacks(), &m_memory);
 	if (result != VK_SUCCESS)
 	{
+#ifdef _DEBUG
+		__debugbreak();
+#endif
+
 		print("GPU memory allocation failed!\n");
 		exit(1);
 	}
@@ -36,6 +40,10 @@ VkDeviceMemory GPUMemory::allocate_memory(VkDeviceSize byte_size, VkDeviceSize& 
 {
 	if (m_next_free + byte_size > m_size)
 	{
+#ifdef _DEBUG
+		__debugbreak();
+#endif
+
 		print("allocate_memory() failed. Not enough space in memory heap!\n");
 		exit(1);
 	}

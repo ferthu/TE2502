@@ -74,10 +74,14 @@ VulkanContext::VulkanContext()
 	get_queues();
 
 	create_command_pools();
+
+	create_descriptor_pool();
 }
 
 VulkanContext::~VulkanContext()
 {
+	vkDestroyDescriptorPool(m_device, m_descriptor_pool, m_allocation_callbacks);
+
 	vkDestroyRenderPass(m_device, m_render_pass, nullptr);
 
 	vkDeviceWaitIdle(m_device);
@@ -768,7 +772,8 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(PipelineLayout
 
 	VkPipeline pipeline;
 
-	if (vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_info, m_allocation_callbacks, &pipeline) != VK_SUCCESS) {
+	if (vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_info, m_allocation_callbacks, &pipeline) != VK_SUCCESS)
+	{
 #ifdef _DEBUG
 		__debugbreak();
 #else
@@ -781,6 +786,44 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(PipelineLayout
 	vkDestroyShaderModule(m_device, frag_shader_module, nullptr);
 
 	return std::make_unique<Pipeline>(pipeline, layout, m_device);
+}
+
+VkDescriptorSet VulkanContext::allocate_descriptor_set(DescriptorSetLayout& layout)
+{
+	VkDescriptorSet descriptor_set;
+	VkDescriptorSetLayout descriptor_set_layout = layout.get_descriptor_set_layout();
+
+	VkDescriptorSetAllocateInfo allocate_info;
+	allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocate_info.pNext = nullptr;
+	allocate_info.descriptorPool = m_descriptor_pool;
+	allocate_info.descriptorSetCount = 1;
+	allocate_info.pSetLayouts = &descriptor_set_layout;
+
+	if (vkAllocateDescriptorSets(m_device, &allocate_info, &descriptor_set) != VK_SUCCESS)
+	{
+#ifdef _DEBUG
+		__debugbreak();
+#else
+		println("Failed to allocate descriptor set!");
+		exit(1);
+#endif
+	}
+
+	return descriptor_set;
+}
+
+void VulkanContext::free_descriptor_set(VkDescriptorSet descriptor_set)
+{
+	if (vkFreeDescriptorSets(m_device, m_descriptor_pool, 1, &descriptor_set) != VK_SUCCESS)
+	{
+#ifdef _DEBUG
+		__debugbreak();
+#endif
+
+		print("Failed when freeing descriptor set!\n");
+		exit(1);
+	}
 }
 
 //std::vector<char> VulkanContext::compile_from_file(const std::string& file_name, shaderc_shader_kind kind) 
@@ -846,6 +889,41 @@ VkShaderModule VulkanContext::create_shader_module(const std::vector<char>& code
 	}
 
 	return shader_module;
+}
+
+void VulkanContext::create_descriptor_pool()
+{
+	const uint32_t pool_size_count = 9;
+	VkDescriptorPoolSize descriptor_counts[pool_size_count] = {
+		{VK_DESCRIPTOR_TYPE_SAMPLER, 100},
+		{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 100},
+		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100},
+		{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 100},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 100},
+		{VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 100},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100},
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100},
+		{VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 100}
+	};
+
+
+	VkDescriptorPoolCreateInfo pool_info;
+	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	pool_info.pNext = nullptr;
+	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	pool_info.maxSets = 100;
+	pool_info.poolSizeCount = pool_size_count;
+	pool_info.pPoolSizes = descriptor_counts;
+
+	if (vkCreateDescriptorPool(m_device, &pool_info, m_allocation_callbacks, &m_descriptor_pool) != VK_SUCCESS)
+	{
+		println("Failed to create descriptor pool!");
+#ifdef _DEBUG
+		__debugbreak();
+#else
+		exit(1);
+#endif // _DEBUG
+	}
 }
 
 void VulkanContext::get_queues()

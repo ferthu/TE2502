@@ -13,12 +13,14 @@
 #include "transfer_queue.hpp"
 #include "gpu_memory.hpp"
 #include "pipeline_layout.hpp"
+#include "descriptor_set_layout.hpp"
 
 #include "pipeline.hpp"
 
 class Window;
 class Pipeline;
 class PipelineLayout;
+class DescriptorSetLayout;
 
 // Class for handling Vulkan instance
 class VulkanContext
@@ -96,6 +98,12 @@ public:
 	// Create a graphics pipeline
 	std::unique_ptr<Pipeline> create_graphics_pipeline(PipelineLayout& layout, const glm::vec2 window_size);
 
+	// Allocate a descriptor set from descriptor pool
+	VkDescriptorSet allocate_descriptor_set(DescriptorSetLayout& layout);
+
+	// Free a descriptor set allocated from descriptor pool
+	void free_descriptor_set(VkDescriptorSet descriptor_set);
+
 private:
 	// Creates the VkInstance
 	void create_instance();
@@ -158,6 +166,9 @@ private:
 	// Return a VkShaderModule using the given byte code
 	VkShaderModule create_shader_module(const std::vector<char>& code);
 
+	// Initialize the descriptor pool
+	void create_descriptor_pool();
+
 	VkRenderPass m_render_pass;
 
 	VkInstance m_instance;
@@ -193,6 +204,8 @@ private:
 	VkCommandPool m_graphics_command_pool;
 	VkCommandPool m_compute_command_pool;
 	VkCommandPool m_transfer_command_pool;
+
+	VkDescriptorPool m_descriptor_pool;
 
 	// Memory type to use when allocating device memory
 	uint32_t m_device_memory_type;

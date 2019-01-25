@@ -6,7 +6,7 @@
 #include "utilities.hpp"
 
 
-GPUMemory::GPUMemory(VulkanContext& context, uint32_t memory_type, VkDeviceSize byte_size) : m_context(context), m_size(byte_size), m_memory_type(memory_type)
+GPUMemory::GPUMemory(VulkanContext& context, uint32_t memory_type, VkDeviceSize byte_size) : m_context(&context), m_size(byte_size), m_memory_type(memory_type)
 {
 	VkMemoryAllocateInfo allocate_info;
 	allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -14,22 +14,29 @@ GPUMemory::GPUMemory(VulkanContext& context, uint32_t memory_type, VkDeviceSize 
 	allocate_info.allocationSize = byte_size;
 	allocate_info.memoryTypeIndex = memory_type;
 
-	VkResult result = vkAllocateMemory(context.get_device(), &allocate_info, context.get_allocation_callbacks(), &m_memory);
-	if (result != VK_SUCCESS)
-	{
-#ifdef _DEBUG
-		__debugbreak();
-#endif
-
-		print("GPU memory allocation failed!\n");
-		exit(1);
-	}
+	VK_CHECK(vkAllocateMemory(context.get_device(), &allocate_info, context.get_allocation_callbacks(), &m_memory), "GPU memory allocation failed!");
 }
 
 
 GPUMemory::~GPUMemory()
 {
-	vkFreeMemory(m_context.get_device(), m_memory, m_context.get_allocation_callbacks());
+	if (m_memory != VK_NULL_HANDLE)
+		vkFreeMemory(m_context->get_device(), m_memory, m_context->get_allocation_callbacks());
+}
+
+GPUMemory::GPUMemory(GPUMemory&& other)
+{
+	move_from(std::move(other));
+}
+
+GPUMemory& GPUMemory::operator=(GPUMemory&& other)
+{
+	if (this != &other)
+	{
+		move_from(std::move(other));
+	}
+
+	return *this;
 }
 
 void GPUMemory::reset()
@@ -39,18 +46,20 @@ void GPUMemory::reset()
 
 VkDeviceMemory GPUMemory::allocate_memory(VkDeviceSize byte_size, VkDeviceSize& output_offset)
 {
-	if (m_next_free + byte_size > m_size)
-	{
-#ifdef _DEBUG
-		__debugbreak();
-#endif
-
-		print("allocate_memory() failed. Not enough space in memory heap!\n");
-		exit(1);
-	}
+	CHECK(m_next_free + byte_size <= m_size, "allocate_memory() failed. Not enough space in memory heap!");
 
 	output_offset = m_next_free;
 	m_next_free += byte_size;
 
 	return m_memory;
+}
+
+void GPUMemory::move_from(GPUMemory&& other)
+{
+	m_context = other.m_context;
+	m_memory = other.m_memory;
+	other.m_memory = VK_NULL_HANDLE;
+	m_size = other.m_size;
+	m_next_free = other.m_next_free;
+	m_memory_type = other.m_memory_type;
 }

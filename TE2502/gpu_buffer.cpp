@@ -5,7 +5,7 @@
 #include "gpu_buffer.hpp"
 #include "utilities.hpp"
 
-GPUBuffer::GPUBuffer(VulkanContext& context, VkDeviceSize size, VkBufferUsageFlags usage, GPUMemory& memory_heap) : m_context(context), m_size(size), m_usage(usage)
+GPUBuffer::GPUBuffer(VulkanContext& context, VkDeviceSize size, VkBufferUsageFlags usage, GPUMemory& memory_heap) : m_context(&context), m_size(size), m_usage(usage)
 {
 	VkBufferCreateInfo buffer_info;
 	buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -42,39 +42,50 @@ GPUBuffer::GPUBuffer(VulkanContext& context, VkDeviceSize size, VkBufferUsageFla
 
 GPUBuffer::~GPUBuffer()
 {
-	vkDestroyBuffer(m_context.get_device(), m_buffer, m_context.get_allocation_callbacks());
+	if (m_buffer != VK_NULL_HANDLE)
+		vkDestroyBuffer(m_context->get_device(), m_buffer, m_context->get_allocation_callbacks());
 }
 
-BufferView::BufferView(VulkanContext& context, GPUBuffer& buffer, VkFormat format) : m_context(context), m_format(format), m_buffer(buffer)
+GPUBuffer::GPUBuffer(GPUBuffer&& other)
+{
+	move_from(std::move(other));
+}
+
+GPUBuffer& GPUBuffer::operator=(GPUBuffer&& other)
+{
+	if (this != &other)
+	{
+		move_from(std::move(other));
+	}
+
+	return *this;
+}
+
+void GPUBuffer::move_from(GPUBuffer&& other)
+{
+	m_context = other.m_context;
+	m_buffer = other.m_buffer;
+	other.m_buffer = VK_NULL_HANDLE;
+
+	m_size = other.m_size;
+	m_usage = other.m_usage;
+}
+
+BufferView::BufferView(VulkanContext& context, GPUBuffer& buffer, VkFormat format) : m_context(&context), m_format(format), m_buffer(&buffer)
 {
 #ifdef _DEBUG
 	// Check that buffer has specified texel buffer usage
-	if (!(buffer.get_usage() & VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT || buffer.get_usage() & VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT))
-	{
-#ifdef _DEBUG
-		__debugbreak();
-#endif
-
-		print("The buffer that a buffer view is created from needs to specify VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT or VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT usage!\n");
-		exit(1);
-	}
+	CHECK(buffer.get_usage() & VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT || buffer.get_usage() & VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT, 
+		"The buffer that a buffer view is created from needs to specify VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT or VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT usage!")
 
 	// Check that the format specified is available for buffer views
 	VkFormatProperties fprops;
 
 	vkGetPhysicalDeviceFormatProperties(context.get_physical_device(), format, &fprops);
 
-	if (!(fprops.bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT ||
+	CHECK(fprops.bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT ||
 		  fprops.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT ||
-		  fprops.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT))
-	{
-#ifdef _DEBUG
-		__debugbreak();
-#endif
-
-		print("The format specified for buffer view creation does not support any texel buffer feature!\n");
-		exit(1);
-	}
+		  fprops.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT, "The format specified for buffer view creation does not support any texel buffer feature!");
 #endif
 
 	VkBufferViewCreateInfo buffer_view_info;
@@ -92,5 +103,31 @@ BufferView::BufferView(VulkanContext& context, GPUBuffer& buffer, VkFormat forma
 
 BufferView::~BufferView()
 {
-	vkDestroyBufferView(m_context.get_device(), m_buffer_view, m_context.get_allocation_callbacks());
+	if (m_buffer_view != VK_NULL_HANDLE)
+		vkDestroyBufferView(m_context->get_device(), m_buffer_view, m_context->get_allocation_callbacks());
+}
+
+BufferView::BufferView(BufferView&& other)
+{
+	move_from(std::move(other));
+}
+
+BufferView& BufferView::operator=(BufferView&& other)
+{
+	if (this != &other)
+	{
+		move_from(std::move(other));
+	}
+
+	return *this;
+}
+
+void BufferView::move_from(BufferView&& other)
+{
+	m_context = other.m_context;
+	m_buffer = other.m_buffer;
+	m_buffer_view = other.m_buffer_view;
+	other.m_buffer_view = VK_NULL_HANDLE;
+
+	m_format = other.m_format;
 }

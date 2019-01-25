@@ -1128,31 +1128,31 @@ VkQueue VulkanContext::get_transfer_queue(size_t index)
 	return m_transfer_queue_family.queues[index];
 }
 
-std::unique_ptr<GraphicsQueue> VulkanContext::create_graphics_queue()
+GraphicsQueue VulkanContext::create_graphics_queue()
 {
 	assert(m_graphics_queue_family.next_free < m_graphics_queue_family.queue_count);
 
 	m_graphics_queue_family.next_free++;
 
-	return std::make_unique<GraphicsQueue>(*this, m_graphics_command_pool, m_graphics_queue_family.queues[m_graphics_queue_family.next_free - 1]);
+	return GraphicsQueue(*this, m_graphics_command_pool, m_graphics_queue_family.queues[m_graphics_queue_family.next_free - 1]);
 }
 
-std::unique_ptr<ComputeQueue> VulkanContext::create_compute_queue()
+ComputeQueue VulkanContext::create_compute_queue()
 {
 	assert(m_compute_queue_family.next_free < m_compute_queue_family.queue_count);
 
 	m_compute_queue_family.next_free++;
 
-	return std::make_unique<ComputeQueue>(*this, m_compute_command_pool, m_compute_queue_family.queues[m_compute_queue_family.next_free - 1]);
+	return ComputeQueue(*this, m_compute_command_pool, m_compute_queue_family.queues[m_compute_queue_family.next_free - 1]);
 }
 
-std::unique_ptr<TransferQueue> VulkanContext::create_transfer_queue()
+TransferQueue VulkanContext::create_transfer_queue()
 {
 	assert(m_transfer_queue_family.next_free < m_transfer_queue_family.queue_count);
 
 	m_transfer_queue_family.next_free++;
 
-	return std::make_unique<TransferQueue>(*this, m_transfer_command_pool, m_transfer_queue_family.queues[m_transfer_queue_family.next_free - 1]);
+	return TransferQueue(*this, m_transfer_command_pool, m_transfer_queue_family.queues[m_transfer_queue_family.next_free - 1]);
 }
 
 GPUMemory VulkanContext::allocate_device_memory(VkDeviceSize byte_size)

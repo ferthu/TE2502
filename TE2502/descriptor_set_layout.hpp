@@ -10,6 +10,11 @@
 class DescriptorSetLayout
 {
 public:
+	DescriptorSetLayout() {}
+	DescriptorSetLayout(DescriptorSetLayout&& other);
+
+	DescriptorSetLayout& operator=(DescriptorSetLayout&& other);
+
 	DescriptorSetLayout(VulkanContext& vulkan_context);
 	~DescriptorSetLayout();
 
@@ -47,11 +52,14 @@ public:
 	void add_input_attachment(VkShaderStageFlags stage_flags);
 
 private:
+	// Move other into this
+	void move_from(DescriptorSetLayout&& other);
+
 	void create_binding(VkShaderStageFlags stage_flags, VkDescriptorType type);
 
-	VulkanContext& m_context;
+	VulkanContext* m_context;
 
-	VkDescriptorSetLayout m_descriptor_set_layout;
+	VkDescriptorSetLayout m_descriptor_set_layout = VK_NULL_HANDLE;
 
 	// Bindings that will be used when creating descriptor set
 	std::vector<VkDescriptorSetLayoutBinding> m_bindings;

@@ -8,6 +8,7 @@
 #include "compute_queue.hpp"
 #include "graphics_queue.hpp"
 #include "transfer_queue.hpp"
+#include "descriptor_set.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -42,6 +43,11 @@ private:
 	std::unique_ptr<Pipeline> m_compute_pipeline;
 	std::unique_ptr<Pipeline> m_graphics_pipeline;
 
-	std::unique_ptr<ComputeQueue> m_compute_queue;
+	PipelineLayout m_pipeline_layout;
+
+	ComputeQueue m_compute_queue;
+
+	DescriptorSet m_image_descriptor_set;
+	DescriptorSetLayout m_image_descriptor_set_layout;
 };
 

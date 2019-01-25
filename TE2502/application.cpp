@@ -28,18 +28,24 @@ Application::Application()
 	int err = glfwInit();
 	assert(err == GLFW_TRUE);
 
-
 	m_window = new Window(1080, 720, "TE2502", m_vulkan_context);
 	m_main_camera = new Camera(m_window->get_glfw_window());
 	m_debug_camera = new Camera(m_window->get_glfw_window());
 	m_current_camera = m_main_camera;
 
-	PipelineLayout pl(m_vulkan_context);
-	pl.create(nullptr);
+	m_image_descriptor_set_layout = DescriptorSetLayout(m_vulkan_context);
+	m_image_descriptor_set_layout.add_storage_image(VK_SHADER_STAGE_COMPUTE_BIT);
+	m_image_descriptor_set_layout.create();
+
+	m_image_descriptor_set = DescriptorSet(m_vulkan_context, m_image_descriptor_set_layout);
+
+	m_pipeline_layout = PipelineLayout(m_vulkan_context);
+	m_pipeline_layout.add_descriptor_set_layout(m_image_descriptor_set_layout);
+	m_pipeline_layout.create(nullptr);
 
 	m_vulkan_context.create_render_pass(m_window);
-	m_compute_pipeline = m_vulkan_context.create_compute_pipeline("test", pl);
-	m_graphics_pipeline = m_vulkan_context.create_graphics_pipeline("test", m_window->get_size(), pl);
+	m_compute_pipeline = m_vulkan_context.create_compute_pipeline("test", m_pipeline_layout);
+	m_graphics_pipeline = m_vulkan_context.create_graphics_pipeline("test", m_window->get_size(), m_pipeline_layout);
 
 	m_compute_queue = m_vulkan_context.create_compute_queue();
 
@@ -89,29 +95,44 @@ void Application::draw()
 {
 	const uint32_t index = m_window->get_next_image();
 	VkImage image = m_window->get_swapchain_image(index);
-	m_compute_queue->start_recording();
+
+	m_image_descriptor_set.clear();
+	m_image_descriptor_set.add_storage_image(m_window->get_swapchain_image_view(index), VK_IMAGE_LAYOUT_GENERAL);
+	m_image_descriptor_set.bind();
+
+	m_compute_queue.start_recording();
 
 	// RENDER-------------------
-
-
-
-
+	// bind pipeline
+	m_compute_queue.cmd_bind_compute_pipeline(m_compute_pipeline->m_pipeline);
+	// bind descriptor set
+	m_compute_queue.cmd_bind_descriptor_set_compute(m_compute_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_image_descriptor_set.get_descriptor_set());
+	// transfer image
+	m_compute_queue.cmd_image_barrier(image, VkAccessFlagBits::VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
+		VkAccessFlagBits::VK_ACCESS_SHADER_READ_BIT,
+		VkImageLayout::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	// dispatch
+	m_compute_queue.cmd_dispatch(1080, 720, 1);
 
 	// end of RENDER------------------
 
-	m_compute_queue->cmd_image_barrier(
+	m_compute_queue.cmd_image_barrier(
 		image,
-		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 
-		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 
+		VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 		VK_IMAGE_ASPECT_COLOR_BIT, 
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 
-		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
-	m_compute_queue->end_recording();
-	m_compute_queue->submit();
-	m_compute_queue->wait();
-	present(m_compute_queue->get_queue(), index);
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	m_compute_queue.end_recording();
+	m_compute_queue.submit();
+	m_compute_queue.wait();
+	present(m_compute_queue.get_queue(), index);
 }
 
 void Application::present(VkQueue queue, const uint32_t index) const

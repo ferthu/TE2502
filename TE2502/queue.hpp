@@ -7,8 +7,12 @@ class VulkanContext;
 class Queue
 {
 public:
+	Queue() {};
 	Queue(VulkanContext& context, VkCommandPool command_pool, VkQueue queue);
 	virtual ~Queue();
+
+	Queue(Queue&& other);
+	Queue& operator=(Queue&& other);
 
 	// Resets the Vulkan queue to allow for recording and submitting again
 	void reset();
@@ -28,20 +32,23 @@ public:
 	VkQueue get_queue() const;
 
 protected:
+	// Move other into this
+	void move_from(Queue&& other);
+
 	// Current Vulkan context
-	VulkanContext& m_context;
+	VulkanContext* m_context;
 
 	// Handle to the command pool that allocates the command buffer
-	VkCommandPool m_command_pool;
+	VkCommandPool m_command_pool = VK_NULL_HANDLE;
 
 	// The queue to submit commands to
-	VkQueue m_queue;
+	VkQueue m_queue = VK_NULL_HANDLE;
 
 	// Vulkan Command buffer object
-	VkCommandBuffer m_command_buffer;
+	VkCommandBuffer m_command_buffer = VK_NULL_HANDLE;
 
 	// Fence that is signaled when queue submission is complete
-	VkFence m_fence;
+	VkFence m_fence = VK_NULL_HANDLE;
 
 	// True if recording is currently enabled
 	bool m_recording;

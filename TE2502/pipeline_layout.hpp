@@ -13,8 +13,12 @@ class DescriptorSetLayout;
 class PipelineLayout
 {
 public:
+	PipelineLayout() {};
 	PipelineLayout(VulkanContext& vulkan_context);
 	~PipelineLayout();
+
+	PipelineLayout(PipelineLayout&& other);
+	PipelineLayout& operator=(PipelineLayout&& other);
 
 	// Add a descriptor set layout
 	void add_descriptor_set_layout(DescriptorSetLayout& descriptor_set_layout);
@@ -25,9 +29,12 @@ public:
 	VkPipelineLayout get_pipeline_layout();
 
 private:
-	VulkanContext& m_context;
+	// Moves other into this
+	void move_from(PipelineLayout&& other);
 
-	VkPipelineLayout m_pipeline_layout;
+	VulkanContext* m_context;
+
+	VkPipelineLayout m_pipeline_layout = VK_NULL_HANDLE;
 
 	std::vector<VkDescriptorSetLayout> m_descriptor_set_layouts;
 

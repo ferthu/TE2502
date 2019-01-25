@@ -73,15 +73,15 @@ public:
 
 	// Creates and returns a GraphicsQueue object
 	// Will fail if there are no more queues available
-	std::unique_ptr<GraphicsQueue> create_graphics_queue();
+	GraphicsQueue create_graphics_queue();
 
 	// Creates and returns a ComputeQueue object
 	// Will fail if there are no more queues available
-	std::unique_ptr<ComputeQueue> create_compute_queue();
+	ComputeQueue create_compute_queue();
 
 	// Creates and returns a TransferQueue object
 	// Will fail if there are no more queues available
-	std::unique_ptr<TransferQueue> create_transfer_queue();
+	TransferQueue create_transfer_queue();
 
 	// Returns a memory object allocated from GPU
 	GPUMemory allocate_device_memory(VkDeviceSize byte_size);

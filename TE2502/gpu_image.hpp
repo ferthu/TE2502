@@ -8,6 +8,7 @@ class VulkanContext;
 class GPUImage
 {
 public:
+	GPUImage() {};
 	GPUImage(VulkanContext& context, 
 		VkExtent3D size, 
 		VkFormat format, 
@@ -16,15 +17,21 @@ public:
 		GPUMemory& memory_heap);
 	~GPUImage();
 
+	GPUImage(GPUImage&& other);
+	GPUImage& operator=(GPUImage&& other);
+
 	VkImage get_image() { return m_image; }
 	VkExtent3D get_size() { return m_size; }
 	VkImageUsageFlags get_usage() { return m_usage; }
 	VkFormat get_format() { return m_format; }
 
 private:
-	VulkanContext& m_context;
+	// Moves other into this
+	void move_from(GPUImage&& other);
 
-	VkImage m_image;
+	VulkanContext* m_context;
+
+	VkImage m_image = VK_NULL_HANDLE;
 
 	VkExtent3D m_size;
 
@@ -37,8 +44,13 @@ private:
 class ImageView
 {
 public:
+	ImageView() {};
 	ImageView(VulkanContext& context, GPUImage& image, VkFormat format, VkImageAspectFlags aspects);
+	ImageView(VulkanContext& context, VkImage& image, VkFormat format, VkImageAspectFlags aspects);
 	~ImageView();
+
+	ImageView(ImageView&& other);
+	ImageView& operator=(ImageView&& other);
 
 	// Returns stored image view
 	VkImageView get_view() { return m_image_view; }
@@ -47,9 +59,12 @@ public:
 	VkImageAspectFlags get_aspects() { return m_aspects; }
 
 private:
-	VulkanContext& m_context;
+	// Move other into this
+	void move_from(ImageView&& other);
 
-	VkImageView m_image_view;
+	VulkanContext* m_context;
+
+	VkImageView m_image_view = VK_NULL_HANDLE;
 
 	VkFormat m_format;
 

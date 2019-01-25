@@ -4,7 +4,24 @@
 #include "descriptor_set_layout.hpp"
 
 
-DescriptorSetLayout::DescriptorSetLayout(VulkanContext& vulkan_context) : m_is_created(false), m_context(vulkan_context)
+
+DescriptorSetLayout::DescriptorSetLayout(DescriptorSetLayout&& other)
+{
+	move_from(std::move(other));
+}
+
+
+DescriptorSetLayout& DescriptorSetLayout::operator=(DescriptorSetLayout&& other)
+{
+	if (this != &other)
+	{
+		move_from(std::move(other));
+	}
+
+	return *this;
+}
+
+DescriptorSetLayout::DescriptorSetLayout(VulkanContext& vulkan_context) : m_is_created(false), m_context(&vulkan_context)
 {
 }
 
@@ -13,7 +30,7 @@ DescriptorSetLayout::~DescriptorSetLayout()
 {
 	if (m_is_created)
 	{
-		vkDestroyDescriptorSetLayout(m_context.get_device(), m_descriptor_set_layout, m_context.get_allocation_callbacks());
+		vkDestroyDescriptorSetLayout(m_context->get_device(), m_descriptor_set_layout, m_context->get_allocation_callbacks());
 	}
 }
 
@@ -30,7 +47,7 @@ void DescriptorSetLayout::create()
 	descriptor_set_layout_info.bindingCount = static_cast<uint32_t>(m_bindings.size());
 	descriptor_set_layout_info.pBindings = m_bindings.data();
 
-	if (vkCreateDescriptorSetLayout(m_context.get_device(), &descriptor_set_layout_info, nullptr, &m_descriptor_set_layout) != VK_SUCCESS)
+	if (vkCreateDescriptorSetLayout(m_context->get_device(), &descriptor_set_layout_info, nullptr, &m_descriptor_set_layout) != VK_SUCCESS)
 	{
 #ifdef _DEBUG
 		__debugbreak();
@@ -100,6 +117,19 @@ void DescriptorSetLayout::add_storage_buffer(VkShaderStageFlags stage_flags)
 void DescriptorSetLayout::add_input_attachment(VkShaderStageFlags stage_flags)
 {
 	create_binding(stage_flags, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+}
+
+void DescriptorSetLayout::move_from(DescriptorSetLayout&& other)
+{
+	m_context = other.m_context;
+
+	m_descriptor_set_layout = other.m_descriptor_set_layout;
+	other.m_descriptor_set_layout = VK_NULL_HANDLE;
+
+	m_bindings = std::move(other.m_bindings);
+
+	m_is_created = other.m_is_created;
+	other.m_is_created = false;
 }
 
 void DescriptorSetLayout::create_binding(VkShaderStageFlags stage_flags, VkDescriptorType type)

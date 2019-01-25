@@ -2,20 +2,36 @@
 
 
 
-DescriptorSet::DescriptorSet(VulkanContext& vulkan_context, DescriptorSetLayout& layout) : m_context(vulkan_context), m_layout(layout)
+DescriptorSet::DescriptorSet(VulkanContext& vulkan_context, DescriptorSetLayout& layout) : m_context(&vulkan_context), m_layout(&layout)
 {
-	m_descriptor_set = m_context.allocate_descriptor_set(layout);
+	m_descriptor_set = m_context->allocate_descriptor_set(layout);
 }
 
 
 DescriptorSet::~DescriptorSet()
 {
-	m_context.free_descriptor_set(m_descriptor_set);
+	if (m_descriptor_set != VK_NULL_HANDLE)
+		m_context->free_descriptor_set(m_descriptor_set);
+}
+
+DescriptorSet::DescriptorSet(DescriptorSet&& other)
+{
+	move_from(std::move(other));
+}
+
+DescriptorSet& DescriptorSet::operator=(DescriptorSet&& other)
+{
+	if (this != &other)
+	{
+		move_from(std::move(other));
+	}
+
+	return *this;
 }
 
 void DescriptorSet::bind()
 {
-	vkUpdateDescriptorSets(m_context.get_device(), static_cast<uint32_t>(m_descriptors.size()), m_descriptors.data(), 0, nullptr);
+	vkUpdateDescriptorSets(m_context->get_device(), static_cast<uint32_t>(m_descriptors.size()), m_descriptors.data(), 0, nullptr);
 }
 
 void DescriptorSet::clear()
@@ -133,6 +149,19 @@ void DescriptorSet::add_input_attachment(ImageView& image_view, VkImageLayout la
 	m_descriptors[index].pImageInfo = &m_image_desc[index];
 	m_image_desc[index].imageView = image_view.get_view();
 	m_image_desc[index].imageLayout = layout;
+}
+
+void DescriptorSet::move_from(DescriptorSet&& other)
+{
+	m_descriptor_set = other.m_descriptor_set;
+	other.m_descriptor_set = VK_NULL_HANDLE;
+
+	m_context = other.m_context;
+	m_layout = other.m_layout;
+
+	m_descriptors = std::move(other.m_descriptors);
+	m_image_desc = std::move(other.m_image_desc);
+	m_buffer_desc = std::move(other.m_buffer_desc);
 }
 
 void DescriptorSet::fill_write_descriptor_set(size_t index)

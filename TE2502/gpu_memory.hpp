@@ -8,9 +8,14 @@ class VulkanContext;
 class GPUMemory
 {
 public:
+	GPUMemory() {};
+
 	// memory_type is the index of memory type in Vulkan's physical device
 	GPUMemory(VulkanContext& context, uint32_t memory_type, VkDeviceSize byte_size);
 	~GPUMemory();
+
+	GPUMemory(GPUMemory&& other);
+	GPUMemory& operator=(GPUMemory&& other);
 
 	// Resets allocations. All resources using the memory will be invalidated
 	void reset();
@@ -22,11 +27,14 @@ public:
 	uint32_t get_memory_type() { return m_memory_type; }
 
 private:
+	// Move other into this
+	void move_from(GPUMemory&& other);
+
 	// Reference to Vulkan context
-	VulkanContext& m_context;
+	VulkanContext* m_context;
 
 	// The Vulkan allocated memory object
-	VkDeviceMemory m_memory;
+	VkDeviceMemory m_memory = VK_NULL_HANDLE;
 
 	// Size of allocated memory
 	VkDeviceSize m_size;

@@ -8,17 +8,24 @@ class VulkanContext;
 class GPUBuffer
 {
 public:
+	GPUBuffer() {};
 	GPUBuffer(VulkanContext& context, VkDeviceSize size, VkBufferUsageFlags usage, GPUMemory& memory_heap);
 	~GPUBuffer();
+
+	GPUBuffer(GPUBuffer&& other);
+	GPUBuffer& operator=(GPUBuffer&& other);
 
 	VkBuffer get_buffer() { return m_buffer; }
 	VkDeviceSize get_size() { return m_size; }
 	VkBufferUsageFlags get_usage() { return m_usage; }
 
 private:
-	VulkanContext& m_context;
+	// Move other into this
+	void move_from(GPUBuffer&& other);
 
-	VkBuffer m_buffer;
+	VulkanContext* m_context;
+
+	VkBuffer m_buffer = VK_NULL_HANDLE;
 
 	// Size of buffer, in bytes
 	VkDeviceSize m_size;
@@ -31,21 +38,28 @@ private:
 class BufferView
 {
 public:
+	BufferView() {};
 	BufferView(VulkanContext& context, GPUBuffer& buffer, VkFormat format);
 	~BufferView();
+
+	BufferView(BufferView&& other);
+	BufferView& operator=(BufferView&& other);
 
 	// Returns stored buffer view
 	VkBufferView get_view() { return m_buffer_view; }
 
-	VkBuffer get_buffer() { return m_buffer.get_buffer(); }
+	VkBuffer get_buffer() { return m_buffer->get_buffer(); }
 
 	VkFormat get_format() { return m_format; }
 private:
-	VulkanContext& m_context;
+	// Move other into this
+	void move_from(BufferView&& other);
 
-	GPUBuffer& m_buffer;
+	VulkanContext* m_context;
 
-	VkBufferView m_buffer_view;
+	GPUBuffer* m_buffer;
+
+	VkBufferView m_buffer_view = VK_NULL_HANDLE;
 
 	VkFormat m_format;
 };

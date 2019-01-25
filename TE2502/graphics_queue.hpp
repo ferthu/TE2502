@@ -8,8 +8,12 @@ class VulkanContext;
 class GraphicsQueue : public Queue
 {
 public:
+	GraphicsQueue() {};
 	GraphicsQueue(VulkanContext& context, VkCommandPool command_pool, VkQueue queue);
 	virtual ~GraphicsQueue();
+
+	GraphicsQueue(GraphicsQueue&& other);
+	GraphicsQueue& operator=(GraphicsQueue&& other);
 
 	// Adds an image barrier command to the command buffer
 	void cmd_image_barrier(
@@ -21,5 +25,9 @@ public:
 		VkImageAspectFlags aspect_mask,
 		VkPipelineStageFlags src_stage_mask,
 		VkPipelineStageFlags dst_stage_mask);
+
+private:
+	// Move other into this
+	void move_from(GraphicsQueue&& other);
 };
 

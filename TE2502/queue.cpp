@@ -2,9 +2,11 @@
 
 #include "vulkan_context.hpp"
 #include "queue.hpp"
+#include "utilities.hpp"
 
 
-Queue::Queue(VulkanContext& context, VkCommandPool command_pool, VkQueue queue) : m_context(context), m_command_pool(command_pool), m_queue(queue), m_recording(false), m_has_recorded(false)
+Queue::Queue(VulkanContext& context, VkCommandPool command_pool, VkQueue queue) 
+	: m_context(&context), m_command_pool(command_pool), m_queue(queue), m_recording(false), m_has_recorded(false)
 {
 	// Create the command buffer
 	VkCommandBufferAllocateInfo alloc_info;
@@ -14,7 +16,7 @@ Queue::Queue(VulkanContext& context, VkCommandPool command_pool, VkQueue queue) 
 	alloc_info.level = VkCommandBufferLevel::VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	alloc_info.commandBufferCount = 1;
 
-	VkResult result = vkAllocateCommandBuffers(m_context.get_device(), &alloc_info, &m_command_buffer);
+	VkResult result = vkAllocateCommandBuffers(m_context->get_device(), &alloc_info, &m_command_buffer);
 	assert(result == VK_SUCCESS);
 
 	// Create fence
@@ -22,16 +24,31 @@ Queue::Queue(VulkanContext& context, VkCommandPool command_pool, VkQueue queue) 
 	fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fence_info.pNext = nullptr;
 	fence_info.flags = VkFenceCreateFlagBits::VK_FENCE_CREATE_SIGNALED_BIT;
-
-	vkCreateFence(m_context.get_device(), &fence_info, m_context.get_allocation_callbacks(), &m_fence);
+	
+	VK_CHECK(vkCreateFence(m_context->get_device(), &fence_info, m_context->get_allocation_callbacks(), &m_fence), "Failed to create queue fence");
 }
 
 
 Queue::~Queue()
 {
-	vkDestroyFence(m_context.get_device(), m_fence, m_context.get_allocation_callbacks());
+	if (m_fence != VK_NULL_HANDLE)
+		vkDestroyFence(m_context->get_device(), m_fence, m_context->get_allocation_callbacks());
 
-	vkFreeCommandBuffers(m_context.get_device(), m_command_pool, 1, &m_command_buffer);
+	if (m_command_buffer != VK_NULL_HANDLE)
+		vkFreeCommandBuffers(m_context->get_device(), m_command_pool, 1, &m_command_buffer);
+}
+
+Queue::Queue(Queue&& other)
+{
+	move_from(std::move(other));
+}
+
+Queue& Queue::operator=(Queue&& other)
+{
+	if (this != &other)
+		move_from(std::move(other));
+	
+	return *this;
 }
 
 void Queue::reset()
@@ -45,7 +62,7 @@ void Queue::submit()
 {
 	assert(!m_recording && m_has_recorded);
 
-	vkResetFences(m_context.get_device(), 1, &m_fence);
+	VK_CHECK(vkResetFences(m_context->get_device(), 1, &m_fence), "Failed to free fence");
 
 	VkSubmitInfo submit_info;
 	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -87,10 +104,30 @@ void Queue::end_recording()
 
 void Queue::wait()
 {
-	vkWaitForFences(m_context.get_device(), 1, &m_fence, VK_FALSE, ~0ull);
+	vkWaitForFences(m_context->get_device(), 1, &m_fence, VK_FALSE, ~0ull);
 }
 
 VkQueue Queue::get_queue() const
 {
 	return m_queue;
+}
+
+void Queue::move_from(Queue&& other)
+{
+	m_context = other.m_context;
+
+	m_command_pool = other.m_command_pool;
+	other.m_command_pool = VK_NULL_HANDLE;
+
+	m_queue = other.m_queue;
+	other.m_queue = VK_NULL_HANDLE;
+
+	m_command_buffer = other.m_command_buffer;
+	other.m_command_buffer = VK_NULL_HANDLE;
+
+	m_fence = other.m_fence;
+	other.m_fence = VK_NULL_HANDLE;
+
+	m_recording = other.m_recording;
+	m_has_recorded = other.m_has_recorded;
 }

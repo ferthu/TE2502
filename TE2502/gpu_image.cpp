@@ -4,7 +4,9 @@
 #include "gpu_image.hpp"
 #include "utilities.hpp"
 
-GPUImage::GPUImage(VulkanContext& context, VkExtent3D size, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, GPUMemory& memory_heap) : m_context(context), m_size(size), m_usage(usage), m_format(format)
+GPUImage::GPUImage(VulkanContext& context, VkExtent3D size, VkFormat format, 
+	VkImageTiling tiling, VkImageUsageFlags usage, GPUMemory& memory_heap)
+	: m_context(&context), m_size(size), m_usage(usage), m_format(format)
 {
 	VkImageCreateInfo image_info;
 	image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -44,13 +46,39 @@ GPUImage::GPUImage(VulkanContext& context, VkExtent3D size, VkFormat format, VkI
 
 GPUImage::~GPUImage()
 {
-	vkDestroyImage(m_context.get_device(), m_image, m_context.get_allocation_callbacks());
+	if (m_image != VK_NULL_HANDLE)
+		vkDestroyImage(m_context->get_device(), m_image, m_context->get_allocation_callbacks());
 }
 
-ImageView::ImageView(VulkanContext& context, GPUImage& image, VkFormat format, VkImageAspectFlags aspects) : m_context(context), m_format(format), m_aspects(aspects)
+GPUImage::GPUImage(GPUImage&& other)
+{
+	move_from(std::move(other));
+}
+
+GPUImage& GPUImage::operator=(GPUImage&& other)
+{
+	if (this != &other)
+	{
+		move_from(std::move(other));
+	}
+
+	return *this;
+}
+
+void GPUImage::move_from(GPUImage&& other)
+{
+	m_context = other.m_context;
+	m_image = other.m_image;
+	other.m_image = VK_NULL_HANDLE;
+	m_size = other.m_size;
+	m_usage = other.m_usage;
+	m_format = other.m_format;
+}
+
+ImageView::ImageView(VulkanContext& context, GPUImage& image, VkFormat format, VkImageAspectFlags aspects) : m_context(&context), m_format(format), m_aspects(aspects)
 {
 	// Check that the image is the same format as the requested image view
-	//assert(image.get_format() == format);
+	assert(image.get_format() == format);
 
 	VkComponentMapping component_mapping;
 	component_mapping.r = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -75,11 +103,65 @@ ImageView::ImageView(VulkanContext& context, GPUImage& image, VkFormat format, V
 	image_view_info.components = component_mapping;
 	image_view_info.subresourceRange = subrange;
 
-	VkResult result = vkCreateImageView(m_context.get_device(), &image_view_info, m_context.get_allocation_callbacks(), &m_image_view);
+	VkResult result = vkCreateImageView(m_context->get_device(), &image_view_info, m_context->get_allocation_callbacks(), &m_image_view);
+	assert(result == VK_SUCCESS);
+}
+
+ImageView::ImageView(VulkanContext& context, VkImage& image, VkFormat format, VkImageAspectFlags aspects) : m_context(&context), m_format(format), m_aspects(aspects)
+{
+	VkComponentMapping component_mapping;
+	component_mapping.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+	component_mapping.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+	component_mapping.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+	component_mapping.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+	VkImageSubresourceRange subrange;
+	subrange.aspectMask = aspects;
+	subrange.baseMipLevel = 0;
+	subrange.levelCount = 1;
+	subrange.baseArrayLayer = 0;
+	subrange.layerCount = 1;
+
+	VkImageViewCreateInfo image_view_info;
+	image_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	image_view_info.pNext = nullptr;
+	image_view_info.flags = 0;
+	image_view_info.image = image;
+	image_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	image_view_info.format = format;
+	image_view_info.components = component_mapping;
+	image_view_info.subresourceRange = subrange;
+
+	VkResult result = vkCreateImageView(m_context->get_device(), &image_view_info, m_context->get_allocation_callbacks(), &m_image_view);
 	assert(result == VK_SUCCESS);
 }
 
 ImageView::~ImageView()
 {
-	vkDestroyImageView(m_context.get_device(), m_image_view, m_context.get_allocation_callbacks());
+	if (m_image_view != VK_NULL_HANDLE)
+		vkDestroyImageView(m_context->get_device(), m_image_view, m_context->get_allocation_callbacks());
+}
+
+ImageView::ImageView(ImageView&& other)
+{
+	move_from(std::move(other));
+}
+
+ImageView& ImageView::operator=(ImageView&& other)
+{
+	if (this != &other)
+	{
+		move_from(std::move(other));
+	}
+
+	return *this;
+}
+
+void ImageView::move_from(ImageView&& other)
+{
+	m_context = other.m_context;
+	m_image_view = other.m_image_view;
+	other.m_image_view = VK_NULL_HANDLE;
+	m_format = other.m_format;
+	m_aspects = other.m_aspects;
 }

@@ -8,14 +8,21 @@
 class Sampler
 {
 public:
+	Sampler() {};
 	Sampler(VulkanContext& vulkan_context);
 	~Sampler();
+
+	Sampler(Sampler&& other);
+	Sampler& operator=(Sampler&& other);
 
 	VkSampler get_sampler() { return m_sampler; }
 
 private:
-	VulkanContext& m_context;
+	// Move other into this
+	void move_from(Sampler&& other);
 
-	VkSampler m_sampler;
+	VulkanContext* m_context;
+
+	VkSampler m_sampler = VK_NULL_HANDLE;
 };
 

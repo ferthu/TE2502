@@ -1,6 +1,6 @@
+#include <utility>
+
 #include "compute_queue.hpp"
-
-
 
 ComputeQueue::ComputeQueue(VulkanContext& context, VkCommandPool command_pool, VkQueue queue) : Queue(context, command_pool, queue)
 {
@@ -41,4 +41,37 @@ void ComputeQueue::cmd_image_barrier(
 	barrier.subresourceRange = image_subresource_range;
 
 	vkCmdPipelineBarrier(m_command_buffer, src_stage_mask, dst_stage_mask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+void ComputeQueue::cmd_bind_compute_pipeline(VkPipeline pipeline)
+{
+	vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+}
+
+void ComputeQueue::cmd_bind_descriptor_set_compute(VkPipelineLayout layout, uint32_t index, VkDescriptorSet descriptor_set)
+{
+	vkCmdBindDescriptorSets(m_command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, layout, index, 1, &descriptor_set, 0, nullptr);
+}
+
+void ComputeQueue::cmd_dispatch(uint32_t x, uint32_t y, uint32_t z)
+{
+	vkCmdDispatch(m_command_buffer, x, y, z);
+}
+
+ComputeQueue::ComputeQueue(ComputeQueue&& other)
+{
+	move_from(std::move(other));
+}
+
+ComputeQueue& ComputeQueue::operator=(ComputeQueue&& other)
+{
+	if (this != &other)
+		move_from(std::move(other));
+
+	return *this;
+}
+
+void ComputeQueue::move_from(ComputeQueue&& other)
+{
+	Queue::move_from(std::move(other));
 }

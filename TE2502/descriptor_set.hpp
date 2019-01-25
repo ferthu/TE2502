@@ -15,8 +15,12 @@
 class DescriptorSet
 {
 public:
+	DescriptorSet() {};
 	DescriptorSet(VulkanContext& vulkan_context, DescriptorSetLayout& layout);
 	~DescriptorSet();
+
+	DescriptorSet(DescriptorSet&& other);
+	DescriptorSet& operator=(DescriptorSet&& other);
 
 	VkDescriptorSet get_descriptor_set() { return m_descriptor_set; }
 
@@ -54,7 +58,8 @@ public:
 	void add_input_attachment(ImageView& image_view, VkImageLayout layout);
 
 private:
-	VkDescriptorSet m_descriptor_set;
+	// Move other into this
+	void move_from(DescriptorSet&& other);
 
 	// Fills a VkWriteDescriptorSet in m_descriptors[index] with common values
 	void fill_write_descriptor_set(size_t index);
@@ -62,8 +67,10 @@ private:
 	// Calls push_back on m_descriptors, m_image_desc and m_buffer_desc
 	void push_back();
 
-	VulkanContext& m_context;
-	DescriptorSetLayout& m_layout;
+	VkDescriptorSet m_descriptor_set = VK_NULL_HANDLE;
+
+	VulkanContext* m_context;
+	DescriptorSetLayout* m_layout;
 
 	// Contains the descriptors to bind to the descriptor set
 	std::vector<VkWriteDescriptorSet> m_descriptors;

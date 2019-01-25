@@ -1,3 +1,5 @@
+#include <utility>
+
 #include "graphics_queue.hpp"
 
 GraphicsQueue::GraphicsQueue(VulkanContext& context, VkCommandPool command_pool, VkQueue queue) : Queue(context, command_pool, queue)
@@ -39,4 +41,22 @@ void GraphicsQueue::cmd_image_barrier(
 	barrier.subresourceRange = image_subresource_range;
 
 	vkCmdPipelineBarrier(m_command_buffer, src_stage_mask, dst_stage_mask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+GraphicsQueue::GraphicsQueue(GraphicsQueue&& other)
+{
+	move_from(std::move(other));
+}
+
+GraphicsQueue& GraphicsQueue::operator=(GraphicsQueue&& other)
+{
+	if (this != &other)
+		move_from(std::move(other));
+
+	return *this;
+}
+
+void GraphicsQueue::move_from(GraphicsQueue&& other)
+{
+	Queue::move_from(std::move(other));
 }

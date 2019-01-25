@@ -88,10 +88,10 @@ public:
 	void create_render_pass(const Window* window);
 
 	// Create a compute pipeline
-	std::unique_ptr<Pipeline> create_compute_pipeline();
+	std::unique_ptr<Pipeline> create_compute_pipeline(const std::string& shader_name);
 
 	// Create a graphics pipeline
-	std::unique_ptr<Pipeline> create_graphics_pipeline(const glm::vec2 window_size);
+	std::unique_ptr<Pipeline> create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size);
 
 private:
 	// Creates the VkInstance

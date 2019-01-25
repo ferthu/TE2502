@@ -604,9 +604,9 @@ static std::vector<char> read_file(const std::string& filename)
 	return buffer;
 }
 
-std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline()
+std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::string& shader_name)
 {
-	auto shader_code = read_file("shaders/simple.spv");
+	auto shader_code = read_file("shaders/compiled/" + shader_name + ".comp.glsl.spv");
 
 	VkShaderModule shader_module = create_shader_module(shader_code);
 
@@ -692,12 +692,13 @@ std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline()
 	return std::make_unique<Pipeline>(pipeline, pipeline_layout, m_device);
 }
 
-std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const glm::vec2 window_size)
+std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size)
 {
 	//auto vert_shader_code = compile_from_file("shaders/shader.frag", shaderc_shader_kind::shaderc_glsl_vertex_shader);
 	//auto frag_shader_code = compile_from_file("shaders/shader.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
-	auto vert_shader_code = read_file("shaders/vert.spv");
-	auto frag_shader_code = read_file("shaders/frag.spv");
+
+	auto vert_shader_code = read_file("shaders/compiled/" + shader_name + ".vert.glsl.spv");
+	auto frag_shader_code = read_file("shaders/compiled/" + shader_name + ".frag.glsl.spv");
 
 	VkShaderModule vert_shader_module = create_shader_module(vert_shader_code);
 	VkShaderModule frag_shader_module = create_shader_module(frag_shader_code);

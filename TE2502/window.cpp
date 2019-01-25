@@ -117,6 +117,15 @@ const VkSwapchainKHR* Window::get_swapchain() const
 
 void Window::create_swapchain()
 {
+	// Check that queues support presenting surface
+	VkBool32 supported = VK_FALSE;
+	VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(m_vulkan_context->get_physical_device(), m_vulkan_context->get_graphics_queue_index(), m_surface, &supported), "Failed to get physical device surface support!");
+	assert(supported);
+
+	VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(m_vulkan_context->get_physical_device(), m_vulkan_context->get_compute_queue_index(), m_surface, &supported), "Failed to get physical device surface support!");
+	assert(supported);
+
+
 	VkSwapchainCreateInfoKHR swapchain_create_info;
 	swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	swapchain_create_info.pNext = nullptr;
@@ -160,7 +169,7 @@ void Window::create_swapchain()
 	swapchain_create_info.queueFamilyIndexCount = 0;
 	swapchain_create_info.preTransform = VkSurfaceTransformFlagBitsKHR::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	swapchain_create_info.compositeAlpha = VkCompositeAlphaFlagBitsKHR::VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	swapchain_create_info.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+	swapchain_create_info.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
 	swapchain_create_info.clipped = VK_TRUE;
 	swapchain_create_info.oldSwapchain = VK_NULL_HANDLE;
 

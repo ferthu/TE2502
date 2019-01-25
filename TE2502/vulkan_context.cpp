@@ -406,6 +406,12 @@ void VulkanContext::create_device(VkPhysicalDevice physical_device)
 
 	std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
 
+	float prios[32];
+	for (size_t i = 0; i < 32; i++)
+	{
+		prios[i] = 1.0f;
+	}
+
 	// Add graphics queue
 	{
 		VkDeviceQueueCreateInfo graphics_queue;
@@ -414,7 +420,7 @@ void VulkanContext::create_device(VkPhysicalDevice physical_device)
 		graphics_queue.flags = 0;
 		graphics_queue.queueFamilyIndex = m_graphics_queue_family.family_index;
 		graphics_queue.queueCount = m_graphics_queue_family.queue_count;
-		graphics_queue.pQueuePriorities = nullptr;
+		graphics_queue.pQueuePriorities = prios;
 
 		queue_create_infos.push_back(graphics_queue);
 	}
@@ -428,7 +434,7 @@ void VulkanContext::create_device(VkPhysicalDevice physical_device)
 		compute_queue.flags = 0;
 		compute_queue.queueFamilyIndex = m_compute_queue_family.family_index;
 		compute_queue.queueCount = m_compute_queue_family.queue_count;
-		compute_queue.pQueuePriorities = nullptr;
+		compute_queue.pQueuePriorities = prios;
 
 		queue_create_infos.push_back(compute_queue);
 	}
@@ -443,7 +449,7 @@ void VulkanContext::create_device(VkPhysicalDevice physical_device)
 		transfer_queue.flags = 0;
 		transfer_queue.queueFamilyIndex = m_transfer_queue_family.family_index;
 		transfer_queue.queueCount = m_transfer_queue_family.queue_count;
-		transfer_queue.pQueuePriorities = nullptr;
+		transfer_queue.pQueuePriorities = prios;
 
 		queue_create_infos.push_back(transfer_queue);
 	}
@@ -963,6 +969,16 @@ void VulkanContext::create_command_pools()
 	command_pool_info.queueFamilyIndex = m_transfer_queue_family.family_index;
 	result = vkCreateCommandPool(m_device, &command_pool_info, m_allocation_callbacks, &m_transfer_command_pool);
 	assert(result == VK_SUCCESS);
+}
+
+uint32_t VulkanContext::get_graphics_queue_index()
+{
+	return m_graphics_queue_family.family_index;
+}
+
+uint32_t VulkanContext::get_compute_queue_index()
+{
+	return m_compute_queue_family.family_index;
 }
 
 void VulkanContext::init_instance_layer_descriptions()

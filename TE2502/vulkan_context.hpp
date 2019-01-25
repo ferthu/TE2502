@@ -104,6 +104,13 @@ public:
 	// Free a descriptor set allocated from descriptor pool
 	void free_descriptor_set(VkDescriptorSet descriptor_set);
 
+	// Returns queue family index of graphics queues
+	uint32_t get_graphics_queue_index();
+
+	// Returns queue family index of compute queues
+	uint32_t get_compute_queue_index();
+
+
 private:
 	// Creates the VkInstance
 	void create_instance();

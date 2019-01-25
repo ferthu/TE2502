@@ -516,7 +516,12 @@ void VulkanContext::create_render_pass(const Window* window)
 	render_pass_info.pSubpasses = &subpass;
 
 	if (vkCreateRenderPass(m_device, &render_pass_info, nullptr, &m_render_pass) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create render pass!");
+#ifdef _DEBUG
+		__debugbreak();
+#else
+		println("Failed to create render pass!");
+		exit(1);
+#endif
 	}
 
 
@@ -648,10 +653,10 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const glm::vec
 	vert_shader_stage_info.pName = "main";
 
 	VkPipelineShaderStageCreateInfo frag_shader_stage_info = {};
-	vert_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	vert_shader_stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	vert_shader_stage_info.module = frag_shader_module;
-	vert_shader_stage_info.pName = "main";
+	frag_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	frag_shader_stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	frag_shader_stage_info.module = frag_shader_module;
+	frag_shader_stage_info.pName = "main";
 
 	VkPipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info };
 

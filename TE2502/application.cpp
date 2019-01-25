@@ -1,4 +1,10 @@
 #include "application.hpp"
+#include "graphics_queue.hpp"
+#include "compute_queue.hpp"
+#include "transfer_queue.hpp"
+#include "gpu_memory.hpp"
+#include "gpu_image.hpp"
+#include "gpu_buffer.hpp"
 
 #include <string>
 
@@ -28,7 +34,6 @@ Application::Application()
 
 	glfwSetKeyCallback(m_window->get_glfw_window(), key_callback);
 }
-
 
 Application::~Application()
 {

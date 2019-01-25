@@ -3,7 +3,7 @@
 #include <iostream>
 
 // Clears "output.txt"
-void clear_output_file()
+inline void clear_output_file()
 {
 #ifdef _DEBUG
 	FILE* fp;
@@ -13,7 +13,7 @@ void clear_output_file()
 }
 
 // Prints string to console and "output.txt"
-void print(const std::string& str)
+inline void print(const std::string& str)
 {
 #ifdef _DEBUG
 	std::cout << str;
@@ -26,7 +26,7 @@ void print(const std::string& str)
 }
 
 // Prints string, WITH newline, to console and "output.txt"
-void println(const std::string& str)
+inline void println(const std::string& str)
 {
 #ifdef _DEBUG
 	std::cout << str << std::endl;

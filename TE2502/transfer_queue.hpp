@@ -4,6 +4,7 @@
 
 class VulkanContext;
 
+// Represents a hardware queue used for transfer commands
 class TransferQueue : public Queue
 {
 public:

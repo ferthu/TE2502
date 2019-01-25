@@ -2,6 +2,9 @@
 
 #include "queue.hpp"
 
+class VulkanContext;
+
+// Represents a hardware queue used for compute commands
 class ComputeQueue : public Queue
 {
 public:

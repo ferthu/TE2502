@@ -4,7 +4,7 @@
 
 class VulkanContext;
 
-
+// Represents a hardware queue used for graphics commands
 class GraphicsQueue : public Queue
 {
 public:

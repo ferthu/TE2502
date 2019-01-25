@@ -62,7 +62,7 @@ void Application::run()
 	{
 		auto stop_time = m_timer;
 		m_timer = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<float> delta_time = stop_time - m_timer;
+		std::chrono::duration<float> delta_time = m_timer - stop_time;
 
 		glfwPollEvents();
 		update(delta_time.count());

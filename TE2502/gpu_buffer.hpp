@@ -37,9 +37,13 @@ public:
 	// Returns stored buffer view
 	VkBufferView get_view() { return m_buffer_view; }
 
+	VkBuffer get_buffer() { return m_buffer.get_buffer(); }
+
 	VkFormat get_format() { return m_format; }
 private:
 	VulkanContext& m_context;
+
+	GPUBuffer& m_buffer;
 
 	VkBufferView m_buffer_view;
 

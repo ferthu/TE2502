@@ -8,6 +8,7 @@
 #include "vulkan_context.hpp"
 #include "utilities.hpp"
 #include "window.hpp"
+#include "pipeline.hpp"
 
 VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_error_callback(
 	VkDebugReportFlagsEXT       flags,
@@ -73,10 +74,14 @@ VulkanContext::VulkanContext()
 	get_queues();
 
 	create_command_pools();
+
+	create_descriptor_pool();
 }
 
 VulkanContext::~VulkanContext()
 {
+	vkDestroyDescriptorPool(m_device, m_descriptor_pool, m_allocation_callbacks);
+
 	vkDestroyRenderPass(m_device, m_render_pass, nullptr);
 
 	vkDeviceWaitIdle(m_device);
@@ -571,16 +576,7 @@ void VulkanContext::create_render_pass(const Window* window)
 	render_pass_info.subpassCount = 1;
 	render_pass_info.pSubpasses = &subpass;
 
-	if (vkCreateRenderPass(m_device, &render_pass_info, nullptr, &m_render_pass) != VK_SUCCESS) {
-#ifdef _DEBUG
-		__debugbreak();
-#else
-		println("Failed to create render pass!");
-		exit(1);
-#endif
-	}
-
-
+	VK_CHECK(vkCreateRenderPass(m_device, &render_pass_info, nullptr, &m_render_pass) != VK_SUCCESS, "Failed to create render pass!");
 }
 
 static std::vector<char> read_file(const std::string& filename)
@@ -604,54 +600,11 @@ static std::vector<char> read_file(const std::string& filename)
 	return buffer;
 }
 
-std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::string& shader_name)
+std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::string& shader_name, PipelineLayout& layout)
 {
 	auto shader_code = read_file("shaders/compiled/" + shader_name + ".comp.glsl.spv");
 
 	VkShaderModule shader_module = create_shader_module(shader_code);
-
-	VkDescriptorSetLayoutBinding layout_bindings[2] = { 
-			{ 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 0 },
-			{ 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 0 } 
-	};
-
-	VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info = {};
-	descriptor_set_layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	descriptor_set_layout_info.pNext = nullptr;
-	descriptor_set_layout_info.flags = 0;
-	descriptor_set_layout_info.bindingCount = 2;
-	descriptor_set_layout_info.pBindings = layout_bindings;
-
-	VkDescriptorSetLayout descriptor_set_layout;
-
-	if (vkCreateDescriptorSetLayout(m_device, &descriptor_set_layout_info, nullptr, &descriptor_set_layout) != VK_SUCCESS) {
-#ifdef _DEBUG
-		__debugbreak();
-#else
-		println("Failed to create descriptor set layout!");
-		exit(1);
-#endif
-	}
-
-	VkPipelineLayoutCreateInfo layout_info = {};
-	layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	layout_info.pNext = nullptr;
-	layout_info.flags = 0;
-	layout_info.setLayoutCount = 1;
-	layout_info.pSetLayouts = &descriptor_set_layout;
-	layout_info.pushConstantRangeCount = 0;
-	layout_info.pPushConstantRanges = nullptr;
-
-	VkPipelineLayout pipeline_layout;
-
-	if (vkCreatePipelineLayout(m_device, &layout_info, nullptr, &pipeline_layout) != VK_SUCCESS) {
-#ifdef _DEBUG
-		__debugbreak();
-#else
-		println("Failed to create pipeline layout!");
-		exit(1);
-#endif
-	}
 
 	VkSpecializationInfo specialization_info = {};
 	specialization_info.mapEntryCount = 0;
@@ -671,7 +624,7 @@ std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::stri
 	pipeline_info.pNext = nullptr;
 	pipeline_info.flags = 0;
 	pipeline_info.stage = shader_stage_info;
-	pipeline_info.layout = pipeline_layout;
+	pipeline_info.layout = layout.get_pipeline_layout();
 	pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
 	pipeline_info.basePipelineIndex = -1;
 
@@ -689,10 +642,10 @@ std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::stri
 
 	vkDestroyShaderModule(m_device, shader_module, nullptr);
 
-	return std::make_unique<Pipeline>(pipeline, pipeline_layout, m_device);
+	return std::make_unique<Pipeline>(pipeline, layout, m_device);
 }
 
-std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size)
+std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size, PipelineLayout& layout)
 {
 	//auto vert_shader_code = compile_from_file("shaders/shader.frag", shaderc_shader_kind::shaderc_glsl_vertex_shader);
 	//auto frag_shader_code = compile_from_file("shaders/shader.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
@@ -791,24 +744,6 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::str
 	color_blending.blendConstants[2] = 0.0f; // Optional
 	color_blending.blendConstants[3] = 0.0f; // Optional
 
-	VkPipelineLayoutCreateInfo pipeline_layout_info = {};
-	pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipeline_layout_info.setLayoutCount = 0; // Optional
-	pipeline_layout_info.pSetLayouts = nullptr; // Optional
-	pipeline_layout_info.pushConstantRangeCount = 0; // Optional
-	pipeline_layout_info.pPushConstantRanges = nullptr; // Optional
-
-	VkPipelineLayout pipeline_layout;
-
-	if (vkCreatePipelineLayout(m_device, &pipeline_layout_info, nullptr, &pipeline_layout) != VK_SUCCESS) {
-#ifdef _DEBUG
-		__debugbreak();
-#else
-		println("Failed to create pipeline layout!");
-		exit(1);
-#endif
-	}
-
 	VkGraphicsPipelineCreateInfo pipeline_info = {};
 	pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipeline_info.stageCount = 2;
@@ -821,7 +756,7 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::str
 	pipeline_info.pDepthStencilState = nullptr; // Optional
 	pipeline_info.pColorBlendState = &color_blending;
 	pipeline_info.pDynamicState = nullptr; // Optional
-	pipeline_info.layout = pipeline_layout;
+	pipeline_info.layout = layout.get_pipeline_layout();
 	pipeline_info.renderPass = m_render_pass;
 	pipeline_info.subpass = 0;
 	pipeline_info.basePipelineHandle = VK_NULL_HANDLE; // Optional
@@ -829,7 +764,8 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::str
 
 	VkPipeline pipeline;
 
-	if (vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_info, m_allocation_callbacks, &pipeline) != VK_SUCCESS) {
+	if (vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_info, m_allocation_callbacks, &pipeline) != VK_SUCCESS)
+	{
 #ifdef _DEBUG
 		__debugbreak();
 #else
@@ -841,7 +777,45 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::str
 	vkDestroyShaderModule(m_device, vert_shader_module, nullptr);
 	vkDestroyShaderModule(m_device, frag_shader_module, nullptr);
 
-	return std::make_unique<Pipeline>(pipeline, pipeline_layout, m_device);
+	return std::make_unique<Pipeline>(pipeline, layout, m_device);
+}
+
+VkDescriptorSet VulkanContext::allocate_descriptor_set(DescriptorSetLayout& layout)
+{
+	VkDescriptorSet descriptor_set;
+	VkDescriptorSetLayout descriptor_set_layout = layout.get_descriptor_set_layout();
+
+	VkDescriptorSetAllocateInfo allocate_info;
+	allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocate_info.pNext = nullptr;
+	allocate_info.descriptorPool = m_descriptor_pool;
+	allocate_info.descriptorSetCount = 1;
+	allocate_info.pSetLayouts = &descriptor_set_layout;
+
+	if (vkAllocateDescriptorSets(m_device, &allocate_info, &descriptor_set) != VK_SUCCESS)
+	{
+#ifdef _DEBUG
+		__debugbreak();
+#else
+		println("Failed to allocate descriptor set!");
+		exit(1);
+#endif
+	}
+
+	return descriptor_set;
+}
+
+void VulkanContext::free_descriptor_set(VkDescriptorSet descriptor_set)
+{
+	if (vkFreeDescriptorSets(m_device, m_descriptor_pool, 1, &descriptor_set) != VK_SUCCESS)
+	{
+#ifdef _DEBUG
+		__debugbreak();
+#endif
+
+		print("Failed when freeing descriptor set!\n");
+		exit(1);
+	}
 }
 
 //std::vector<char> VulkanContext::compile_from_file(const std::string& file_name, shaderc_shader_kind kind) 
@@ -907,6 +881,41 @@ VkShaderModule VulkanContext::create_shader_module(const std::vector<char>& code
 	}
 
 	return shader_module;
+}
+
+void VulkanContext::create_descriptor_pool()
+{
+	const uint32_t pool_size_count = 9;
+	VkDescriptorPoolSize descriptor_counts[pool_size_count] = {
+		{VK_DESCRIPTOR_TYPE_SAMPLER, 100},
+		{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 100},
+		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100},
+		{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 100},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 100},
+		{VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 100},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100},
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100},
+		{VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 100}
+	};
+
+
+	VkDescriptorPoolCreateInfo pool_info;
+	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	pool_info.pNext = nullptr;
+	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	pool_info.maxSets = 100;
+	pool_info.poolSizeCount = pool_size_count;
+	pool_info.pPoolSizes = descriptor_counts;
+
+	if (vkCreateDescriptorPool(m_device, &pool_info, m_allocation_callbacks, &m_descriptor_pool) != VK_SUCCESS)
+	{
+		println("Failed to create descriptor pool!");
+#ifdef _DEBUG
+		__debugbreak();
+#else
+		exit(1);
+#endif // _DEBUG
+	}
 }
 
 void VulkanContext::get_queues()

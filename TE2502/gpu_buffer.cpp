@@ -45,7 +45,7 @@ GPUBuffer::~GPUBuffer()
 	vkDestroyBuffer(m_context.get_device(), m_buffer, m_context.get_allocation_callbacks());
 }
 
-BufferView::BufferView(VulkanContext& context, GPUBuffer& buffer, VkFormat format) : m_context(context), m_format(format)
+BufferView::BufferView(VulkanContext& context, GPUBuffer& buffer, VkFormat format) : m_context(context), m_format(format), m_buffer(buffer)
 {
 #ifdef _DEBUG
 	// Check that buffer has specified texel buffer usage
@@ -84,7 +84,7 @@ BufferView::BufferView(VulkanContext& context, GPUBuffer& buffer, VkFormat forma
 	buffer_view_info.buffer = buffer.get_buffer();
 	buffer_view_info.format = format;
 	buffer_view_info.offset = 0;
-	buffer_view_info.range = 0;
+	buffer_view_info.range = VK_WHOLE_SIZE;
 
 	VkResult result = vkCreateBufferView(context.get_device(), &buffer_view_info, context.get_allocation_callbacks(), &m_buffer_view);
 	assert(result == VK_SUCCESS);

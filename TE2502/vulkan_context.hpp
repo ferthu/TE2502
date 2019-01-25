@@ -12,10 +12,13 @@
 #include "compute_queue.hpp"
 #include "transfer_queue.hpp"
 #include "gpu_memory.hpp"
+#include "pipeline_layout.hpp"
 
-#include "pipeline.h"
+#include "pipeline.hpp"
 
 class Window;
+class Pipeline;
+class PipelineLayout;
 
 // Class for handling Vulkan instance
 class VulkanContext
@@ -88,10 +91,10 @@ public:
 	void create_render_pass(const Window* window);
 
 	// Create a compute pipeline
-	std::unique_ptr<Pipeline> create_compute_pipeline();
+	std::unique_ptr<Pipeline> create_compute_pipeline(PipelineLayout& layout);
 
 	// Create a graphics pipeline
-	std::unique_ptr<Pipeline> create_graphics_pipeline(const glm::vec2 window_size);
+	std::unique_ptr<Pipeline> create_graphics_pipeline(PipelineLayout& layout, const glm::vec2 window_size);
 
 private:
 	// Creates the VkInstance

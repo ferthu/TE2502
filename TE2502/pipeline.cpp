@@ -1,7 +1,7 @@
-#include "pipeline.h"
+#include "pipeline.hpp"
 
-Pipeline::Pipeline(VkPipeline pipeline, VkPipelineLayout pipeline_layout, VkDevice& device) 
-	: pipeline(pipeline)
+Pipeline::Pipeline(VkPipeline pipeline, PipelineLayout& pipeline_layout, VkDevice& device) 
+	: m_pipeline(pipeline)
 	, m_pipeline_layout(pipeline_layout)
 	, m_device(device)
 {
@@ -10,6 +10,5 @@ Pipeline::Pipeline(VkPipeline pipeline, VkPipelineLayout pipeline_layout, VkDevi
 
 Pipeline::~Pipeline()
 {
-	vkDestroyPipelineLayout(m_device, m_pipeline_layout, nullptr);
-	vkDestroyPipeline(m_device, pipeline, nullptr);
+	vkDestroyPipeline(m_device, m_pipeline, nullptr);
 }

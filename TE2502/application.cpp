@@ -5,6 +5,7 @@
 #include "gpu_memory.hpp"
 #include "gpu_image.hpp"
 #include "gpu_buffer.hpp"
+#include "pipeline_layout.hpp"
 
 #include <string>
 
@@ -33,9 +34,12 @@ Application::Application()
 	m_debug_camera = new Camera(m_window->get_glfw_window());
 	m_current_camera = m_main_camera;
 
+	PipelineLayout pl(m_vulkan_context);
+	pl.create(nullptr);
+
 	m_vulkan_context.create_render_pass(m_window);
-	m_compute_pipeline = m_vulkan_context.create_compute_pipeline();
-	m_graphics_pipeline = m_vulkan_context.create_graphics_pipeline(m_window->get_size());
+	m_compute_pipeline = m_vulkan_context.create_compute_pipeline(pl);
+	m_graphics_pipeline = m_vulkan_context.create_graphics_pipeline(pl, m_window->get_size());
 
 	glfwSetKeyCallback(m_window->get_glfw_window(), key_callback);
 }

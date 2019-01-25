@@ -7,6 +7,7 @@
 #include "descriptor_set_layout.hpp"
 #include "gpu_image.hpp"
 #include "gpu_buffer.hpp"
+#include "sampler.hpp"
 
 // Contains a VkDescriptorSet
 // Usage: add descriptors with add*() functions, then bind them to the descriptor set with bind()
@@ -26,13 +27,13 @@ public:
 	void clear();
 
 	// Adds a sampler to the set
-	//void add_sampler(VkSampler sampler);
+	void add_sampler(Sampler& sampler);
 
 	// Adds a sampled image to the set
 	void add_sampled_image(ImageView& image_view, VkImageLayout layout);
 
 	// Adds a combined image-sampler image to the set
-	//void add_combined_image_sampler(VkShaderStageFlags stage_flags);
+	void add_combined_image_sampler(ImageView& image_view, VkImageLayout layout, Sampler& sampler);
 
 	// Adds a storage (non-sampled) image to the set
 	void add_storage_image(ImageView& image_view, VkImageLayout layout);

@@ -25,6 +25,17 @@ void DescriptorSet::clear()
 	m_buffer_desc.clear();
 }
 
+void DescriptorSet::add_sampler(Sampler& sampler)
+{
+	size_t index = m_descriptors.size();
+	push_back();
+	fill_write_descriptor_set(index);
+
+	m_descriptors[index].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+	m_descriptors[index].pImageInfo = &m_image_desc[index];
+	m_image_desc[index].sampler = sampler.get_sampler();
+}
+
 void DescriptorSet::add_sampled_image(ImageView& image_view, VkImageLayout layout)
 {
 	size_t index = m_descriptors.size();
@@ -35,6 +46,19 @@ void DescriptorSet::add_sampled_image(ImageView& image_view, VkImageLayout layou
 	m_descriptors[index].pImageInfo = &m_image_desc[index];
 	m_image_desc[index].imageView = image_view.get_view();
 	m_image_desc[index].imageLayout = layout;
+}
+
+void DescriptorSet::add_combined_image_sampler(ImageView& image_view, VkImageLayout layout, Sampler& sampler)
+{
+	size_t index = m_descriptors.size();
+	push_back();
+	fill_write_descriptor_set(index);
+
+	m_descriptors[index].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	m_descriptors[index].pImageInfo = &m_image_desc[index];
+	m_image_desc[index].imageView = image_view.get_view();
+	m_image_desc[index].imageLayout = layout;
+	m_image_desc[index].sampler = sampler.get_sampler();
 }
 
 void DescriptorSet::add_storage_image(ImageView& image_view, VkImageLayout layout)
@@ -56,8 +80,9 @@ void DescriptorSet::add_uniform_texel_buffer(BufferView& buffer_view)
 	fill_write_descriptor_set(index);
 
 	m_descriptors[index].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-	m_descriptors[index].pBufferInfo = &m_buffer_desc[index];
-	m_buffer_desc[index].buffer = buffer_view.
+
+	VkBufferView view = buffer_view.get_view();
+	m_descriptors[index].pTexelBufferView = &view;
 }
 
 void DescriptorSet::add_storage_texel_buffer(BufferView& buffer_view)
@@ -68,6 +93,8 @@ void DescriptorSet::add_storage_texel_buffer(BufferView& buffer_view)
 
 	m_descriptors[index].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
 
+	VkBufferView view = buffer_view.get_view();
+	m_descriptors[index].pTexelBufferView = &view;
 }
 
 void DescriptorSet::add_uniform_buffer(GPUBuffer& buffer)
@@ -77,7 +104,10 @@ void DescriptorSet::add_uniform_buffer(GPUBuffer& buffer)
 	fill_write_descriptor_set(index);
 
 	m_descriptors[index].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-
+	m_descriptors[index].pBufferInfo = &m_buffer_desc[index];
+	m_buffer_desc[index].buffer = buffer.get_buffer();
+	m_buffer_desc[index].offset = 0;
+	m_buffer_desc[index].range = VK_WHOLE_SIZE;
 }
 
 void DescriptorSet::add_storage_buffer(GPUBuffer& buffer)
@@ -87,7 +117,10 @@ void DescriptorSet::add_storage_buffer(GPUBuffer& buffer)
 	fill_write_descriptor_set(index);
 
 	m_descriptors[index].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-
+	m_descriptors[index].pBufferInfo = &m_buffer_desc[index];
+	m_buffer_desc[index].buffer = buffer.get_buffer();
+	m_buffer_desc[index].offset = 0;
+	m_buffer_desc[index].range = VK_WHOLE_SIZE;
 }
 
 void DescriptorSet::add_input_attachment(ImageView& image_view, VkImageLayout layout)

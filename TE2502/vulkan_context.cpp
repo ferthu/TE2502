@@ -576,16 +576,7 @@ void VulkanContext::create_render_pass(const Window* window)
 	render_pass_info.subpassCount = 1;
 	render_pass_info.pSubpasses = &subpass;
 
-	if (vkCreateRenderPass(m_device, &render_pass_info, nullptr, &m_render_pass) != VK_SUCCESS) {
-#ifdef _DEBUG
-		__debugbreak();
-#else
-		println("Failed to create render pass!");
-		exit(1);
-#endif
-	}
-
-
+	VK_CHECK(vkCreateRenderPass(m_device, &render_pass_info, nullptr, &m_render_pass) != VK_SUCCESS, "Failed to create render pass!");
 }
 
 static std::vector<char> read_file(const std::string& filename)

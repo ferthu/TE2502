@@ -62,6 +62,16 @@ VkImage Window::get_swapchain_image(uint32_t index)
 	return m_swapchain_images[index];
 }
 
+glm::vec2 Window::get_size() const
+{
+	return glm::vec2(m_width, m_height);
+}
+
+VkFormat Window::get_format() const
+{
+	return m_format;
+}
+
 void Window::create_swapchain()
 {
 	VkSwapchainCreateInfoKHR swapchain_create_info;
@@ -72,21 +82,21 @@ void Window::create_swapchain()
 	assert(m_surface_capabilities.minImageCount >= 2);
 	swapchain_create_info.minImageCount = 2;
 
-	VkSurfaceFormatKHR format;
-	format.colorSpace = VkColorSpaceKHR::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-	format.format = VkFormat::VK_FORMAT_B8G8R8A8_SRGB;
-	if (surface_format_supported(format))
+	VkSurfaceFormatKHR m_format;
+	m_format.colorSpace = VkColorSpaceKHR::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+	m_format.format = VkFormat::VK_FORMAT_B8G8R8A8_SRGB;
+	if (surface_format_supported(m_format))
 	{
-		swapchain_create_info.imageFormat = format.format;
-		swapchain_create_info.imageColorSpace = format.colorSpace;
+		swapchain_create_info.imageFormat = m_format.format;
+		swapchain_create_info.imageColorSpace = m_format.colorSpace;
 	}
 	else
 	{
-		format.format = VkFormat::VK_FORMAT_B8G8R8A8_UNORM;
-		if (surface_format_supported(format))
+		m_format.format = VkFormat::VK_FORMAT_B8G8R8A8_UNORM;
+		if (surface_format_supported(m_format))
 		{
-			swapchain_create_info.imageFormat = format.format;
-			swapchain_create_info.imageColorSpace = format.colorSpace;
+			swapchain_create_info.imageFormat = m_format.format;
+			swapchain_create_info.imageColorSpace = m_format.colorSpace;
 		}
 		else
 		{

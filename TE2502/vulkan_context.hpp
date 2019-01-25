@@ -1,14 +1,21 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
+//#include <shaderc/shaderc.hpp>
+#include <glm/glm.hpp>
 
 #include "graphics_queue.hpp"
 #include "compute_queue.hpp"
 #include "transfer_queue.hpp"
 #include "gpu_memory.hpp"
+
+#include "pipeline.h"
+
+class Window;
 
 // Class for handling Vulkan instance
 class VulkanContext
@@ -77,6 +84,15 @@ public:
 	// Returns a memory object allocated from host
 	GPUMemory allocate_host_memory(VkDeviceSize byte_size);
 
+	// Creates the render pass 
+	void create_render_pass(const Window* window);
+
+	// Create a compute pipeline
+	std::unique_ptr<Pipeline> create_compute_pipeline();
+
+	// Create a graphics pipeline
+	std::unique_ptr<Pipeline> create_graphics_pipeline(const glm::vec2 window_size);
+
 private:
 	// Creates the VkInstance
 	void create_instance();
@@ -132,6 +148,14 @@ private:
 
 	// Creates command pools for queue families
 	void create_command_pools();
+
+	// Compiles a shader to a SPIR-V binary. Returns the binary as a vector of 32-bit words.
+	//std::vector<char> compile_from_file(const std::string& file_name, shaderc_shader_kind kind);
+
+	// Return a VkShaderModule using the given byte code
+	VkShaderModule create_shader_module(const std::vector<char>& code);
+
+	VkRenderPass m_render_pass;
 
 	VkInstance m_instance;
 	VkPhysicalDevice m_physical_device;

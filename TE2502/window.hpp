@@ -3,6 +3,7 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include "vulkan_context.hpp"
 
@@ -21,6 +22,12 @@ public:
 
 	// Returns swapchain image by index
 	VkImage get_swapchain_image(uint32_t index);
+
+	// Returns the window size
+	glm::vec2 get_size() const;
+
+	// Returns the swapchain format
+	VkFormat get_format() const;
 
 private:
 	// Create the swapchain object
@@ -50,6 +57,8 @@ private:
 	std::vector<VkPresentModeKHR> m_surface_present_modes;
 
 	VulkanContext& m_vulkan_context;
+
+	VkFormat m_format;
 
 	GLFWwindow* m_window;
 

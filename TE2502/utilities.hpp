@@ -35,4 +35,4 @@ do\
 // Checks that a Vulkan call results in VK_SUCCESS. If not, the program 
 // writes 'error_string' to log file and exits, or if in debug build, 
 // triggers a breakpoint
-#define VK_CHECK(expression, error_string) CHECK((expression) != VK_SUCCESS, error_string)
+#define VK_CHECK(expression, error_string) CHECK((expression) == VK_SUCCESS, error_string)

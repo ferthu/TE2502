@@ -29,6 +29,8 @@ public:
 	// Returns the swapchain format
 	VkFormat get_format() const;
 
+	const VkSwapchainKHR* get_swapchain() const;
+
 private:
 	// Create the swapchain object
 	void create_swapchain();
@@ -59,6 +61,8 @@ private:
 	VulkanContext& m_vulkan_context;
 
 	VkFormat m_format;
+
+	VkFence m_swapchain_fence;
 
 	GLFWwindow* m_window;
 

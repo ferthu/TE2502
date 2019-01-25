@@ -1,6 +1,7 @@
 #include <assert.h>
 
 #include "window.hpp"
+#include "utilities.hpp"
 
 Window::Window(int width, int height, const char* title, VulkanContext& vulkan_context) : m_vulkan_context(vulkan_context)
 {
@@ -30,10 +31,28 @@ Window::Window(int width, int height, const char* title, VulkanContext& vulkan_c
 	get_surface_present_modes();
 
 	create_swapchain();
+
+	// Create fence for use when getting swapchain image
+	VkFenceCreateInfo fence_info;
+	fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fence_info.pNext = nullptr;
+	fence_info.flags = 0;
+
+	if (vkCreateFence(m_vulkan_context.get_device(), &fence_info, m_vulkan_context.get_allocation_callbacks(), &m_swapchain_fence) != VK_SUCCESS)
+	{
+#ifdef _DEBUG
+		__debugbreak();
+#else
+		println("Failed to create fence!");
+		exit(1);
+#endif
+	}
 }
 
 Window::~Window()
 {
+	vkDestroyFence(m_vulkan_context.get_device(), m_swapchain_fence, m_vulkan_context.get_allocation_callbacks());
+
 	vkDeviceWaitIdle(m_vulkan_context.get_device());
 	vkDestroySwapchainKHR(m_vulkan_context.get_device(), m_swapchain, m_vulkan_context.get_allocation_callbacks());
 
@@ -51,7 +70,10 @@ uint32_t Window::get_next_image()
 {
 	uint32_t index = 0;
 
-	VkResult result = vkAcquireNextImageKHR(m_vulkan_context.get_device(), m_swapchain, 999999999, VK_NULL_HANDLE, VK_NULL_HANDLE, &index);
+	VkResult result = vkAcquireNextImageKHR(m_vulkan_context.get_device(), m_swapchain, 999999999, VK_NULL_HANDLE, m_swapchain_fence, &index);
+	vkWaitForFences(m_vulkan_context.get_device(), 1, &m_swapchain_fence, VK_FALSE, ~0ull);
+	vkResetFences(m_vulkan_context.get_device(), 1, &m_swapchain_fence);
+
 	assert(result == VK_SUCCESS);
 
 	return index;
@@ -70,6 +92,11 @@ glm::vec2 Window::get_size() const
 VkFormat Window::get_format() const
 {
 	return m_format;
+}
+
+const VkSwapchainKHR* Window::get_swapchain() const
+{
+	return &m_swapchain;
 }
 
 void Window::create_swapchain()

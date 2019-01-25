@@ -68,15 +68,15 @@ public:
 
 	// Creates and returns a GraphicsQueue object
 	// Will fail if there are no more queues available
-	GraphicsQueue create_graphics_queue();
+	std::unique_ptr<GraphicsQueue> create_graphics_queue();
 
 	// Creates and returns a ComputeQueue object
 	// Will fail if there are no more queues available
-	ComputeQueue create_compute_queue();
+	std::unique_ptr<ComputeQueue> create_compute_queue();
 
 	// Creates and returns a TransferQueue object
 	// Will fail if there are no more queues available
-	TransferQueue create_transfer_queue();
+	std::unique_ptr<TransferQueue> create_transfer_queue();
 
 	// Returns a memory object allocated from GPU
 	GPUMemory allocate_device_memory(VkDeviceSize byte_size);
@@ -87,10 +87,10 @@ public:
 	// Creates the render pass 
 	void create_render_pass(const Window* window);
 
-	// Create a compute pipeline
+	// Creates and returns a compute pipeline
 	std::unique_ptr<Pipeline> create_compute_pipeline(const std::string& shader_name);
 
-	// Create a graphics pipeline
+	// Creates and returns a graphics pipeline
 	std::unique_ptr<Pipeline> create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size);
 
 private:

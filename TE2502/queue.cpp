@@ -63,6 +63,7 @@ void Queue::submit()
 
 void Queue::start_recording()
 {
+	reset();
 	assert(!m_recording && !m_has_recorded);
 	m_recording = true;
 
@@ -87,4 +88,9 @@ void Queue::end_recording()
 void Queue::wait()
 {
 	vkWaitForFences(m_context.get_device(), 1, &m_fence, VK_FALSE, ~0ull);
+}
+
+VkQueue Queue::get_queue() const
+{
+	return m_queue;
 }

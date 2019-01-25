@@ -25,7 +25,9 @@ public:
 	// Waits until submitted work is complete
 	void wait();
 
-private:
+	VkQueue get_queue() const;
+
+protected:
 	// Current Vulkan context
 	VulkanContext& m_context;
 

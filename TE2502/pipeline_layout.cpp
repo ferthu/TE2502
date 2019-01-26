@@ -78,5 +78,9 @@ void PipelineLayout::move_from(PipelineLayout&& other)
 void PipelineLayout::destroy()
 {
 	if (m_is_created)
+	{
 		vkDestroyPipelineLayout(m_context->get_device(), m_pipeline_layout, m_context->get_allocation_callbacks());
+		m_pipeline_layout = VK_NULL_HANDLE;
+		m_is_created = false;
+	}
 }

@@ -168,7 +168,10 @@ void DescriptorSet::move_from(DescriptorSet&& other)
 void DescriptorSet::destroy()
 {
 	if (m_descriptor_set != VK_NULL_HANDLE)
+	{
 		m_context->free_descriptor_set(m_descriptor_set);
+		m_descriptor_set = VK_NULL_HANDLE;
+	}
 }
 
 void DescriptorSet::fill_write_descriptor_set(size_t index)

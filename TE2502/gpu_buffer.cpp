@@ -75,7 +75,10 @@ void GPUBuffer::move_from(GPUBuffer&& other)
 void GPUBuffer::destroy()
 {
 	if (m_buffer != VK_NULL_HANDLE)
+	{
 		vkDestroyBuffer(m_context->get_device(), m_buffer, m_context->get_allocation_callbacks());
+		m_buffer = VK_NULL_HANDLE;
+	}
 }
 
 BufferView::BufferView(VulkanContext& context, GPUBuffer& buffer, VkFormat format) : m_context(&context), m_format(format), m_buffer(&buffer)
@@ -143,5 +146,8 @@ void BufferView::move_from(BufferView&& other)
 void BufferView::destroy()
 {
 	if (m_buffer_view != VK_NULL_HANDLE)
+	{
 		vkDestroyBufferView(m_context->get_device(), m_buffer_view, m_context->get_allocation_callbacks());
+		m_buffer_view = VK_NULL_HANDLE;
+	}
 }

@@ -133,8 +133,14 @@ void Queue::move_from(Queue&& other)
 void Queue::destroy()
 {
 	if (m_fence != VK_NULL_HANDLE)
+	{
 		vkDestroyFence(m_context->get_device(), m_fence, m_context->get_allocation_callbacks());
+		m_fence = VK_NULL_HANDLE;
+	}
 
 	if (m_command_buffer != VK_NULL_HANDLE)
+	{
 		vkFreeCommandBuffers(m_context->get_device(), m_command_pool, 1, &m_command_buffer);
+		m_command_buffer = VK_NULL_HANDLE;
+	}
 }

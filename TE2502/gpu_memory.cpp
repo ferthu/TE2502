@@ -68,5 +68,8 @@ void GPUMemory::move_from(GPUMemory&& other)
 void GPUMemory::destroy()
 {
 	if (m_memory != VK_NULL_HANDLE)
+	{
 		vkFreeMemory(m_context->get_device(), m_memory, m_context->get_allocation_callbacks());
+		m_memory = VK_NULL_HANDLE;
+	}
 }

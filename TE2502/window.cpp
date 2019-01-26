@@ -288,17 +288,31 @@ void Window::move_from(Window&& other)
 void Window::destroy()
 {
 	if (m_swapchain_fence != VK_NULL_HANDLE)
+	{
 		vkDestroyFence(m_vulkan_context->get_device(), m_swapchain_fence, m_vulkan_context->get_allocation_callbacks());
+		m_swapchain_fence = VK_NULL_HANDLE;
+	}
 
 	if (m_vulkan_context)
+	{
 		vkDeviceWaitIdle(m_vulkan_context->get_device());
+	}
 
 	if (m_swapchain != VK_NULL_HANDLE)
+	{
 		vkDestroySwapchainKHR(m_vulkan_context->get_device(), m_swapchain, m_vulkan_context->get_allocation_callbacks());
+		m_swapchain = VK_NULL_HANDLE;
+	}
 
 	if (m_surface != VK_NULL_HANDLE)
+	{
 		vkDestroySurfaceKHR(m_vulkan_context->get_instance(), m_surface, m_vulkan_context->get_allocation_callbacks());
+		m_surface = VK_NULL_HANDLE;
+	}
 
 	if (m_window)
+	{
 		glfwDestroyWindow(m_window);
+		m_window = nullptr;
+	}
 }

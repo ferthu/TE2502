@@ -58,5 +58,8 @@ void Sampler::move_from(Sampler&& other)
 void Sampler::destroy()
 {
 	if (m_sampler != VK_NULL_HANDLE)
+	{
 		vkDestroySampler(m_context->get_device(), m_sampler, m_context->get_allocation_callbacks());
+		m_sampler = VK_NULL_HANDLE;
+	}
 }

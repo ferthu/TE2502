@@ -136,6 +136,8 @@ void DescriptorSetLayout::destroy()
 	if (m_is_created)
 	{
 		vkDestroyDescriptorSetLayout(m_context->get_device(), m_descriptor_set_layout, m_context->get_allocation_callbacks());
+		m_descriptor_set_layout = VK_NULL_HANDLE;
+		m_is_created = false;
 	}
 }
 

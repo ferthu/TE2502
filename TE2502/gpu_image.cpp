@@ -79,7 +79,10 @@ void GPUImage::move_from(GPUImage&& other)
 void GPUImage::destroy()
 {
 	if (m_image != VK_NULL_HANDLE)
+	{
 		vkDestroyImage(m_context->get_device(), m_image, m_context->get_allocation_callbacks());
+		m_image = VK_NULL_HANDLE;
+	}
 }
 
 ImageView::ImageView(VulkanContext& context, GPUImage& image, VkFormat format, VkImageAspectFlags aspects) : m_context(&context), m_format(format), m_aspects(aspects)
@@ -177,5 +180,8 @@ void ImageView::move_from(ImageView&& other)
 void ImageView::destroy()
 {
 	if (m_image_view != VK_NULL_HANDLE)
+	{
 		vkDestroyImageView(m_context->get_device(), m_image_view, m_context->get_allocation_callbacks());
+		m_image_view = VK_NULL_HANDLE;
+	}
 }

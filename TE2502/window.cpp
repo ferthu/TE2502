@@ -3,7 +3,7 @@
 #include "window.hpp"
 #include "utilities.hpp"
 
-Window::Window(int width, int height, const char* title, VulkanContext& vulkan_context) : m_vulkan_context(&vulkan_context)
+Window::Window(int width, int height, const char* title, VulkanContext& vulkan_context) : m_vulkan_context(&vulkan_context), m_mouse_locked(true)
 {
 	m_width = static_cast<uint32_t>(width);
 	m_height = static_cast<uint32_t>(height);
@@ -39,6 +39,9 @@ Window::Window(int width, int height, const char* title, VulkanContext& vulkan_c
 	fence_info.flags = 0;
 
 	VK_CHECK(vkCreateFence(m_vulkan_context->get_device(), &fence_info, m_vulkan_context->get_allocation_callbacks(), &m_swapchain_fence), "Failed to create fence!");
+
+	glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetInputMode(m_window, GLFW_STICKY_MOUSE_BUTTONS, 1);
 }
 
 Window::~Window()
@@ -100,9 +103,9 @@ ImageView& Window::get_swapchain_image_view(uint32_t index)
 	return m_swapchain_image_views[index];
 }
 
-glm::vec2 Window::get_size() const
+glm::uvec2 Window::get_size() const
 {
-	return glm::vec2(m_width, m_height);
+	return glm::uvec2(m_width, m_height);
 }
 
 VkFormat Window::get_format() const
@@ -113,6 +116,25 @@ VkFormat Window::get_format() const
 const VkSwapchainKHR* Window::get_swapchain() const
 {
 	return &m_swapchain;
+}
+
+bool Window::get_mouse_locked() const
+{
+	return m_mouse_locked;
+}
+
+void Window::set_mouse_locked(bool is_locked)
+{
+	m_mouse_locked = is_locked;
+
+	if (m_mouse_locked)
+	{
+		glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	}
+	else
+	{
+		glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	}
 }
 
 void Window::create_swapchain()

@@ -32,12 +32,18 @@ public:
 	ImageView& get_swapchain_image_view(uint32_t index);
 
 	// Returns the window size
-	glm::vec2 get_size() const;
+	glm::uvec2 get_size() const;
 
 	// Returns the swapchain format
 	VkFormat get_format() const;
 
 	const VkSwapchainKHR* get_swapchain() const;
+
+	// Returns true if the mouse is locked and should be controlling the camera
+	bool get_mouse_locked() const;
+
+	// Set whether the mouse is locked and should be controlling camera
+	void set_mouse_locked(bool is_locked);
 
 private:
 	// Create the swapchain object
@@ -80,5 +86,8 @@ private:
 
 	uint32_t m_width;
 	uint32_t m_height;
+
+	// True if mouse is locked to window
+	bool m_mouse_locked;
 };
 

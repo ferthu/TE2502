@@ -64,6 +64,8 @@ Application::~Application()
 
 void Application::run()
 {
+	bool right_mouse_clicked = false;
+
 	while (!glfwWindowShouldClose(m_window->get_glfw_window()))
 	{
 		auto stop_time = m_timer;
@@ -71,14 +73,21 @@ void Application::run()
 		std::chrono::duration<float> delta_time = m_timer - stop_time;
 
 		glfwPollEvents();
+
+		if (!right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
+		{
+			m_window->set_mouse_locked(!m_window->get_mouse_locked());
+			right_mouse_clicked = true;
+		}
+		else if (right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE)
+			right_mouse_clicked = false;
+
 		update(delta_time.count());
 
 		std::string title = "Frame time: " + std::to_string(delta_time.count()); 
 		glfwSetWindowTitle(m_window->get_glfw_window(), title.c_str());
 
 		draw();
-
-		Sleep(16);
 	}
 }
 
@@ -86,8 +95,6 @@ void Application::run()
 void Application::update(const float dt)
 {
 	m_current_camera->update(dt);
-
-
 }
 
 

@@ -7,7 +7,6 @@ Camera::Camera(GLFWwindow* window)
 	m_window = window;
 	glfwGetWindowSize(m_window, &m_window_width, &m_window_height);
 	m_perspective = glm::perspective(m_fov * 0.56f, (float)m_window_width / m_window_height, m_near, m_far);
-	glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
 Camera::~Camera()

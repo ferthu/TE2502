@@ -983,6 +983,11 @@ uint32_t VulkanContext::get_compute_queue_index()
 	return m_compute_queue_family.family_index;
 }
 
+VkDescriptorPool VulkanContext::get_descriptor_pool()
+{
+	return m_descriptor_pool;
+}
+
 void VulkanContext::init_instance_layer_descriptions()
 {
 	VkResult result;

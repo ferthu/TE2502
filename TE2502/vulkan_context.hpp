@@ -110,6 +110,8 @@ public:
 	// Returns queue family index of compute queues
 	uint32_t get_compute_queue_index();
 
+	// Returns internal descriptor pool
+	VkDescriptorPool get_descriptor_pool();
 
 private:
 	// Creates the VkInstance

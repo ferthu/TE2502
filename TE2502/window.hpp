@@ -7,6 +7,7 @@
 
 #include "vulkan_context.hpp"
 #include "gpu_image.hpp"
+#include "framebuffer.hpp"
 
 // Class for an OS window
 class Window
@@ -30,6 +31,8 @@ public:
 
 	// Returns image view of swapchain image by index
 	ImageView& get_swapchain_image_view(uint32_t index);
+
+	uint32_t get_swapchain_size();
 
 	// Returns the window size
 	glm::uvec2 get_size() const;
@@ -75,6 +78,9 @@ private:
 	VkSwapchainKHR m_swapchain = VK_NULL_HANDLE;
 	std::vector<VkImage> m_swapchain_images;
 	std::vector<ImageView> m_swapchain_image_views;
+
+	// Vector of framebuffers containing swapchain images as a color attachment
+	std::vector<Framebuffer> m_framebuffers;
 
 	std::vector<VkSurfaceFormatKHR> m_surface_formats;
 	std::vector<VkPresentModeKHR> m_surface_present_modes;

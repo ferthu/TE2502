@@ -9,6 +9,8 @@
 #include "graphics_queue.hpp"
 #include "transfer_queue.hpp"
 #include "descriptor_set.hpp"
+#include "framebuffer.hpp"
+#include "render_pass.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -29,15 +31,38 @@ public:
 	void draw();
 
 	// Present queue on screen
-	void present(VkQueue queue, const uint32_t index) const;
+	void present(VkQueue queue, const uint32_t index, VkSemaphore wait_for) const;
 
+	// Set up imgui
+	void imgui_setup();
+
+	// Shut down imgui
+	void imgui_shutdown();
+
+	// Draw imgui
+	void imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_complete_semaphore);
 
 private:
+	VulkanContext m_vulkan_context;
+
+	// Holds Vulkan object required by imgui
+	struct ImGuiVulkanState
+	{
+		~ImGuiVulkanState() {}
+		GraphicsQueue queue;
+		std::vector<VkSemaphore> done_drawing_semaphores;
+		VkRenderPass render_pass;
+		VkCommandPool command_pool;
+		VkCommandBuffer command_buffer;
+		VkFence command_buffer_idle;
+	};
+
+	ImGuiVulkanState m_imgui_vulkan_state;
+
 	Window* m_window;
 	Camera* m_main_camera;
 	Camera* m_debug_camera;
 	Camera* m_current_camera;
-	VulkanContext m_vulkan_context;
 	std::chrono::time_point<std::chrono::steady_clock> m_timer;
 
 	std::unique_ptr<Pipeline> m_compute_pipeline;
@@ -49,5 +74,7 @@ private:
 
 	DescriptorSet m_image_descriptor_set;
 	DescriptorSetLayout m_image_descriptor_set_layout;
+
+	std::vector<Framebuffer> m_swapchain_framebuffers;
 };
 

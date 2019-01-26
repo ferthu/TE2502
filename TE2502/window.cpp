@@ -90,6 +90,11 @@ ImageView& Window::get_swapchain_image_view(uint32_t index)
 	return m_swapchain_image_views[index];
 }
 
+uint32_t Window::get_swapchain_size()
+{
+	return static_cast<uint32_t>(m_swapchain_images.size());
+}
+
 glm::uvec2 Window::get_size() const
 {
 	return glm::uvec2(m_width, m_height);

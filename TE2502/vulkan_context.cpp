@@ -593,7 +593,7 @@ static std::vector<char> read_file(const std::string& filename)
 #ifdef _DEBUG
 		__debugbreak();
 #else
-		println("Failed to open file: " + file_name);
+		println("Failed to open file: " + filename);
 		exit(1);
 #endif
 	}
@@ -871,6 +871,8 @@ VkShaderModule VulkanContext::create_shader_module(const std::vector<char>& code
 {
 	VkShaderModuleCreateInfo create_info;
 	create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	create_info.pNext = nullptr;
+	create_info.flags = 0;
 	create_info.codeSize = code.size();
 	create_info.pCode = reinterpret_cast<const uint32_t*>(code.data());
 

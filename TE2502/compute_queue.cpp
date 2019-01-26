@@ -36,9 +36,11 @@ void ComputeQueue::cmd_image_barrier(
 	barrier.dstAccessMask = dst_access_mask;
 	barrier.oldLayout = old_layout;
 	barrier.newLayout = new_layout;
-	barrier.srcQueueFamilyIndex = 0;
-	barrier.dstQueueFamilyIndex = 0;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = image;
 	barrier.subresourceRange = image_subresource_range;
+	
 
 	vkCmdPipelineBarrier(m_command_buffer, src_stage_mask, dst_stage_mask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }

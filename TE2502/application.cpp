@@ -103,32 +103,37 @@ void Application::draw()
 	m_compute_queue.start_recording();
 
 	// RENDER-------------------
-	// bind pipeline
+	// Bind pipeline
 	m_compute_queue.cmd_bind_compute_pipeline(m_compute_pipeline->m_pipeline);
-	// bind descriptor set
+
+	// Bind descriptor set
 	m_compute_queue.cmd_bind_descriptor_set_compute(m_compute_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_image_descriptor_set.get_descriptor_set());
-	// transfer image
-	m_compute_queue.cmd_image_barrier(image, VkAccessFlagBits::VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
-		VkAccessFlagBits::VK_ACCESS_SHADER_READ_BIT,
-		VkImageLayout::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-		VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+
+	// Transfer image to shader write layout
+	m_compute_queue.cmd_image_barrier(image, 
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_ACCESS_SHADER_READ_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 
+		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-	// dispatch
-	m_compute_queue.cmd_dispatch(1080, 720, 1);
+
+	// Dispatch
+	m_compute_queue.cmd_dispatch(m_window->get_size().x, m_window->get_size().y, 1);
 
 	// end of RENDER------------------
 
 	m_compute_queue.cmd_image_barrier(
 		image,
 		VK_ACCESS_SHADER_READ_BIT,
-		VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 		VK_IMAGE_ASPECT_COLOR_BIT, 
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+
 	m_compute_queue.end_recording();
 	m_compute_queue.submit();
 	m_compute_queue.wait();

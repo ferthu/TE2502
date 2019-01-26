@@ -169,7 +169,7 @@ void DescriptorSet::fill_write_descriptor_set(size_t index)
 	m_descriptors[index].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	m_descriptors[index].pNext = nullptr;
 	m_descriptors[index].dstSet = m_descriptor_set;
-	m_descriptors[index].dstBinding = static_cast<uint32_t>(m_descriptors.size());
+	m_descriptors[index].dstBinding = static_cast<uint32_t>(m_descriptors.size() - 1);
 	m_descriptors[index].dstArrayElement = 0;
 	m_descriptors[index].descriptorCount = 1;
 	

@@ -125,7 +125,6 @@ void Window::create_swapchain()
 	VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(m_vulkan_context->get_physical_device(), m_vulkan_context->get_compute_queue_index(), m_surface, &supported), "Failed to get physical device surface support!");
 	assert(supported);
 
-
 	VkSwapchainCreateInfoKHR swapchain_create_info;
 	swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	swapchain_create_info.pNext = nullptr;
@@ -136,14 +135,14 @@ void Window::create_swapchain()
 
 	VkSurfaceFormatKHR surface_format;
 	surface_format.colorSpace = VkColorSpaceKHR::VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-	surface_format.format = VkFormat::VK_FORMAT_B8G8R8A8_SRGB;
-	if (surface_format_supported(surface_format))
-	{
-		swapchain_create_info.imageFormat = surface_format.format;
-		swapchain_create_info.imageColorSpace = surface_format.colorSpace;
-	}
-	else
-	{
+	//surface_format.format = VkFormat::VK_FORMAT_B8G8R8A8_SRGB;
+	//if (surface_format_supported(surface_format))
+	//{
+	//	swapchain_create_info.imageFormat = surface_format.format;
+	//	swapchain_create_info.imageColorSpace = surface_format.colorSpace;
+	//}
+	//else
+	//{
 		surface_format.format = VkFormat::VK_FORMAT_B8G8R8A8_UNORM;
 		if (surface_format_supported(surface_format))
 		{
@@ -154,7 +153,7 @@ void Window::create_swapchain()
 		{
 			CHECK(false, "Requested surface formats not supported");
 		}
-	}
+	//}
 
 	m_format = surface_format.format;
 

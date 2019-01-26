@@ -28,6 +28,9 @@ public:
 private:
 	// Moves other into this
 	void move_from(GPUImage&& other);
+	
+	// Destroys object
+	void destroy();
 
 	VulkanContext* m_context;
 
@@ -61,6 +64,9 @@ public:
 private:
 	// Move other into this
 	void move_from(ImageView&& other);
+	
+	// Destroys object
+	void destroy();
 
 	VulkanContext* m_context;
 

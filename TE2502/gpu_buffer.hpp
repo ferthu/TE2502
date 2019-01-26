@@ -22,6 +22,9 @@ public:
 private:
 	// Move other into this
 	void move_from(GPUBuffer&& other);
+	
+	// Destroys object
+	void destroy();
 
 	VulkanContext* m_context;
 
@@ -54,6 +57,9 @@ public:
 private:
 	// Move other into this
 	void move_from(BufferView&& other);
+
+	// Destroys object
+	void destroy();
 
 	VulkanContext* m_context;
 

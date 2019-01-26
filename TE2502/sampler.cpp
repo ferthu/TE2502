@@ -30,8 +30,7 @@ Sampler::Sampler(VulkanContext& vulkan_context) : m_context(&vulkan_context)
 
 Sampler::~Sampler()
 {
-	if (m_sampler != VK_NULL_HANDLE)
-		vkDestroySampler(m_context->get_device(), m_sampler, m_context->get_allocation_callbacks());
+	destroy();
 }
 
 Sampler::Sampler(Sampler&& other)
@@ -49,7 +48,15 @@ Sampler& Sampler::operator=(Sampler&& other)
 
 void Sampler::move_from(Sampler&& other)
 {
+	destroy();
+
 	m_context = other.m_context;
 	m_sampler = other.m_sampler;
 	other.m_sampler = VK_NULL_HANDLE;
+}
+
+void Sampler::destroy()
+{
+	if (m_sampler != VK_NULL_HANDLE)
+		vkDestroySampler(m_context->get_device(), m_sampler, m_context->get_allocation_callbacks());
 }

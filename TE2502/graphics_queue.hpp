@@ -29,5 +29,8 @@ public:
 private:
 	// Move other into this
 	void move_from(GraphicsQueue&& other);
+	
+	// Destroys object
+	void destroy();
 };
 

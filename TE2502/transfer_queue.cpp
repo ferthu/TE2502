@@ -11,6 +11,7 @@ TransferQueue::TransferQueue(VulkanContext& context, VkCommandPool command_pool,
 
 TransferQueue::~TransferQueue()
 {
+	destroy();
 }
 
 TransferQueue::TransferQueue(TransferQueue&& other)
@@ -28,5 +29,11 @@ TransferQueue& TransferQueue::operator=(TransferQueue&& other)
 
 void TransferQueue::move_from(TransferQueue&& other)
 {
+	destroy();
 	Queue::move_from(std::move(other));
+}
+
+void TransferQueue::destroy()
+{
+	Queue::destroy();
 }

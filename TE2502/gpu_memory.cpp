@@ -20,8 +20,7 @@ GPUMemory::GPUMemory(VulkanContext& context, uint32_t memory_type, VkDeviceSize 
 
 GPUMemory::~GPUMemory()
 {
-	if (m_memory != VK_NULL_HANDLE)
-		vkFreeMemory(m_context->get_device(), m_memory, m_context->get_allocation_callbacks());
+	destroy();
 }
 
 GPUMemory::GPUMemory(GPUMemory&& other)
@@ -56,10 +55,18 @@ VkDeviceMemory GPUMemory::allocate_memory(VkDeviceSize byte_size, VkDeviceSize& 
 
 void GPUMemory::move_from(GPUMemory&& other)
 {
+	destroy();
+
 	m_context = other.m_context;
 	m_memory = other.m_memory;
 	other.m_memory = VK_NULL_HANDLE;
 	m_size = other.m_size;
 	m_next_free = other.m_next_free;
 	m_memory_type = other.m_memory_type;
+}
+
+void GPUMemory::destroy()
+{
+	if (m_memory != VK_NULL_HANDLE)
+		vkFreeMemory(m_context->get_device(), m_memory, m_context->get_allocation_callbacks());
 }

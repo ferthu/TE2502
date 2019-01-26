@@ -9,6 +9,7 @@ ComputeQueue::ComputeQueue(VulkanContext& context, VkCommandPool command_pool, V
 
 ComputeQueue::~ComputeQueue()
 {
+	destroy();
 }
 
 void ComputeQueue::cmd_image_barrier(
@@ -75,5 +76,11 @@ ComputeQueue& ComputeQueue::operator=(ComputeQueue&& other)
 
 void ComputeQueue::move_from(ComputeQueue&& other)
 {
+	destroy();
 	Queue::move_from(std::move(other));
+}
+
+void ComputeQueue::destroy()
+{
+	Queue::destroy();
 }

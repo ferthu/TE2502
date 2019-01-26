@@ -28,10 +28,7 @@ DescriptorSetLayout::DescriptorSetLayout(VulkanContext& vulkan_context) : m_is_c
 
 DescriptorSetLayout::~DescriptorSetLayout()
 {
-	if (m_is_created)
-	{
-		vkDestroyDescriptorSetLayout(m_context->get_device(), m_descriptor_set_layout, m_context->get_allocation_callbacks());
-	}
+	destroy();
 }
 
 void DescriptorSetLayout::create()
@@ -121,6 +118,8 @@ void DescriptorSetLayout::add_input_attachment(VkShaderStageFlags stage_flags)
 
 void DescriptorSetLayout::move_from(DescriptorSetLayout&& other)
 {
+	destroy();
+
 	m_context = other.m_context;
 
 	m_descriptor_set_layout = other.m_descriptor_set_layout;
@@ -130,6 +129,14 @@ void DescriptorSetLayout::move_from(DescriptorSetLayout&& other)
 
 	m_is_created = other.m_is_created;
 	other.m_is_created = false;
+}
+
+void DescriptorSetLayout::destroy()
+{
+	if (m_is_created)
+	{
+		vkDestroyDescriptorSetLayout(m_context->get_device(), m_descriptor_set_layout, m_context->get_allocation_callbacks());
+	}
 }
 
 void DescriptorSetLayout::create_binding(VkShaderStageFlags stage_flags, VkDescriptorType type)

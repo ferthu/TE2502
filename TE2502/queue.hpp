@@ -34,6 +34,9 @@ public:
 protected:
 	// Move other into this
 	void move_from(Queue&& other);
+	
+	// Destroys object
+	void destroy();
 
 	// Current Vulkan context
 	VulkanContext* m_context;

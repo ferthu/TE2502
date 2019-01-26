@@ -29,6 +29,9 @@ public:
 private:
 	// Move other into this
 	void move_from(GPUMemory&& other);
+	
+	// Destroys object
+	void destroy();
 
 	// Reference to Vulkan context
 	VulkanContext* m_context;

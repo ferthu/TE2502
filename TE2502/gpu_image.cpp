@@ -46,8 +46,7 @@ GPUImage::GPUImage(VulkanContext& context, VkExtent3D size, VkFormat format,
 
 GPUImage::~GPUImage()
 {
-	if (m_image != VK_NULL_HANDLE)
-		vkDestroyImage(m_context->get_device(), m_image, m_context->get_allocation_callbacks());
+	destroy();
 }
 
 GPUImage::GPUImage(GPUImage&& other)
@@ -67,12 +66,20 @@ GPUImage& GPUImage::operator=(GPUImage&& other)
 
 void GPUImage::move_from(GPUImage&& other)
 {
+	destroy();
+
 	m_context = other.m_context;
 	m_image = other.m_image;
 	other.m_image = VK_NULL_HANDLE;
 	m_size = other.m_size;
 	m_usage = other.m_usage;
 	m_format = other.m_format;
+}
+
+void GPUImage::destroy()
+{
+	if (m_image != VK_NULL_HANDLE)
+		vkDestroyImage(m_context->get_device(), m_image, m_context->get_allocation_callbacks());
 }
 
 ImageView::ImageView(VulkanContext& context, GPUImage& image, VkFormat format, VkImageAspectFlags aspects) : m_context(&context), m_format(format), m_aspects(aspects)
@@ -138,8 +145,7 @@ ImageView::ImageView(VulkanContext& context, VkImage& image, VkFormat format, Vk
 
 ImageView::~ImageView()
 {
-	if (m_image_view != VK_NULL_HANDLE)
-		vkDestroyImageView(m_context->get_device(), m_image_view, m_context->get_allocation_callbacks());
+	destroy();
 }
 
 ImageView::ImageView(ImageView&& other)
@@ -159,9 +165,17 @@ ImageView& ImageView::operator=(ImageView&& other)
 
 void ImageView::move_from(ImageView&& other)
 {
+	destroy();
+
 	m_context = other.m_context;
 	m_image_view = other.m_image_view;
 	other.m_image_view = VK_NULL_HANDLE;
 	m_format = other.m_format;
 	m_aspects = other.m_aspects;
+}
+
+void ImageView::destroy()
+{
+	if (m_image_view != VK_NULL_HANDLE)
+		vkDestroyImageView(m_context->get_device(), m_image_view, m_context->get_allocation_callbacks());
 }

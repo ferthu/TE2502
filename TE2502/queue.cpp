@@ -31,11 +31,7 @@ Queue::Queue(VulkanContext& context, VkCommandPool command_pool, VkQueue queue)
 
 Queue::~Queue()
 {
-	if (m_fence != VK_NULL_HANDLE)
-		vkDestroyFence(m_context->get_device(), m_fence, m_context->get_allocation_callbacks());
-
-	if (m_command_buffer != VK_NULL_HANDLE)
-		vkFreeCommandBuffers(m_context->get_device(), m_command_pool, 1, &m_command_buffer);
+	destroy();
 }
 
 Queue::Queue(Queue&& other)
@@ -114,6 +110,8 @@ VkQueue Queue::get_queue() const
 
 void Queue::move_from(Queue&& other)
 {
+	destroy();
+
 	m_context = other.m_context;
 
 	m_command_pool = other.m_command_pool;
@@ -130,4 +128,13 @@ void Queue::move_from(Queue&& other)
 
 	m_recording = other.m_recording;
 	m_has_recorded = other.m_has_recorded;
+}
+
+void Queue::destroy()
+{
+	if (m_fence != VK_NULL_HANDLE)
+		vkDestroyFence(m_context->get_device(), m_fence, m_context->get_allocation_callbacks());
+
+	if (m_command_buffer != VK_NULL_HANDLE)
+		vkFreeCommandBuffers(m_context->get_device(), m_command_pool, 1, &m_command_buffer);
 }

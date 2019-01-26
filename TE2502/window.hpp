@@ -67,6 +67,9 @@ private:
 	// Move other into this
 	void move_from(Window&& other);
 
+	// Destroys object
+	void destroy();
+
 	VkSurfaceKHR m_surface = VK_NULL_HANDLE;
 	VkSurfaceCapabilitiesKHR m_surface_capabilities;
 	VkSwapchainKHR m_swapchain = VK_NULL_HANDLE;

@@ -9,6 +9,7 @@ GraphicsQueue::GraphicsQueue(VulkanContext& context, VkCommandPool command_pool,
 
 GraphicsQueue::~GraphicsQueue()
 {
+	destroy();
 }
 
 void GraphicsQueue::cmd_image_barrier(
@@ -58,5 +59,11 @@ GraphicsQueue& GraphicsQueue::operator=(GraphicsQueue&& other)
 
 void GraphicsQueue::move_from(GraphicsQueue&& other)
 {
+	destroy();
 	Queue::move_from(std::move(other));
+}
+
+void GraphicsQueue::destroy()
+{
+	Queue::destroy();
 }

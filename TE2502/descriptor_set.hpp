@@ -61,6 +61,9 @@ private:
 	// Move other into this
 	void move_from(DescriptorSet&& other);
 
+	// Destroys object
+	void destroy();
+
 	// Fills a VkWriteDescriptorSet in m_descriptors[index] with common values
 	void fill_write_descriptor_set(size_t index);
 

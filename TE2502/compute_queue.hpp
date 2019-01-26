@@ -38,5 +38,8 @@ public:
 private:
 	// Move other into this
 	void move_from(ComputeQueue&& other);
+	
+	// Destroys object
+	void destroy();
 };
 

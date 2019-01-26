@@ -55,6 +55,9 @@ private:
 	// Move other into this
 	void move_from(DescriptorSetLayout&& other);
 
+	// Destroys object
+	void destroy();
+
 	void create_binding(VkShaderStageFlags stage_flags, VkDescriptorType type);
 
 	VulkanContext* m_context;

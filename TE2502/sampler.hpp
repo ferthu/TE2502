@@ -20,6 +20,9 @@ public:
 private:
 	// Move other into this
 	void move_from(Sampler&& other);
+	
+	// Destroys object
+	void destroy();
 
 	VulkanContext* m_context;
 

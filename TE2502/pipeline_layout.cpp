@@ -9,8 +9,7 @@ PipelineLayout::PipelineLayout(VulkanContext& vulkan_context) : m_context(&vulka
 
 PipelineLayout::~PipelineLayout()
 {
-	if (m_is_created)
-		vkDestroyPipelineLayout(m_context->get_device(), m_pipeline_layout, m_context->get_allocation_callbacks());
+	destroy();
 }
 
 PipelineLayout::PipelineLayout(PipelineLayout&& other)
@@ -66,10 +65,18 @@ VkPipelineLayout PipelineLayout::get_pipeline_layout()
 
 void PipelineLayout::move_from(PipelineLayout&& other)
 {
+	destroy();
+
 	m_context = other.m_context;
 	m_pipeline_layout = other.m_pipeline_layout;
 	other.m_pipeline_layout = VK_NULL_HANDLE;
 	m_descriptor_set_layouts = std::move(other.m_descriptor_set_layouts);
 	m_is_created = other.m_is_created;
 	other.m_is_created = false;
+}
+
+void PipelineLayout::destroy()
+{
+	if (m_is_created)
+		vkDestroyPipelineLayout(m_context->get_device(), m_pipeline_layout, m_context->get_allocation_callbacks());
 }

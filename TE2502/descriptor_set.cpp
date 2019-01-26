@@ -10,8 +10,7 @@ DescriptorSet::DescriptorSet(VulkanContext& vulkan_context, DescriptorSetLayout&
 
 DescriptorSet::~DescriptorSet()
 {
-	if (m_descriptor_set != VK_NULL_HANDLE)
-		m_context->free_descriptor_set(m_descriptor_set);
+	destroy();
 }
 
 DescriptorSet::DescriptorSet(DescriptorSet&& other)
@@ -153,6 +152,8 @@ void DescriptorSet::add_input_attachment(ImageView& image_view, VkImageLayout la
 
 void DescriptorSet::move_from(DescriptorSet&& other)
 {
+	destroy();
+
 	m_descriptor_set = other.m_descriptor_set;
 	other.m_descriptor_set = VK_NULL_HANDLE;
 
@@ -162,6 +163,12 @@ void DescriptorSet::move_from(DescriptorSet&& other)
 	m_descriptors = std::move(other.m_descriptors);
 	m_image_desc = std::move(other.m_image_desc);
 	m_buffer_desc = std::move(other.m_buffer_desc);
+}
+
+void DescriptorSet::destroy()
+{
+	if (m_descriptor_set != VK_NULL_HANDLE)
+		m_context->free_descriptor_set(m_descriptor_set);
 }
 
 void DescriptorSet::fill_write_descriptor_set(size_t index)

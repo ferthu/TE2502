@@ -18,5 +18,8 @@ public:
 private:
 	// Move other into this
 	void move_from(TransferQueue&& other);
+	
+	// Destroys object
+	void destroy();
 };
 

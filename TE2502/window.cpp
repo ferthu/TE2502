@@ -46,20 +46,7 @@ Window::Window(int width, int height, const char* title, VulkanContext& vulkan_c
 
 Window::~Window()
 {
-	if (m_swapchain_fence != VK_NULL_HANDLE)
-		vkDestroyFence(m_vulkan_context->get_device(), m_swapchain_fence, m_vulkan_context->get_allocation_callbacks());
-
-	if (m_vulkan_context)
-		vkDeviceWaitIdle(m_vulkan_context->get_device());
-
-	if (m_swapchain != VK_NULL_HANDLE)
-		vkDestroySwapchainKHR(m_vulkan_context->get_device(), m_swapchain, m_vulkan_context->get_allocation_callbacks());
-
-	if (m_surface != VK_NULL_HANDLE)
-		vkDestroySurfaceKHR(m_vulkan_context->get_instance(), m_surface, m_vulkan_context->get_allocation_callbacks());
-
-	if (m_window)
-		glfwDestroyWindow(m_window);
+	destroy();
 }
 
 Window::Window(Window&& other)
@@ -267,6 +254,8 @@ bool Window::surface_present_mode_supported(VkPresentModeKHR present_mode)
 
 void Window::move_from(Window&& other)
 {
+	destroy();
+
 	m_surface = other.m_surface;
 	other.m_surface = VK_NULL_HANDLE;
 
@@ -294,4 +283,22 @@ void Window::move_from(Window&& other)
 
 	m_width = other.m_width;
 	m_height = other.m_height;
+}
+
+void Window::destroy()
+{
+	if (m_swapchain_fence != VK_NULL_HANDLE)
+		vkDestroyFence(m_vulkan_context->get_device(), m_swapchain_fence, m_vulkan_context->get_allocation_callbacks());
+
+	if (m_vulkan_context)
+		vkDeviceWaitIdle(m_vulkan_context->get_device());
+
+	if (m_swapchain != VK_NULL_HANDLE)
+		vkDestroySwapchainKHR(m_vulkan_context->get_device(), m_swapchain, m_vulkan_context->get_allocation_callbacks());
+
+	if (m_surface != VK_NULL_HANDLE)
+		vkDestroySurfaceKHR(m_vulkan_context->get_instance(), m_surface, m_vulkan_context->get_allocation_callbacks());
+
+	if (m_window)
+		glfwDestroyWindow(m_window);
 }

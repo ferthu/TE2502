@@ -31,6 +31,9 @@ public:
 private:
 	// Moves other into this
 	void move_from(PipelineLayout&& other);
+	
+	// Destroys object
+	void destroy();
 
 	VulkanContext* m_context;
 

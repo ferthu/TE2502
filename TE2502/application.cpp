@@ -108,12 +108,14 @@ void Application::run()
 
 		glfwPollEvents();
 
-		if (!right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
+		if (!right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS 
+			&& !ImGui::GetIO().WantCaptureMouse)
 		{
 			m_window->set_mouse_locked(!m_window->get_mouse_locked());
 			right_mouse_clicked = true;
 		}
-		else if (right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE)
+		else if (right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE 
+			&& !ImGui::GetIO().WantCaptureMouse)
 			right_mouse_clicked = false;
 
 		ImGui_ImplVulkan_NewFrame();

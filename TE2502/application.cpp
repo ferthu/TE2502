@@ -106,6 +106,8 @@ void Application::run()
 		m_timer = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<float> delta_time = m_timer - stop_time;
 
+		glfwPollEvents();
+
 		if (!right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
 		{
 			m_window->set_mouse_locked(!m_window->get_mouse_locked());
@@ -114,10 +116,9 @@ void Application::run()
 		else if (right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE)
 			right_mouse_clicked = false;
 
-		glfwPollEvents();
-
 		ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
+        ImGui_ImplGlfw_NewFrame(!m_window->get_mouse_locked());
+		ImGui_ImplGlfw_SetHandleCallbacks(!m_window->get_mouse_locked());
         ImGui::NewFrame();
 
 		if (m_window->get_mouse_locked())

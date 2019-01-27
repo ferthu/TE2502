@@ -336,3 +336,5 @@ ASALocalRun/
 *.filters
 
 *.sln
+
+TE2502/imgui\.ini

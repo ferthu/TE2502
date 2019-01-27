@@ -66,6 +66,13 @@ static GLFWscrollfun        g_PrevUserCallbackScroll = NULL;
 static GLFWkeyfun           g_PrevUserCallbackKey = NULL;
 static GLFWcharfun          g_PrevUserCallbackChar = NULL;
 
+static bool					g_HandleCallbacks = true;
+
+void ImGui_ImplGlfw_SetHandleCallbacks(bool handle_callbacks)
+{
+	g_HandleCallbacks = handle_callbacks;
+}
+
 static const char* ImGui_ImplGlfw_GetClipboardText(void* user_data)
 {
     return glfwGetClipboardString((GLFWwindow*)user_data);
@@ -81,7 +88,7 @@ void ImGui_ImplGlfw_MouseButtonCallback(GLFWwindow* window, int button, int acti
     if (g_PrevUserCallbackMousebutton != NULL)
         g_PrevUserCallbackMousebutton(window, button, action, mods);
 
-    if (action == GLFW_PRESS && button >= 0 && button < IM_ARRAYSIZE(g_MouseJustPressed))
+    if (action == GLFW_PRESS && button >= 0 && button < IM_ARRAYSIZE(g_MouseJustPressed) && g_HandleCallbacks)
         g_MouseJustPressed[button] = true;
 }
 
@@ -90,9 +97,12 @@ void ImGui_ImplGlfw_ScrollCallback(GLFWwindow* window, double xoffset, double yo
     if (g_PrevUserCallbackScroll != NULL)
         g_PrevUserCallbackScroll(window, xoffset, yoffset);
 
-    ImGuiIO& io = ImGui::GetIO();
-    io.MouseWheelH += (float)xoffset;
-    io.MouseWheel += (float)yoffset;
+	if (g_HandleCallbacks)
+	{
+		ImGuiIO& io = ImGui::GetIO();
+		io.MouseWheelH += (float)xoffset;
+		io.MouseWheel += (float)yoffset;
+	}
 }
 
 void ImGui_ImplGlfw_KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -100,17 +110,20 @@ void ImGui_ImplGlfw_KeyCallback(GLFWwindow* window, int key, int scancode, int a
     if (g_PrevUserCallbackKey != NULL)
         g_PrevUserCallbackKey(window, key, scancode, action, mods);
 
-    ImGuiIO& io = ImGui::GetIO();
-    if (action == GLFW_PRESS)
-        io.KeysDown[key] = true;
-    if (action == GLFW_RELEASE)
-        io.KeysDown[key] = false;
+	if (g_HandleCallbacks)
+	{
+		ImGuiIO& io = ImGui::GetIO();
+		if (action == GLFW_PRESS)
+			io.KeysDown[key] = true;
+		if (action == GLFW_RELEASE)
+			io.KeysDown[key] = false;
 
-    // Modifiers are not reliable across systems
-    io.KeyCtrl = io.KeysDown[GLFW_KEY_LEFT_CONTROL] || io.KeysDown[GLFW_KEY_RIGHT_CONTROL];
-    io.KeyShift = io.KeysDown[GLFW_KEY_LEFT_SHIFT] || io.KeysDown[GLFW_KEY_RIGHT_SHIFT];
-    io.KeyAlt = io.KeysDown[GLFW_KEY_LEFT_ALT] || io.KeysDown[GLFW_KEY_RIGHT_ALT];
-    io.KeySuper = io.KeysDown[GLFW_KEY_LEFT_SUPER] || io.KeysDown[GLFW_KEY_RIGHT_SUPER];
+		// Modifiers are not reliable across systems
+		io.KeyCtrl = io.KeysDown[GLFW_KEY_LEFT_CONTROL] || io.KeysDown[GLFW_KEY_RIGHT_CONTROL];
+		io.KeyShift = io.KeysDown[GLFW_KEY_LEFT_SHIFT] || io.KeysDown[GLFW_KEY_RIGHT_SHIFT];
+		io.KeyAlt = io.KeysDown[GLFW_KEY_LEFT_ALT] || io.KeysDown[GLFW_KEY_RIGHT_ALT];
+		io.KeySuper = io.KeysDown[GLFW_KEY_LEFT_SUPER] || io.KeysDown[GLFW_KEY_RIGHT_SUPER];
+	}
 }
 
 void ImGui_ImplGlfw_CharCallback(GLFWwindow* window, unsigned int c)
@@ -118,9 +131,12 @@ void ImGui_ImplGlfw_CharCallback(GLFWwindow* window, unsigned int c)
     if (g_PrevUserCallbackChar != NULL)
         g_PrevUserCallbackChar(window, c);
 
-    ImGuiIO& io = ImGui::GetIO();
-    if (c > 0 && c < 0x10000)
-        io.AddInputCharacter((unsigned short)c);
+	if (g_HandleCallbacks)
+	{ 
+		ImGuiIO& io = ImGui::GetIO();
+		if (c > 0 && c < 0x10000)
+			io.AddInputCharacter((unsigned short)c);
+	}
 }
 
 static bool ImGui_ImplGlfw_Init(GLFWwindow* window, bool install_callbacks, GlfwClientApi client_api)
@@ -265,7 +281,7 @@ static void ImGui_ImplGlfw_UpdateMouseCursor()
     }
 }
 
-void ImGui_ImplGlfw_NewFrame()
+void ImGui_ImplGlfw_NewFrame(bool update_input)
 {
     ImGuiIO& io = ImGui::GetIO();
     IM_ASSERT(io.Fonts->IsBuilt() && "Font atlas not built! It is generally built by the renderer back-end. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
@@ -283,8 +299,15 @@ void ImGui_ImplGlfw_NewFrame()
     io.DeltaTime = g_Time > 0.0 ? (float)(current_time - g_Time) : (float)(1.0f/60.0f);
     g_Time = current_time;
 
-    ImGui_ImplGlfw_UpdateMousePosAndButtons();
-    ImGui_ImplGlfw_UpdateMouseCursor();
+	if (update_input)
+	{
+		ImGui_ImplGlfw_UpdateMousePosAndButtons();
+		ImGui_ImplGlfw_UpdateMouseCursor();
+	}
+	else
+	{
+		io.MousePos = ImVec2(-1.0f, -1.0f);
+	}
 
     // Gamepad navigation mapping
     memset(io.NavInputs, 0, sizeof(io.NavInputs));

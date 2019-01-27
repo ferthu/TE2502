@@ -76,5 +76,7 @@ private:
 	DescriptorSetLayout m_image_descriptor_set_layout;
 
 	std::vector<Framebuffer> m_swapchain_framebuffers;
+
+	bool m_show_imgui = true;
 };
 

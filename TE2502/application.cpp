@@ -98,6 +98,7 @@ Application::~Application()
 void Application::run()
 {
 	bool right_mouse_clicked = false;
+	bool f_pressed = false;
 	bool demo_window = true;
 
 	while (!glfwWindowShouldClose(m_window->get_glfw_window()))
@@ -108,6 +109,7 @@ void Application::run()
 
 		glfwPollEvents();
 
+		// Toggle camera controls
 		if (!right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS 
 			&& !ImGui::GetIO().WantCaptureMouse)
 		{
@@ -118,18 +120,28 @@ void Application::run()
 			&& !ImGui::GetIO().WantCaptureMouse)
 			right_mouse_clicked = false;
 
-		ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplGlfw_NewFrame(!m_window->get_mouse_locked());
-		ImGui_ImplGlfw_SetHandleCallbacks(!m_window->get_mouse_locked());
-        ImGui::NewFrame();
-
-		if (m_window->get_mouse_locked())
+		// Toggle imgui
+		if (!f_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F) == GLFW_PRESS)
 		{
-			ImGui::CaptureKeyboardFromApp(false);
-			ImGui::CaptureMouseFromApp(false);
+			f_pressed = true;
+			m_show_imgui = !m_show_imgui;
 		}
+		else if (f_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F) == GLFW_RELEASE)
+			f_pressed = false;
 
-		ImGui::ShowDemoWindow(&demo_window);
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame(!m_window->get_mouse_locked() && m_show_imgui);
+		ImGui_ImplGlfw_SetHandleCallbacks(!m_window->get_mouse_locked() && m_show_imgui);
+		ImGui::NewFrame();
+
+		//if (m_window->get_mouse_locked())
+		//{
+		//	ImGui::CaptureKeyboardFromApp(false);
+		//	ImGui::CaptureMouseFromApp(false);
+		//}
+
+		if (m_show_imgui)
+			ImGui::ShowDemoWindow(&demo_window);
 
 		update(delta_time.count());
 

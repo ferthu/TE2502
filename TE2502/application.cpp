@@ -180,7 +180,7 @@ void Application::draw()
 	// Transfer image to shader write layout
 	m_compute_queue.cmd_image_barrier(image, 
 		VK_ACCESS_MEMORY_READ_BIT,
-		VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_SHADER_WRITE_BIT,
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_ASPECT_COLOR_BIT,
@@ -194,7 +194,7 @@ void Application::draw()
 
 	m_compute_queue.cmd_image_barrier(
 		image,
-		VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_SHADER_WRITE_BIT,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,

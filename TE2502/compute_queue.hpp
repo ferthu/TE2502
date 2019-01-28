@@ -35,6 +35,9 @@ public:
 	// Run the compute pipeline with the specified global group sizes
 	void cmd_dispatch(uint32_t x, uint32_t y, uint32_t z);
 
+	// Upload push constant range to pipeline
+	void cmd_push_constants(VkPipelineLayout layout, VkShaderStageFlags stage_flags, uint32_t size, const void* data_pointer);
+
 private:
 	// Move other into this
 	void move_from(ComputeQueue&& other);

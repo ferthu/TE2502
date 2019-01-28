@@ -45,7 +45,14 @@ Application::Application()
 
 	m_pipeline_layout = PipelineLayout(m_vulkan_context);
 	m_pipeline_layout.add_descriptor_set_layout(m_image_descriptor_set_layout);
-	m_pipeline_layout.create(nullptr);
+
+	// Set up push constant range for frame data
+	VkPushConstantRange push_range;
+	push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	push_range.offset = 0;
+	push_range.size = sizeof(FrameData);
+
+	m_pipeline_layout.create(&push_range);
 
 	m_vulkan_context.create_render_pass(m_window);
 	m_compute_pipeline = m_vulkan_context.create_compute_pipeline("test", m_pipeline_layout);
@@ -110,13 +117,13 @@ void Application::run()
 		glfwPollEvents();
 
 		// Toggle camera controls
-		if (!right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS 
+		if (!right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS
 			&& !ImGui::GetIO().WantCaptureMouse)
 		{
 			m_window->set_mouse_locked(!m_window->get_mouse_locked());
 			right_mouse_clicked = true;
 		}
-		else if (right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE 
+		else if (right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE
 			&& !ImGui::GetIO().WantCaptureMouse)
 			right_mouse_clicked = false;
 
@@ -134,14 +141,9 @@ void Application::run()
 		ImGui_ImplGlfw_SetHandleCallbacks(!m_window->get_mouse_locked() && m_show_imgui);
 		ImGui::NewFrame();
 
-		//if (m_window->get_mouse_locked())
-		//{
-		//	ImGui::CaptureKeyboardFromApp(false);
-		//	ImGui::CaptureMouseFromApp(false);
-		//}
-
 		if (m_show_imgui)
-			ImGui::ShowDemoWindow(&demo_window);
+		{
+		}
 
 		update(delta_time.count());
 
@@ -156,6 +158,17 @@ void Application::run()
 void Application::update(const float dt)
 {
 	m_current_camera->update(dt);
+
+	m_frame_data.camera_vp = m_current_camera->get_vp();
+	m_frame_data.screen_width = static_cast<float>(m_window->get_size().x);
+	m_frame_data.screen_height = static_cast<float>(m_window->get_size().y);
+
+	if (m_show_imgui)
+	{
+		ImGui::Begin("Config");
+		// Nothing at all
+		ImGui::End();
+	}
 }
 
 
@@ -186,6 +199,9 @@ void Application::draw()
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+	// Push frame data
+	m_compute_queue.cmd_push_constants(m_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT, sizeof(FrameData), &m_frame_data);
 
 	// Dispatch
 	m_compute_queue.cmd_dispatch(m_window->get_size().x, m_window->get_size().y, 1);
@@ -232,7 +248,7 @@ void Application::present(VkQueue queue, const uint32_t index, VkSemaphore wait_
 	VkResult result;
 	present_info.pResults = &result;
 
-	if (vkQueuePresentKHR(queue, &present_info) != VK_SUCCESS)
+	if ((result = vkQueuePresentKHR(queue, &present_info)) != VK_SUCCESS)
 	{
 #ifdef _DEBUG
 		__debugbreak();

@@ -43,6 +43,15 @@ public:
 	void imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_complete_semaphore);
 
 private:
+	struct FrameData
+	{
+		glm::mat4 camera_vp;
+		float screen_width;
+		float screen_height;
+	};
+
+	FrameData m_frame_data;
+
 	VulkanContext m_vulkan_context;
 
 	// Holds Vulkan object required by imgui

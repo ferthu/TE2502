@@ -61,6 +61,11 @@ void ComputeQueue::cmd_dispatch(uint32_t x, uint32_t y, uint32_t z)
 	vkCmdDispatch(m_command_buffer, x, y, z);
 }
 
+void ComputeQueue::cmd_push_constants(VkPipelineLayout layout, VkShaderStageFlags stage_flags, uint32_t size, const void* data_pointer)
+{
+	vkCmdPushConstants(m_command_buffer, layout, stage_flags, 0, size, data_pointer);
+}
+
 ComputeQueue::ComputeQueue(ComputeQueue&& other)
 {
 	move_from(std::move(other));

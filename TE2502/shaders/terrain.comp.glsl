@@ -7,9 +7,12 @@
 #define HEIGHT 720
 #define WORKGROUP_SIZE 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
+//layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
+layout(set = 0, binding = 0, rgba8) uniform image2D image;
 
-float treeLine = 0.0;
+vec2 iResolution = vec2(1080, 720);
+
 float treeCol = 0.0;
 
 vec3 sunLight = normalize(vec3(0.4, 0.4, 0.48));
@@ -94,9 +97,7 @@ float Map(in vec3 p)
 {
 	float h = Terrain(p.xz);
 
-
 	float ff = Noise(p.xz*.3) + Noise(p.xz*3.3)*.5;
-	treeLine = smoothstep(ff, .0 + ff * 2.0, h) * smoothstep(1.0 + ff * 3.0, .4 + ff, h);
 	treeCol = 0.f;
 	h += treeCol;
 
@@ -315,7 +316,7 @@ bool Scene(in vec3 rO, in vec3 rD, out float resT, in vec2 fragCoord)
 		// and the distance already travelled.
 		// It's a really fiddly compromise between speed and accuracy
 		// Too large a step and the tops of ridges get missed.
-		delta = max(0.01, 0.3*h) + (t*0.0065);
+		delta = max(0.01, 0.3*h) + (t*0.0045);
 		oldT = t;
 		t += delta;
 	}
@@ -350,13 +351,11 @@ vec3 PostEffects(vec3 rgb, vec2 uv)
 
 //--------------------------------------------------------------------------
 void main(void)
-	
-	out vec4 fragColor, in vec2 fragCoord)
 {
 	if (gl_GlobalInvocationID.x >= WIDTH || gl_GlobalInvocationID.y >= HEIGHT)
 		return;
 
-	vec2 xy = -1.0 + 2.0*fragCoord.xy / iResolution.xy;
+	vec2 xy = 1.0 + -2.0*gl_GlobalInvocationID.xy / iResolution.xy;
 	vec2 uv = xy * vec2(iResolution.x / iResolution.y, 1.0);
 	vec3 camTar;
 
@@ -370,6 +369,7 @@ void main(void)
 	}
 	cameraPos.xz = CameraPath(0.0).xz;
 	camTar.xyz = CameraPath(.005).xyz;
+	float iTime = 34.f;
 	camTar.y = cameraPos.y = max((h*.25) + 3.5, 1.5 + sin(iTime*5.)*.5);
 
 	float roll = 0.15*sin(iTime*.2);
@@ -381,7 +381,7 @@ void main(void)
 
 	vec3 col;
 	float distance;
-	if (!Scene(cameraPos, rd, distance, fragCoord))
+	if (!Scene(cameraPos, rd, distance, gl_GlobalInvocationID.xy))
 	{
 		// Missed scene, now just get the sky value...
 	}
@@ -404,6 +404,7 @@ void main(void)
 
 	col = PostEffects(col, uv);
 
-	fragColor = vec4(col, 1.0);
+	vec4 fragColor = vec4(col, 1.0);
+	imageStore(image, ivec2(gl_GlobalInvocationID.xy), fragColor);
 }
 

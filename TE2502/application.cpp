@@ -55,7 +55,7 @@ Application::Application()
 	m_pipeline_layout.create(&push_range);
 
 	m_vulkan_context.create_render_pass(m_window);
-	m_compute_pipeline = m_vulkan_context.create_compute_pipeline("test", m_pipeline_layout);
+	m_compute_pipeline = m_vulkan_context.create_compute_pipeline("terrain", m_pipeline_layout);
 	m_graphics_pipeline = m_vulkan_context.create_graphics_pipeline("test", m_window->get_size(), m_pipeline_layout);
 
 	m_compute_queue = m_vulkan_context.create_compute_queue();
@@ -142,13 +142,9 @@ void Application::run()
 		ImGui::NewFrame();
 
 		if (m_show_imgui)
-		{
-		}
+			ImGui::ShowDemoWindow(&demo_window);
 
 		update(delta_time.count());
-
-		std::string title = "Frame time: " + std::to_string(delta_time.count()); 
-		glfwSetWindowTitle(m_window->get_glfw_window(), title.c_str());
 
 		draw();
 	}
@@ -204,7 +200,8 @@ void Application::draw()
 	m_compute_queue.cmd_push_constants(m_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT, sizeof(FrameData), &m_frame_data);
 
 	// Dispatch
-	m_compute_queue.cmd_dispatch(m_window->get_size().x, m_window->get_size().y, 1);
+	const uint32_t group_size = 32;
+	m_compute_queue.cmd_dispatch(m_window->get_size().x / group_size + 1, m_window->get_size().y / group_size + 1, 1);
 
 	// end of RENDER------------------
 
@@ -446,3 +443,12 @@ void Application::imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_co
 		VK_CHECK(vkQueueSubmit(m_imgui_vulkan_state.queue.get_queue(), 1, &info, m_imgui_vulkan_state.command_buffer_idle), "imgui submitting queue failed!");
 	}
 }
+
+		{
+			//ImGui::ShowDemoWindow(&demo_window);
+			ImGui::Begin("Info");
+			std::string text = "Frame info: " + std::to_string(int(1.f / delta_time.count())) + "fps  "
+				+ std::to_string(delta_time.count()) + "s  " + std::to_string(delta_time.count() / 0.016f) + "%%";
+			ImGui::Text(text.c_str());
+			ImGui::End();
+		}

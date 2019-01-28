@@ -10,7 +10,8 @@ public:
 	virtual ~Camera();
 
 	// Checks for input and updates
-	void update(const float dt);
+	// Does not rotate if mouse_locked is true
+	void update(const float dt, bool mouse_locked);
 
 	// Get current camera position
 	const glm::vec3& get_pos() const;

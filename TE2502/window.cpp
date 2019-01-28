@@ -121,6 +121,7 @@ void Window::set_mouse_locked(bool is_locked)
 
 	if (m_mouse_locked)
 	{
+		glfwSetCursorPos(m_window, m_width / 2, m_height / 2);
 		glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	}
 	else

@@ -21,6 +21,7 @@ Window::Window(int width, int height, const char* title, VulkanContext& vulkan_c
 	}
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 	m_window = glfwCreateWindow(width, height, title, NULL, NULL);
 
 	VkResult result = glfwCreateWindowSurface(vulkan_context.get_instance(), m_window, vulkan_context.get_allocation_callbacks(), &m_surface);
@@ -41,7 +42,6 @@ Window::Window(int width, int height, const char* title, VulkanContext& vulkan_c
 	VK_CHECK(vkCreateFence(m_vulkan_context->get_device(), &fence_info, m_vulkan_context->get_allocation_callbacks(), &m_swapchain_fence), "Failed to create fence!");
 
 	glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	glfwSetInputMode(m_window, GLFW_STICKY_MOUSE_BUTTONS, 1);
 }
 
 Window::~Window()

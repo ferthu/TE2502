@@ -141,9 +141,6 @@ void Application::run()
 		ImGui_ImplGlfw_SetHandleCallbacks(!m_window->get_mouse_locked() && m_show_imgui);
 		ImGui::NewFrame();
 
-		if (m_show_imgui)
-			ImGui::ShowDemoWindow(&demo_window);
-
 		update(delta_time.count());
 
 		draw();
@@ -155,14 +152,18 @@ void Application::update(const float dt)
 {
 	m_current_camera->update(dt);
 
-	m_frame_data.camera_vp = m_current_camera->get_vp();
-	m_frame_data.screen_width = static_cast<float>(m_window->get_size().x);
-	m_frame_data.screen_height = static_cast<float>(m_window->get_size().y);
+	m_frame_data.view = m_current_camera->get_view();
+	m_frame_data.screen_size = m_window->get_size();
+	m_frame_data.position = glm::vec4(m_current_camera->get_pos(), 0);
+	m_frame_data.forward = glm::vec4(m_current_camera->get_forward(), 0);
 
 	if (m_show_imgui)
 	{
 		ImGui::Begin("Config");
-		// Nothing at all
+		//ImGui::ShowDemoWindow(&demo_window);
+		std::string text = "Frame info: " + std::to_string(int(1.f / dt)) + "fps  "
+			+ std::to_string(dt) + "s  " + std::to_string(dt / 0.016f) + "%%";
+		ImGui::Text(text.c_str());
 		ImGui::End();
 	}
 }
@@ -443,12 +444,3 @@ void Application::imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_co
 		VK_CHECK(vkQueueSubmit(m_imgui_vulkan_state.queue.get_queue(), 1, &info, m_imgui_vulkan_state.command_buffer_idle), "imgui submitting queue failed!");
 	}
 }
-
-		{
-			//ImGui::ShowDemoWindow(&demo_window);
-			ImGui::Begin("Info");
-			std::string text = "Frame info: " + std::to_string(int(1.f / delta_time.count())) + "fps  "
-				+ std::to_string(delta_time.count()) + "s  " + std::to_string(delta_time.count() / 0.016f) + "%%";
-			ImGui::Text(text.c_str());
-			ImGui::End();
-		}

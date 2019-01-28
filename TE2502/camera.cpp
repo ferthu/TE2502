@@ -1,6 +1,9 @@
 #include "camera.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
+#include <glm/gtx/string_cast.hpp>
+#include <GLFW/glfw3.h>
+#include <iostream>
 
 Camera::Camera(GLFWwindow* window)
 {
@@ -20,9 +23,9 @@ void Camera::update(const float dt)
 	float up = 0.f;
 	float speed_modifier = 0.f;
 	if (glfwGetKey(m_window, GLFW_KEY_W) == GLFW_PRESS)  // Forward
-		horiz_dir.y += 1.f;
-	if (glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS)  // Backward
 		horiz_dir.y -= 1.f;
+	if (glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS)  // Backward
+		horiz_dir.y += 1.f;
 	if (glfwGetKey(m_window, GLFW_KEY_A) == GLFW_PRESS)  // Left
 		horiz_dir.x += 1.f;
 	if (glfwGetKey(m_window, GLFW_KEY_D) == GLFW_PRESS)  // Right
@@ -34,7 +37,7 @@ void Camera::update(const float dt)
 	if (glfwGetKey(m_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)  // Down
 		speed_modifier = 1.f;
 
-	horiz_dir = glm::normalize(horiz_dir);
+	//horiz_dir = glm::normalize(horiz_dir);
 	const float speed = (m_slow_speed * (1.f - speed_modifier) + m_fast_speed * speed_modifier) * dt;
 	horiz_dir *= speed;
 	up *= speed;
@@ -43,22 +46,26 @@ void Camera::update(const float dt)
 	// Handle mouse input
 	double x_pos, y_pos;
 	glfwGetCursorPos(m_window, &x_pos, &y_pos);
-	const float dx = ((float)x_pos - m_window_width) * m_mouse_sensitivity;
-	const float dy = ((float)y_pos - m_window_height) * m_mouse_sensitivity;
+	const float dx = (m_window_width / 2 - (float)x_pos) * m_mouse_sensitivity;
+	const float dy = (m_window_height / 2 - (float)y_pos) * m_mouse_sensitivity;
+	glfwSetCursorPos(m_window, m_window_width / 2, m_window_height / 2);
 	m_yaw += dx;
 	m_pitch += dy;
 
 	// Update
 
 	const glm::mat4 yaw = glm::rotate(glm::mat4(1), m_yaw, glm::vec3(0, 1, 0));
-	const glm::mat4 pitch = glm::rotate(glm::mat4(1), m_pitch, glm::vec3(1, 0, 0));
+	const glm::mat4 pitch = glm::rotate(glm::mat4(1), -m_pitch, glm::vec3(1, 0, 0));
 
-	const glm::vec3 forward_dir = glm::vec3(yaw * pitch * glm::vec4(0, 1, 0, 0));
+	const glm::vec3 forward_dir = glm::vec3(yaw * pitch * glm::vec4(0, 0, 1, 0));
 	const glm::vec3 left_dir = glm::vec3(yaw * pitch * glm::vec4(1, 0, 0, 0));
+
+	m_forward = forward_dir;
 
 	m_position += forward_dir * horiz_dir.y + left_dir * horiz_dir.x + up;
 
-	m_view = glm::lookAt(m_position, m_position + forward_dir, glm::vec3(0, 1, 0));
+	m_view = glm::inverse(glm::lookAt(m_position, m_position + forward_dir, glm::vec3(0, 1, 0)));
+
 	m_vp = m_perspective * m_view;
 }
 
@@ -80,6 +87,11 @@ const glm::mat4 & Camera::get_vp() const
 const glm::mat4 & Camera::get_perspective() const
 {
 	return m_perspective;
+}
+
+const glm::vec3 & Camera::get_forward() const
+{
+	return m_forward;
 }
 
 void Camera::set_pos(const glm::vec3 & new_pos)

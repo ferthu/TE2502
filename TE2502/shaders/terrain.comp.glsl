@@ -8,17 +8,25 @@
 #define WORKGROUP_SIZE 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
 //layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(push_constant) uniform frame_data_t
+{
+	mat4 view;
+	vec4 position;
+	vec4 forward;
+	vec2 screen_size;
+} frame_data;
 
-layout(set = 0, binding = 0, rgba8) uniform image2D image;
+layout(set = 0, binding = 0, rgba8) uniform image2D image; 
 
-vec2 iResolution = vec2(1080, 720);
+
+
+vec2 iResolution = frame_data.screen_size;
 
 float treeCol = 0.0;
 
 vec3 sunLight = normalize(vec3(0.4, 0.4, 0.48));
 vec3 sunColour = vec3(1.0, .9, .83);
 float specular = 0.0;
-vec3 cameraPos;
 float ambient;
 vec2 add = vec2(1.0, 0.0);
 #define HASHSCALE1 .1031
@@ -180,7 +188,7 @@ vec3 TerrainColour(vec3 pos, vec3 normal, float dis)
 	vec3 mat;
 	specular = .0;
 	ambient = .1;
-	vec3 dir = normalize(pos - cameraPos);
+	vec3 dir = normalize(pos - frame_data.position.xyz);
 
 	vec3 matPos = pos * 2.0;// ... I had change scale halfway though, this lazy multiply allow me to keep the graphic scales I had
 
@@ -326,16 +334,6 @@ bool Scene(in vec3 rO, in vec3 rD, out float resT, in vec2 fragCoord)
 }
 
 //--------------------------------------------------------------------------
-vec3 CameraPath(float t)
-{
-	float m = 140.0;
-	float iTime = 34.0;
-	t = (iTime*1.5 + m + 657.0)*.006 + t;
-	vec2 p = 476.0*vec2(sin(3.5*t), cos(1.5*t));
-	return vec3(35.0 - p.x, 0.6, 4108.0 + p.y);
-}
-
-//--------------------------------------------------------------------------
 // Some would say, most of the magic is done in post! :D
 vec3 PostEffects(vec3 rgb, vec2 uv)
 {
@@ -357,38 +355,19 @@ void main(void)
 
 	vec2 xy = 1.0 + -2.0*gl_GlobalInvocationID.xy / iResolution.xy;
 	vec2 uv = xy * vec2(iResolution.x / iResolution.y, 1.0);
-	vec3 camTar;
 
-	// Use several forward heights, of decreasing influence with distance from the camera.
-	float h = 0.0;
-	float f = 1.0;
-	for (int i = 0; i < 7; i++)
-	{
-		h += Terrain(CameraPath((.6 - f)*.008).xz) * f;
-		f -= .1;
-	}
-	cameraPos.xz = CameraPath(0.0).xz;
-	camTar.xyz = CameraPath(.005).xyz;
-	float iTime = 34.f;
-	camTar.y = cameraPos.y = max((h*.25) + 3.5, 1.5 + sin(iTime*5.)*.5);
-
-	float roll = 0.15*sin(iTime*.2);
-	vec3 cw = normalize(camTar - cameraPos);
-	vec3 cp = vec3(sin(roll), cos(roll), 0.0);
-	vec3 cu = normalize(cross(cw, cp));
-	vec3 cv = normalize(cross(cu, cw));
-	vec3 rd = normalize(uv.x*cu + uv.y*cv + 1.5*cw);
+	vec3 rd = (frame_data.view * normalize(vec4(uv, 1, 0))).xyz;
 
 	vec3 col;
 	float distance;
-	if (!Scene(cameraPos, rd, distance, gl_GlobalInvocationID.xy))
+	if (!Scene(frame_data.position.xyz, rd, distance, gl_GlobalInvocationID.xy))
 	{
 		// Missed scene, now just get the sky value...
 	}
 	else
 	{
 		// Get world coordinate of landscape...
-		vec3 pos = cameraPos + distance * rd;
+		vec3 pos = frame_data.position.xyz + distance * rd;
 		// Get normal from sampling the high definition height map
 		// Use the distance to sample larger gaps to help stop aliasing...
 		float p = min(.3, .0005 + .00005 * distance*distance);

@@ -74,7 +74,7 @@ void Camera::update(const float dt, bool mouse_locked)
 
 	m_forward = forward_dir;
 
-	m_position += forward_dir * horiz_dir.y + left_dir * horiz_dir.x + up;
+	m_position += forward_dir * horiz_dir.y + left_dir * horiz_dir.x + glm::vec3(0, up, 0);
 
 	m_view = glm::inverse(glm::lookAt(m_position, m_position + forward_dir, glm::vec3(0, 1, 0)));
 

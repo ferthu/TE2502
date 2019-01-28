@@ -12,7 +12,6 @@ layout(push_constant) uniform frame_data_t
 {
 	mat4 view;
 	vec4 position;
-	vec4 forward;
 	vec2 screen_size;
 } frame_data;
 
@@ -135,7 +134,6 @@ float Terrain2(in vec2 p)
 
 	treeCol = 0.f;
 	f += treeCol;
-	if (treeCol > 0.0) return f;
 
 
 	// That's the last of the low resolution, now go down further for the Normal data...
@@ -212,19 +210,12 @@ vec3 TerrainColour(vec3 pos, vec3 normal, float dis)
 	}
 
 	// Grass. Use the normal to decide when to plonk grass down...
-	if (/*matPos.y < 45.35 &&*/ normal.y > .65)
+	if (normal.y > .65)
 	{
 
 		m = vec3(Noise(matPos.xz*.023)*.5 + .15, Noise(matPos.xz*.03)*.6 + .25, 0.0);
 		m *= (normal.y - 0.65)*.6;
 		mat = mix(mat, m, clamp((normal.y - .65)*1.3 * (45.35 - matPos.y)*0.1, 0.0, 1.0));
-	}
-
-	if (treeCol > 0.0)
-	{
-		mat = vec3(.02 + Noise(matPos.xz*5.0)*.03, .05, .0);
-		normal = normalize(normal + vec3(Noise(matPos.xz*33.0)*1.0 - .5, .0, Noise(matPos.xz*33.0)*1.0 - .5));
-		specular = .0;
 	}
 
 	// Snow topped mountains...
@@ -235,49 +226,9 @@ vec3 TerrainColour(vec3 pos, vec3 normal, float dis)
 		specular += snow;
 		ambient += snow * .3;
 	}
-	// Beach effect...
-	/*if (matPos.y < 1.45)
-	{
-		if (normal.y > .4)
-		{
-			f = Noise(matPos.xz * .084)*1.5;
-			f = clamp((1.45-f-matPos.y) * 1.34, 0.0, .67);
-			float t = (normal.y-.4);
-			t = (t*t);
-			mat = mix(mat, vec3(.09+t, .07+t, .03+t), f);
-		}
-		// Cheap under water darkening...it's wet after all...
-		if (matPos.y < 0.0)
-		{
-			mat *= .2;
-		}
-	}*/
 
 	DoLighting(mat, pos, normal, dir, disSqrd);
 
-	// Do the water...
-	/*if (matPos.y < 0.0)
-	{
-		// Pull back along the ray direction to get water surface point at y = 0.0 ...
-		float time = (iTime)*.03;
-		vec3 watPos = matPos;
-		watPos += -dir * (watPos.y/dir.y);
-		// Make some dodgy waves...
-		float tx = cos(watPos.x*.052) *4.5;
-		float tz = sin(watPos.z*.072) *4.5;
-		vec2 co = Noise2(vec2(watPos.x*4.7+1.3+tz, watPos.z*4.69+time*35.0-tx));
-		co += Noise2(vec2(watPos.z*8.6+time*13.0-tx, watPos.x*8.712+tz))*.4;
-		vec3 nor = normalize(vec3(co.x, 20.0, co.y));
-		nor = normalize(reflect(dir, nor));//normalize((-2.0*(dot(dir, nor))*nor)+dir);
-		// Mix it in at depth transparancy to give beach cues..
-				tx = watPos.y-matPos.y;
-		// Add some extra water glint...
-				mat += vec3(.1)*clamp(1.-pow(tx+.5, 3.)*texture(iChannel1, watPos.xz*.1, -2.).x, 0.,1.0);
-		float sunAmount = max( dot(nor, sunLight), 0.0 );
-		mat = mat + sunColour * pow(sunAmount, 228.5)*.6;
-				vec3 temp = (watPos-cameraPos*2.)*.5;
-				disSqrd = dot(temp, temp);
-	}*/
 	return mat;
 }
 
@@ -301,20 +252,19 @@ float BinarySubdivision(in vec3 rO, in vec3 rD, vec2 t)
 //--------------------------------------------------------------------------
 bool Scene(in vec3 rO, in vec3 rD, out float resT, in vec2 fragCoord)
 {
-	float t = 1. + Hash12(fragCoord.xy)*5.;
+	float t = 0.01;// +Hash12(fragCoord.xy)*.2;
 	float oldT = 0.0;
 	float delta = 0.0;
 	bool fin = false;
 	bool res = false;
 	vec2 distances;
-	for (int j = 0; j < 150; j++)
+	for (int j = 0; j < 350; j++)
 	{
-		if (fin || t > 240.0) break;
+		if (fin || t > 1000.0) break;
 		vec3 p = rO + t * rD;
-		//if (t > 240.0 || p.y > 195.0) break;
 		float h = Map(p); // ...Get this positions height mapping.
 		// Are we inside, and close enough to fudge a hit?...
-		if (h < 0.5)
+		if (h < 0.5f)
 		{
 			fin = true;
 			distances = vec2(oldT, t);
@@ -324,7 +274,7 @@ bool Scene(in vec3 rO, in vec3 rD, out float resT, in vec2 fragCoord)
 		// and the distance already travelled.
 		// It's a really fiddly compromise between speed and accuracy
 		// Too large a step and the tops of ridges get missed.
-		delta = max(0.01, 0.3*h) + (t*0.0045);
+		delta = max(0.1, 0.2*h) + (t*0.0025);
 		oldT = t;
 		t += delta;
 	}
@@ -363,6 +313,7 @@ void main(void)
 	if (!Scene(frame_data.position.xyz, rd, distance, gl_GlobalInvocationID.xy))
 	{
 		// Missed scene, now just get the sky value...
+		col = vec3(0.1, 0.15, 0.3);
 	}
 	else
 	{

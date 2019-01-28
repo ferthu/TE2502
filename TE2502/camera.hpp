@@ -21,15 +21,13 @@ public:
 	// Get perspective matrix
 	const glm::mat4& get_perspective() const;
 
-	const glm::vec3& get_forward() const;
-
 	// Set new camera position
 	// Is preferrably called before camera.update()
 	void set_pos(const glm::vec3& new_pos);
 
 private:
 	const float m_slow_speed = 3.f;
-	const float m_fast_speed = 30.f;
+	const float m_fast_speed = 50.f;
 	const float m_fov = 90.f;
 	const float m_near = 0.1f;
 	const float m_far = 1000.f;
@@ -44,5 +42,4 @@ private:
 	glm::mat4 m_view;
 	glm::mat4 m_perspective;
 	glm::mat4 m_vp;
-	glm::vec3 m_forward;
 };

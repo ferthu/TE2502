@@ -155,13 +155,12 @@ void Application::update(const float dt)
 	m_frame_data.view = m_current_camera->get_view();
 	m_frame_data.screen_size = m_window->get_size();
 	m_frame_data.position = glm::vec4(m_current_camera->get_pos(), 0);
-	m_frame_data.forward = glm::vec4(m_current_camera->get_forward(), 0);
 
 	if (m_show_imgui)
 	{
 		ImGui::Begin("Info");
 		std::string text = "Frame info: " + std::to_string(int(1.f / dt)) + "fps  "
-			+ std::to_string(dt) + "s  " + std::to_string(dt / 0.016f) + "%%";
+			+ std::to_string(dt) + "s  " + std::to_string(int(100.f * dt / 0.016f)) + "%%";
 		ImGui::Text(text.c_str());
 		ImGui::End();
 	}

@@ -47,7 +47,6 @@ private:
 	{
 		glm::mat4 view;
 		glm::vec4 position;
-		glm::vec4 forward;
 		glm::vec2 screen_size;
 	};
 

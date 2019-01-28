@@ -37,7 +37,6 @@ void Camera::update(const float dt)
 	if (glfwGetKey(m_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)  // Down
 		speed_modifier = 1.f;
 
-	//horiz_dir = glm::normalize(horiz_dir);
 	const float speed = (m_slow_speed * (1.f - speed_modifier) + m_fast_speed * speed_modifier) * dt;
 	horiz_dir *= speed;
 	up *= speed;
@@ -59,8 +58,6 @@ void Camera::update(const float dt)
 
 	const glm::vec3 forward_dir = glm::vec3(yaw * pitch * glm::vec4(0, 0, 1, 0));
 	const glm::vec3 left_dir = glm::vec3(yaw * pitch * glm::vec4(1, 0, 0, 0));
-
-	m_forward = forward_dir;
 
 	m_position += forward_dir * horiz_dir.y + left_dir * horiz_dir.x + up;
 
@@ -87,11 +84,6 @@ const glm::mat4 & Camera::get_vp() const
 const glm::mat4 & Camera::get_perspective() const
 {
 	return m_perspective;
-}
-
-const glm::vec3 & Camera::get_forward() const
-{
-	return m_forward;
 }
 
 void Camera::set_pos(const glm::vec3 & new_pos)

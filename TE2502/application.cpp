@@ -159,8 +159,7 @@ void Application::update(const float dt)
 
 	if (m_show_imgui)
 	{
-		ImGui::Begin("Config");
-		//ImGui::ShowDemoWindow(&demo_window);
+		ImGui::Begin("Info");
 		std::string text = "Frame info: " + std::to_string(int(1.f / dt)) + "fps  "
 			+ std::to_string(dt) + "s  " + std::to_string(dt / 0.016f) + "%%";
 		ImGui::Text(text.c_str());

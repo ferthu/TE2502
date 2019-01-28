@@ -141,9 +141,6 @@ void Application::run()
 		ImGui_ImplGlfw_SetHandleCallbacks(!m_window->get_mouse_locked() && m_show_imgui);
 		ImGui::NewFrame();
 
-		if (m_show_imgui)
-			ImGui::ShowDemoWindow(&demo_window);
-
 		update(delta_time.count());
 
 		draw();
@@ -161,8 +158,10 @@ void Application::update(const float dt)
 
 	if (m_show_imgui)
 	{
-		ImGui::Begin("Config");
-		// Nothing at all
+		ImGui::Begin("Info");
+		std::string text = "Frame info: " + std::to_string(int(1.f / dt)) + "fps  "
+			+ std::to_string(dt) + "s  " + std::to_string(dt / 0.016f) + "%%";
+		ImGui::Text(text.c_str());
 		ImGui::End();
 	}
 }
@@ -443,12 +442,3 @@ void Application::imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_co
 		VK_CHECK(vkQueueSubmit(m_imgui_vulkan_state.queue.get_queue(), 1, &info, m_imgui_vulkan_state.command_buffer_idle), "imgui submitting queue failed!");
 	}
 }
-
-		{
-			//ImGui::ShowDemoWindow(&demo_window);
-			ImGui::Begin("Info");
-			std::string text = "Frame info: " + std::to_string(int(1.f / delta_time.count())) + "fps  "
-				+ std::to_string(delta_time.count()) + "s  " + std::to_string(delta_time.count() / 0.016f) + "%%";
-			ImGui::Text(text.c_str());
-			ImGui::End();
-		}

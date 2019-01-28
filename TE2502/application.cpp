@@ -150,7 +150,7 @@ void Application::run()
 
 void Application::update(const float dt)
 {
-	m_current_camera->update(dt);
+	m_current_camera->update(dt, m_window->get_mouse_locked());
 
 	m_frame_data.view = m_current_camera->get_view();
 	m_frame_data.screen_size = m_window->get_size();

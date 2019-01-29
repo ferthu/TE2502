@@ -24,11 +24,16 @@ public:
 	// Start the "game"-loop
 	void run();
 	
+private:
 	// Update
 	void update(const float dt);
 	
 	// Draw
 	void draw();
+
+	void draw_main();
+
+	void draw_ray_march();
 
 	// Present queue on screen
 	void present(VkQueue queue, const uint32_t index, VkSemaphore wait_for) const;
@@ -42,15 +47,21 @@ public:
 	// Draw imgui
 	void imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_complete_semaphore);
 
-private:
-	struct FrameData
+	struct RayMarchFrameData
 	{
 		glm::mat4 view;
 		glm::vec4 position;
 		glm::vec2 screen_size;
 	};
+	struct PointGenerationFrameData
+	{
+		glm::mat4 vp;
+		glm::vec4 position;
+		glm::vec2 screen_size;
+	};
 
-	FrameData m_frame_data;
+	RayMarchFrameData m_ray_march_frame_data;
+	PointGenerationFrameData m_point_gen_frame_data;
 
 	VulkanContext m_vulkan_context;
 
@@ -68,23 +79,37 @@ private:
 
 	ImGuiVulkanState m_imgui_vulkan_state;
 
+	Window* m_ray_march_window;
 	Window* m_window;
 	Camera* m_main_camera;
 	Camera* m_debug_camera;
 	Camera* m_current_camera;
 	std::chrono::time_point<std::chrono::steady_clock> m_timer;
+	struct VulkanWindowStates
+	{
+		std::vector<Framebuffer> swapchain_framebuffers;
+	};
+	VulkanWindowStates m_ray_march_window_states;
+	VulkanWindowStates m_window_states;
 
-	std::unique_ptr<Pipeline> m_compute_pipeline;
-	std::unique_ptr<Pipeline> m_graphics_pipeline;
+	// Ray marching
+	std::unique_ptr<Pipeline> m_ray_march_compute_pipeline;
+	PipelineLayout m_ray_march_pipeline_layout;
+	DescriptorSet m_ray_march_image_descriptor_set;
+	DescriptorSetLayout m_ray_march_set_layout;
+	ComputeQueue m_ray_march_compute_queue;
 
-	PipelineLayout m_pipeline_layout;
+	// Point generation
+	PipelineLayout m_point_gen_pipeline_layout_compute;
+	PipelineLayout m_point_gen_pipeline_layout_graphics;
+	DescriptorSet m_point_gen_buffer_set_compute;
+	DescriptorSet m_point_gen_buffer_set_graphics;
+	DescriptorSetLayout m_point_gen_buffer_set_layout_compute;
+	DescriptorSetLayout m_point_gen_buffer_set_layout_graphics;
+	std::unique_ptr<Pipeline> m_point_gen_pipeline;
+	std::unique_ptr<Pipeline> m_point_gen_graphics_pipeline;
+	GraphicsQueue m_point_gen_graphics_queue;
 
-	ComputeQueue m_compute_queue;
-
-	DescriptorSet m_image_descriptor_set;
-	DescriptorSetLayout m_image_descriptor_set_layout;
-
-	std::vector<Framebuffer> m_swapchain_framebuffers;
 
 	bool m_show_imgui = true;
 };

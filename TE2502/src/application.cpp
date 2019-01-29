@@ -32,49 +32,77 @@ Application::Application()
 	int err = glfwInit();
 	assert(err == GLFW_TRUE);
 
-	m_window = new Window(1080, 720, "TE2502", m_vulkan_context);
-	m_main_camera = new Camera(m_window->get_glfw_window());
-	m_debug_camera = new Camera(m_window->get_glfw_window());
+	m_window = new Window(1080, 720, "TE2502 - Main", m_vulkan_context);
+	m_ray_march_window = new Window(1080, 720, "TE2502 - Ray March", m_vulkan_context);
+	m_main_camera = new Camera(m_ray_march_window->get_glfw_window());
+	m_debug_camera = new Camera(m_ray_march_window->get_glfw_window());
 	m_current_camera = m_main_camera;
 
-	m_image_descriptor_set_layout = DescriptorSetLayout(m_vulkan_context);
-	m_image_descriptor_set_layout.add_storage_image(VK_SHADER_STAGE_COMPUTE_BIT);
-	m_image_descriptor_set_layout.create();
+	glfwSetWindowPos(m_window->get_glfw_window(), 1000, 100);
 
-	m_image_descriptor_set = DescriptorSet(m_vulkan_context, m_image_descriptor_set_layout);
+	// Ray marching
+	m_ray_march_set_layout = DescriptorSetLayout(m_vulkan_context);
+	m_ray_march_set_layout.add_storage_image(VK_SHADER_STAGE_COMPUTE_BIT);
+	m_ray_march_set_layout.create();
 
-	m_pipeline_layout = PipelineLayout(m_vulkan_context);
-	m_pipeline_layout.add_descriptor_set_layout(m_image_descriptor_set_layout);
+	m_ray_march_image_descriptor_set = DescriptorSet(m_vulkan_context, m_ray_march_set_layout);
 
+	m_ray_march_pipeline_layout = PipelineLayout(m_vulkan_context);
+	m_ray_march_pipeline_layout.add_descriptor_set_layout(m_ray_march_set_layout);
 	// Set up push constant range for frame data
 	VkPushConstantRange push_range;
 	push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	push_range.offset = 0;
-	push_range.size = sizeof(FrameData);
+	push_range.size = sizeof(RayMarchFrameData);
 
-	m_pipeline_layout.create(&push_range);
+	m_ray_march_pipeline_layout.create(&push_range);
 
-	m_vulkan_context.create_render_pass(m_window);
-	m_compute_pipeline = m_vulkan_context.create_compute_pipeline("terrain", m_pipeline_layout);
-	m_graphics_pipeline = m_vulkan_context.create_graphics_pipeline("test", m_window->get_size(), m_pipeline_layout);
+	m_ray_march_compute_pipeline = m_vulkan_context.create_compute_pipeline("terrain", m_ray_march_pipeline_layout);
 
-	m_compute_queue = m_vulkan_context.create_compute_queue();
+	m_ray_march_compute_queue = m_vulkan_context.create_compute_queue();
+	// !Ray marching
 
+	// Point generation
+	//m_point_buffer_set_layout_compute = DescriptorSetLayout(m_vulkan_context);
+	//m_point_buffer_set_layout_compute.add_uniform_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	//m_point_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	//m_point_buffer_set_layout_compute.create();
 
+	//m_point_buffer_set_compute = DescriptorSet(m_vulkan_context, m_point_buffer_set_layout_compute);
+
+	//m_pipeline_layout_point_gen_compute = PipelineLayout(m_vulkan_context);
+	//m_pipeline_layout_point_gen_compute.add_descriptor_set_layout(m_point_buffer_set_layout_compute);
+	//m_pipeline_layout_point_gen_compute.create(&push_range);
+
+	//m_point_gen_pipeline = m_vulkan_context.create_compute_pipeline("test", m_pipeline_layout_point_gen_compute);
+
+	//m_graphics_pipeline = m_vulkan_context.create_graphics_pipeline("test", m_window->get_size(), m_pipeline_layout);
+	// !Point generation
+
+	m_vulkan_context.create_render_pass(m_ray_march_window);
+
+	glfwSetKeyCallback(m_ray_march_window->get_glfw_window(), key_callback);
 	glfwSetKeyCallback(m_window->get_glfw_window(), key_callback);
 
 	imgui_setup();
 
-	m_swapchain_framebuffers.resize(m_window->get_swapchain_size());
+	m_ray_march_window_states.swapchain_framebuffers.resize(m_ray_march_window->get_swapchain_size());
+	for (uint32_t i = 0; i < m_ray_march_window->get_swapchain_size(); i++)
+	{
+		m_ray_march_window_states.swapchain_framebuffers[i] = Framebuffer(m_vulkan_context);
+		m_ray_march_window_states.swapchain_framebuffers[i].add_attachment(m_ray_march_window->get_swapchain_image_view(i));
+		m_ray_march_window_states.swapchain_framebuffers[i].create(m_imgui_vulkan_state.render_pass, m_ray_march_window->get_size().x, m_ray_march_window->get_size().y);
+	}
+	m_window_states.swapchain_framebuffers.resize(m_window->get_swapchain_size());
 	for (uint32_t i = 0; i < m_window->get_swapchain_size(); i++)
 	{
-		m_swapchain_framebuffers[i] = Framebuffer(m_vulkan_context);
-		m_swapchain_framebuffers[i].add_attachment(m_window->get_swapchain_image_view(i));
-		m_swapchain_framebuffers[i].create(m_imgui_vulkan_state.render_pass, m_window->get_size().x, m_window->get_size().y);
+		m_window_states.swapchain_framebuffers[i] = Framebuffer(m_vulkan_context);
+		m_window_states.swapchain_framebuffers[i].add_attachment(m_window->get_swapchain_image_view(i));
+		m_window_states.swapchain_framebuffers[i].create(m_imgui_vulkan_state.render_pass, m_window->get_size().x, m_window->get_size().y);
 	}
 
-	m_imgui_vulkan_state.done_drawing_semaphores.resize(m_window->get_swapchain_size());
-	for (uint32_t i = 0; i < m_window->get_swapchain_size(); i++)
+	m_imgui_vulkan_state.done_drawing_semaphores.resize(m_ray_march_window->get_swapchain_size());
+	for (uint32_t i = 0; i < m_ray_march_window->get_swapchain_size(); i++)
 	{
 		VkSemaphoreCreateInfo create_info;
 		create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -89,7 +117,7 @@ Application::~Application()
 {
 	imgui_shutdown();
 
-	for (uint32_t i = 0; i < m_window->get_swapchain_size(); i++)
+	for (uint32_t i = 0; i < m_ray_march_window->get_swapchain_size(); i++)
 	{
 		vkDestroySemaphore(m_vulkan_context.get_device(), m_imgui_vulkan_state.done_drawing_semaphores[i], 
 			m_vulkan_context.get_allocation_callbacks());
@@ -97,6 +125,7 @@ Application::~Application()
 
 	delete m_debug_camera;
 	delete m_main_camera;
+	delete m_ray_march_window;
 	delete m_window;
 
 	glfwTerminate();
@@ -108,7 +137,7 @@ void Application::run()
 	bool f_pressed = false;
 	bool demo_window = true;
 
-	while (!glfwWindowShouldClose(m_window->get_glfw_window()))
+	while (!glfwWindowShouldClose(m_ray_march_window->get_glfw_window()))
 	{
 		auto stop_time = m_timer;
 		m_timer = std::chrono::high_resolution_clock::now();
@@ -117,28 +146,28 @@ void Application::run()
 		glfwPollEvents();
 
 		// Toggle camera controls
-		if (!right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS
+		if (!right_mouse_clicked && glfwGetMouseButton(m_ray_march_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS
 			&& !ImGui::GetIO().WantCaptureMouse)
 		{
-			m_window->set_mouse_locked(!m_window->get_mouse_locked());
+			m_ray_march_window->set_mouse_locked(!m_ray_march_window->get_mouse_locked());
 			right_mouse_clicked = true;
 		}
-		else if (right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE
+		else if (right_mouse_clicked && glfwGetMouseButton(m_ray_march_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE
 			&& !ImGui::GetIO().WantCaptureMouse)
 			right_mouse_clicked = false;
 
 		// Toggle imgui
-		if (!f_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F) == GLFW_PRESS)
+		if (!f_pressed && glfwGetKey(m_ray_march_window->get_glfw_window(), GLFW_KEY_F) == GLFW_PRESS)
 		{
 			f_pressed = true;
 			m_show_imgui = !m_show_imgui;
 		}
-		else if (f_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F) == GLFW_RELEASE)
+		else if (f_pressed && glfwGetKey(m_ray_march_window->get_glfw_window(), GLFW_KEY_F) == GLFW_RELEASE)
 			f_pressed = false;
 
 		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame(!m_window->get_mouse_locked() && m_show_imgui);
-		ImGui_ImplGlfw_SetHandleCallbacks(!m_window->get_mouse_locked() && m_show_imgui);
+		ImGui_ImplGlfw_NewFrame(!m_ray_march_window->get_mouse_locked() && m_show_imgui);
+		ImGui_ImplGlfw_SetHandleCallbacks(!m_ray_march_window->get_mouse_locked() && m_show_imgui);
 		ImGui::NewFrame();
 
 		update(delta_time.count());
@@ -150,11 +179,11 @@ void Application::run()
 
 void Application::update(const float dt)
 {
-	m_current_camera->update(dt, m_window->get_mouse_locked());
+	m_current_camera->update(dt, m_ray_march_window->get_mouse_locked());
 
-	m_frame_data.view = m_current_camera->get_view();
-	m_frame_data.screen_size = m_window->get_size();
-	m_frame_data.position = glm::vec4(m_current_camera->get_pos(), 0);
+	m_ray_march_frame_data.view = m_current_camera->get_view();
+	m_ray_march_frame_data.screen_size = m_ray_march_window->get_size();
+	m_ray_march_frame_data.position = glm::vec4(m_current_camera->get_pos(), 0);
 
 	if (m_show_imgui)
 	{
@@ -171,58 +200,68 @@ void Application::update(const float dt)
 
 void Application::draw()
 {
-	const uint32_t index = m_window->get_next_image();
-	VkImage image = m_window->get_swapchain_image(index);
+	draw_main();
+	draw_ray_march();
+}
 
-	m_image_descriptor_set.clear();
-	m_image_descriptor_set.add_storage_image(m_window->get_swapchain_image_view(index), VK_IMAGE_LAYOUT_GENERAL);
-	m_image_descriptor_set.bind();
+void Application::draw_main()
+{
+}
 
-	m_compute_queue.start_recording();
+void Application::draw_ray_march()
+{
+	const uint32_t index = m_ray_march_window->get_next_image();
+	VkImage image = m_ray_march_window->get_swapchain_image(index);
+
+	m_ray_march_image_descriptor_set.clear();
+	m_ray_march_image_descriptor_set.add_storage_image(m_ray_march_window->get_swapchain_image_view(index), VK_IMAGE_LAYOUT_GENERAL);
+	m_ray_march_image_descriptor_set.bind();
+
+	m_ray_march_compute_queue.start_recording();
 
 	// RENDER-------------------
 	// Bind pipeline
-	m_compute_queue.cmd_bind_compute_pipeline(m_compute_pipeline->m_pipeline);
+	m_ray_march_compute_queue.cmd_bind_compute_pipeline(m_ray_march_compute_pipeline->m_pipeline);
 
 	// Bind descriptor set
-	m_compute_queue.cmd_bind_descriptor_set_compute(m_compute_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_image_descriptor_set.get_descriptor_set());
+	m_ray_march_compute_queue.cmd_bind_descriptor_set_compute(m_ray_march_compute_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_ray_march_image_descriptor_set.get_descriptor_set());
 
 	// Transfer image to shader write layout
-	m_compute_queue.cmd_image_barrier(image, 
+	m_ray_march_compute_queue.cmd_image_barrier(image,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_ACCESS_SHADER_WRITE_BIT,
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 
+		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
 	// Push frame data
-	m_compute_queue.cmd_push_constants(m_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT, sizeof(FrameData), &m_frame_data);
+	m_ray_march_compute_queue.cmd_push_constants(m_ray_march_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT, sizeof(RayMarchFrameData), &m_ray_march_frame_data);
 
 	// Dispatch
 	const uint32_t group_size = 32;
-	m_compute_queue.cmd_dispatch(m_window->get_size().x / group_size + 1, m_window->get_size().y / group_size + 1, 1);
+	m_ray_march_compute_queue.cmd_dispatch(m_ray_march_window->get_size().x / group_size + 1, m_ray_march_window->get_size().y / group_size + 1, 1);
 
 	// end of RENDER------------------
 
-	m_compute_queue.cmd_image_barrier(
+	m_ray_march_compute_queue.cmd_image_barrier(
 		image,
 		VK_ACCESS_SHADER_WRITE_BIT,
 		VK_ACCESS_MEMORY_READ_BIT,
 		VK_IMAGE_LAYOUT_GENERAL,
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_IMAGE_ASPECT_COLOR_BIT, 
+		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
-	m_compute_queue.end_recording();
-	m_compute_queue.submit();
-	m_compute_queue.wait();
+	m_ray_march_compute_queue.end_recording();
+	m_ray_march_compute_queue.submit();
+	m_ray_march_compute_queue.wait();
 
-	imgui_draw(m_swapchain_framebuffers[index], m_imgui_vulkan_state.done_drawing_semaphores[index]);
+	imgui_draw(m_ray_march_window_states.swapchain_framebuffers[index], m_imgui_vulkan_state.done_drawing_semaphores[index]);
 
-	present(m_compute_queue.get_queue(), index, m_imgui_vulkan_state.done_drawing_semaphores[index]);
+	present(m_ray_march_compute_queue.get_queue(), index, m_imgui_vulkan_state.done_drawing_semaphores[index]);
 }
 
 void Application::present(VkQueue queue, const uint32_t index, VkSemaphore wait_for) const
@@ -241,7 +280,7 @@ void Application::present(VkQueue queue, const uint32_t index, VkSemaphore wait_
 		present_info.pWaitSemaphores = &wait_for;
 	}
 	present_info.swapchainCount = 1;
-	present_info.pSwapchains = m_window->get_swapchain();
+	present_info.pSwapchains = m_ray_march_window->get_swapchain();
 	present_info.pImageIndices = &index;
 	VkResult result;
 	present_info.pResults = &result;
@@ -264,14 +303,14 @@ void Application::imgui_setup()
     ImGuiIO& io = ImGui::GetIO();
     ImGui::StyleColorsDark();
 
-    ImGui_ImplGlfw_InitForVulkan(m_window->get_glfw_window(), true);
+    ImGui_ImplGlfw_InitForVulkan(m_ray_march_window->get_glfw_window(), true);
 
 	m_imgui_vulkan_state.queue = m_vulkan_context.create_graphics_queue();
 
 	// Create the Render Pass
     {
         VkAttachmentDescription attachment = {};
-        attachment.format = m_window->get_format();
+        attachment.format = m_ray_march_window->get_format();
         attachment.samples = VK_SAMPLE_COUNT_1_BIT;
         attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
         attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -409,8 +448,8 @@ void Application::imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_co
 		info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		info.renderPass = m_imgui_vulkan_state.render_pass;
 		info.framebuffer = framebuffer.get_framebuffer();
-		info.renderArea.extent.width = m_window->get_size().x;
-		info.renderArea.extent.height = m_window->get_size().y;
+		info.renderArea.extent.width = m_ray_march_window->get_size().x;
+		info.renderArea.extent.height = m_ray_march_window->get_size().y;
 		info.clearValueCount = 1;
 		VkClearValue clear_value;
 		clear_value.color.float32[0] = 0.0f;

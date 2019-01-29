@@ -28,12 +28,9 @@ public:
 
 	// Adds a buffer barrier command to the command buffer
 	void cmd_buffer_barrier(
-		VkImage image,
+		VkBuffer buffer,
 		VkAccessFlags src_access_mask,
 		VkAccessFlags dst_access_mask,
-		VkImageLayout old_layout,
-		VkImageLayout new_layout,
-		VkImageAspectFlags aspect_mask,
 		VkPipelineStageFlags src_stage_mask,
 		VkPipelineStageFlags dst_stage_mask);
 

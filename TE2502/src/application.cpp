@@ -312,6 +312,11 @@ void Application::draw_main()
 		m_debug_drawer.get_gpu_buffer().get_buffer(),
 		m_debug_drawer.get_active_buffer_size());
 
+	m_debug_queue.cmd_buffer_barrier(m_debug_drawer.get_gpu_buffer().get_buffer(),
+		VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
 
 	m_debug_queue.end_recording();
 	m_debug_queue.submit();

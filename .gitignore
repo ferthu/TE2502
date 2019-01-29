@@ -338,3 +338,5 @@ ASALocalRun/
 *.sln
 
 TE2502/imgui\.ini
+
+*.ini

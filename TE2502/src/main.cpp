@@ -1,7 +1,7 @@
 #include <crtdbg.h>
 #include <time.h>
 #include <random>
-#include "vulkan_context.hpp"
+#include "graphics/vulkan_context.hpp"
 
 #include "application.hpp"
 #include "utilities.hpp"

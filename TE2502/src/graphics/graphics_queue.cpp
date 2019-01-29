@@ -49,6 +49,16 @@ void GraphicsQueue::cmd_bind_graphics_pipeline(VkPipeline pipeline)
 	vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 }
 
+void GraphicsQueue::cmd_copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size, VkDeviceSize src_offset, VkDeviceSize dst_offset)
+{
+	VkBufferCopy buffer_copy;
+	buffer_copy.size = size;
+	buffer_copy.srcOffset = src_offset;
+	buffer_copy.dstOffset = dst_offset;
+
+	vkCmdCopyBuffer(m_command_buffer, src, dst, 1, &buffer_copy);
+}
+
 GraphicsQueue::GraphicsQueue(GraphicsQueue&& other)
 {
 	move_from(std::move(other));

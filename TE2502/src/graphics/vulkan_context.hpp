@@ -22,6 +22,8 @@ class Window;
 class Pipeline;
 class PipelineLayout;
 class DescriptorSetLayout;
+class VertexAttributes;
+class DebugDrawer;
 
 // Class for handling Vulkan instance
 class VulkanContext

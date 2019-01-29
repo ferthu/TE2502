@@ -1,6 +1,8 @@
 #include <utility>
 
 #include "graphics_queue.hpp"
+#include "framebuffer.hpp"
+#include "render_pass.hpp"
 
 GraphicsQueue::GraphicsQueue(VulkanContext& context, VkCommandPool command_pool, VkQueue queue) : ComputeQueue(context, command_pool, queue)
 {
@@ -39,6 +41,7 @@ void GraphicsQueue::cmd_image_barrier(
 	barrier.newLayout = new_layout;
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = image;
 	barrier.subresourceRange = image_subresource_range;
 
 	vkCmdPipelineBarrier(m_command_buffer, src_stage_mask, dst_stage_mask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
@@ -63,6 +66,42 @@ void GraphicsQueue::cmd_buffer_barrier(VkBuffer buffer, VkAccessFlags src_access
 void GraphicsQueue::cmd_bind_graphics_pipeline(VkPipeline pipeline)
 {
 	vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+}
+
+void GraphicsQueue::cmd_bind_vertex_buffer(VkBuffer buffer, VkDeviceSize offset)
+{
+	vkCmdBindVertexBuffers(m_command_buffer, 0, 1, &buffer, &offset);
+}
+
+void GraphicsQueue::cmd_draw_indirect(VkBuffer buffer)
+{
+	vkCmdDrawIndirect(m_command_buffer, buffer, 0, 1, 0);
+}
+
+void GraphicsQueue::cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& framebuffer)
+{
+	VkRenderPassBeginInfo begin_info;
+	begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	begin_info.pNext = nullptr;
+	begin_info.renderPass = render_pass.get_render_pass();
+	begin_info.framebuffer = framebuffer.get_framebuffer();
+	begin_info.renderArea.offset = { 0, 0 };
+	begin_info.renderArea.extent = { framebuffer.get_width(), framebuffer.get_height() };
+	begin_info.clearValueCount = 1;
+	VkClearValue clear_value;
+	clear_value.color.float32[0] = 0.0f;
+	clear_value.color.float32[1] = 0.0f;
+	clear_value.color.float32[2] = 0.0f;
+	clear_value.color.float32[3] = 0.0f;
+	clear_value.depthStencil.depth = 0.0f;
+	clear_value.depthStencil.stencil = 0;
+	begin_info.pClearValues = &clear_value;
+	vkCmdBeginRenderPass(m_command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void GraphicsQueue::cmd_end_render_pass()
+{
+	vkCmdEndRenderPass(m_command_buffer);
 }
 
 void GraphicsQueue::cmd_copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size, VkDeviceSize src_offset, VkDeviceSize dst_offset)

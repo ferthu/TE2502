@@ -113,6 +113,10 @@ private:
 	std::unique_ptr<Pipeline> m_point_gen_compute_pipeline;
 	std::unique_ptr<Pipeline> m_point_gen_graphics_pipeline;
 	GraphicsQueue m_point_gen_queue;
+	GPUMemory m_point_gen_memory;
+	GPUBuffer m_point_gen_input_buffer;
+	GPUBuffer m_point_gen_output_buffer;
+	RenderPass m_point_gen_render_pass;
 
 	// Debug drawing
 	PipelineLayout m_debug_pipeline_layout;

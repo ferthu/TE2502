@@ -1,11 +1,11 @@
 #pragma once
 
-#include "queue.hpp"
+#include "compute_queue.hpp"
 
 class VulkanContext;
 
 // Represents a hardware queue used for graphics commands
-class GraphicsQueue : public Queue
+class GraphicsQueue : public ComputeQueue
 {
 public:
 	GraphicsQueue() {};
@@ -25,6 +25,8 @@ public:
 		VkImageAspectFlags aspect_mask,
 		VkPipelineStageFlags src_stage_mask,
 		VkPipelineStageFlags dst_stage_mask);
+
+	void cmd_bind_graphics_pipeline(VkPipeline pipeline);
 
 private:
 	// Move other into this

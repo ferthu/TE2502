@@ -36,7 +36,7 @@ private:
 	void draw_ray_march();
 
 	// Present queue on screen
-	void present(VkQueue queue, const uint32_t index, VkSemaphore wait_for) const;
+	void present(Window* window, VkQueue queue, const uint32_t index, VkSemaphore wait_for) const;
 
 	// Set up imgui
 	void imgui_setup();
@@ -57,7 +57,6 @@ private:
 	{
 		glm::mat4 vp;
 		glm::vec4 position;
-		glm::vec2 screen_size;
 	};
 
 	RayMarchFrameData m_ray_march_frame_data;
@@ -93,22 +92,22 @@ private:
 	VulkanWindowStates m_window_states;
 
 	// Ray marching
-	std::unique_ptr<Pipeline> m_ray_march_compute_pipeline;
-	PipelineLayout m_ray_march_pipeline_layout;
-	DescriptorSet m_ray_march_image_descriptor_set;
 	DescriptorSetLayout m_ray_march_set_layout;
+	DescriptorSet m_ray_march_image_descriptor_set;
+	PipelineLayout m_ray_march_pipeline_layout;
+	std::unique_ptr<Pipeline> m_ray_march_compute_pipeline;
 	ComputeQueue m_ray_march_compute_queue;
 
 	// Point generation
-	PipelineLayout m_point_gen_pipeline_layout_compute;
-	PipelineLayout m_point_gen_pipeline_layout_graphics;
-	DescriptorSet m_point_gen_buffer_set_compute;
-	DescriptorSet m_point_gen_buffer_set_graphics;
 	DescriptorSetLayout m_point_gen_buffer_set_layout_compute;
 	DescriptorSetLayout m_point_gen_buffer_set_layout_graphics;
-	std::unique_ptr<Pipeline> m_point_gen_pipeline;
+	DescriptorSet m_point_gen_buffer_set_compute;
+	DescriptorSet m_point_gen_buffer_set_graphics;
+	PipelineLayout m_point_gen_pipeline_layout_compute;
+	PipelineLayout m_point_gen_pipeline_layout_graphics;
+	std::unique_ptr<Pipeline> m_point_gen_compute_pipeline;
 	std::unique_ptr<Pipeline> m_point_gen_graphics_pipeline;
-	GraphicsQueue m_point_gen_graphics_queue;
+	GraphicsQueue m_point_gen_queue;
 
 
 	bool m_show_imgui = true;

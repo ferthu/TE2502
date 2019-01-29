@@ -32,10 +32,10 @@ Application::Application()
 	int err = glfwInit();
 	assert(err == GLFW_TRUE);
 
-	m_window = new Window(1080, 720, "TE2502 - Main", m_vulkan_context);
 	m_ray_march_window = new Window(1080, 720, "TE2502 - Ray March", m_vulkan_context);
-	m_main_camera = new Camera(m_ray_march_window->get_glfw_window());
-	m_debug_camera = new Camera(m_ray_march_window->get_glfw_window());
+	m_window = new Window(1080, 720, "TE2502 - Main", m_vulkan_context);
+	m_main_camera = new Camera(m_window->get_glfw_window());
+	m_debug_camera = new Camera(m_window->get_glfw_window());
 	m_current_camera = m_main_camera;
 
 	glfwSetWindowPos(m_window->get_glfw_window(), 1000, 100);
@@ -110,9 +110,12 @@ Application::Application()
 	vertex_attributes.add_buffer();
 	vertex_attributes.add_attribute(3);
 
-	m_point_gen_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	m_point_gen_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
 
-	m_point_gen_graphics_pipeline = m_vulkan_context.create_graphics_pipeline("point_generation", m_window->get_size(), m_point_gen_pipeline_layout_graphics, vertex_attributes, m_point_gen_render_pass);
+	m_point_gen_graphics_pipeline = m_vulkan_context.create_graphics_pipeline("point_generation", m_window->get_size(), 
+		m_point_gen_pipeline_layout_graphics, 
+		vertex_attributes, 
+		m_point_gen_render_pass);
 
 	m_point_gen_memory = m_vulkan_context.allocate_device_memory(730000);
 
@@ -142,8 +145,8 @@ Application::Application()
 		m_window_states.swapchain_framebuffers[i].create(m_imgui_vulkan_state.render_pass, m_window->get_size().x, m_window->get_size().y);
 	}
 
-	m_imgui_vulkan_state.done_drawing_semaphores.resize(m_ray_march_window->get_swapchain_size());
-	for (uint32_t i = 0; i < m_ray_march_window->get_swapchain_size(); i++)
+	m_imgui_vulkan_state.done_drawing_semaphores.resize(m_window->get_swapchain_size());
+	for (uint32_t i = 0; i < m_window->get_swapchain_size(); i++)
 	{
 		VkSemaphoreCreateInfo create_info;
 		create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -171,7 +174,9 @@ Application::Application()
 	debug_attributes.add_attribute(3);
 	debug_attributes.add_attribute(3);
 
-	m_debug_pipeline = m_vulkan_context.create_graphics_pipeline("debug", m_window->get_size(), m_debug_pipeline_layout, debug_attributes, VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+	m_debug_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+	m_debug_pipeline = m_vulkan_context.create_graphics_pipeline("debug", m_window->get_size(), m_debug_pipeline_layout, debug_attributes, m_debug_render_pass, VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
 
 	m_debug_queue = m_vulkan_context.create_graphics_queue();
 	m_debug_drawer = DebugDrawer(m_vulkan_context, 1000);
@@ -181,7 +186,7 @@ Application::~Application()
 {
 	imgui_shutdown();
 
-	for (uint32_t i = 0; i < m_ray_march_window->get_swapchain_size(); i++)
+	for (uint32_t i = 0; i < m_window->get_swapchain_size(); i++)
 	{
 		vkDestroySemaphore(m_vulkan_context.get_device(), m_imgui_vulkan_state.done_drawing_semaphores[i], 
 			m_vulkan_context.get_allocation_callbacks());
@@ -201,7 +206,7 @@ void Application::run()
 	bool f_pressed = false;
 	bool demo_window = true;
 
-	while (!glfwWindowShouldClose(m_ray_march_window->get_glfw_window()))
+	while (!glfwWindowShouldClose(m_window->get_glfw_window()))
 	{
 		auto stop_time = m_timer;
 		m_timer = std::chrono::high_resolution_clock::now();
@@ -210,29 +215,32 @@ void Application::run()
 		glfwPollEvents();
 
 		// Toggle camera controls
-		if (!right_mouse_clicked && glfwGetMouseButton(m_ray_march_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS
+		if (!right_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS
 			&& !ImGui::GetIO().WantCaptureMouse)
 		{
-			m_ray_march_window->set_mouse_locked(!m_ray_march_window->get_mouse_locked());
+			m_window->set_mouse_locked(!m_window->get_mouse_locked());
 			right_mouse_clicked = true;
 		}
-		else if (right_mouse_clicked && glfwGetMouseButton(m_ray_march_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE
+		else if (m_window && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE
 			&& !ImGui::GetIO().WantCaptureMouse)
 			right_mouse_clicked = false;
 
 		// Toggle imgui
-		if (!f_pressed && glfwGetKey(m_ray_march_window->get_glfw_window(), GLFW_KEY_F) == GLFW_PRESS)
+		if (!f_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F) == GLFW_PRESS)
 		{
 			f_pressed = true;
 			m_show_imgui = !m_show_imgui;
 		}
-		else if (f_pressed && glfwGetKey(m_ray_march_window->get_glfw_window(), GLFW_KEY_F) == GLFW_RELEASE)
+		else if (f_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F) == GLFW_RELEASE)
 			f_pressed = false;
 
 		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame(!m_ray_march_window->get_mouse_locked() && m_show_imgui);
-		ImGui_ImplGlfw_SetHandleCallbacks(!m_ray_march_window->get_mouse_locked() && m_show_imgui);
+		ImGui_ImplGlfw_NewFrame(!m_window->get_mouse_locked() && m_show_imgui);
+		ImGui_ImplGlfw_SetHandleCallbacks(!m_window->get_mouse_locked() && m_show_imgui);
 		ImGui::NewFrame();
+
+		// Reset debug drawer
+		m_debug_drawer.new_frame();
 
 		update(delta_time.count());
 
@@ -243,7 +251,7 @@ void Application::run()
 
 void Application::update(const float dt)
 {
-	m_current_camera->update(dt, m_window->get_mouse_locked());
+	m_current_camera->update(dt, m_window->get_mouse_locked(), m_debug_drawer);
 
 	m_point_gen_frame_data.vp = m_current_camera->get_vp();
 	m_point_gen_frame_data.position = glm::vec4(m_current_camera->get_pos(), 0);
@@ -251,6 +259,8 @@ void Application::update(const float dt)
 	m_ray_march_frame_data.view = m_current_camera->get_view();
 	m_ray_march_frame_data.screen_size = m_ray_march_window->get_size();
 	m_ray_march_frame_data.position = glm::vec4(m_current_camera->get_pos(), 0);
+
+	m_debug_draw_frame_data.vp = m_current_camera->get_vp();
 
 	if (m_show_imgui)
 	{
@@ -260,6 +270,11 @@ void Application::update(const float dt)
 		ImGui::Text(text.c_str());
 		text = "Position: " + std::to_string(m_current_camera->get_pos().x) + ", " + std::to_string(m_current_camera->get_pos().y) + ", " + std::to_string(m_current_camera->get_pos().z);
 		ImGui::Text(text.c_str());
+		ImGui::Text("VP:");
+		ImGui::Text("%f, %f, %f, %f", m_debug_draw_frame_data.vp[0][0], m_debug_draw_frame_data.vp[1][0], m_debug_draw_frame_data.vp[2][0], m_debug_draw_frame_data.vp[3][0]);
+		ImGui::Text("%f, %f, %f, %f", m_debug_draw_frame_data.vp[0][1], m_debug_draw_frame_data.vp[1][1], m_debug_draw_frame_data.vp[2][1], m_debug_draw_frame_data.vp[3][1]);
+		ImGui::Text("%f, %f, %f, %f", m_debug_draw_frame_data.vp[0][2], m_debug_draw_frame_data.vp[1][2], m_debug_draw_frame_data.vp[2][2], m_debug_draw_frame_data.vp[3][2]);
+		ImGui::Text("%f, %f, %f, %f", m_debug_draw_frame_data.vp[0][3], m_debug_draw_frame_data.vp[1][3], m_debug_draw_frame_data.vp[2][3], m_debug_draw_frame_data.vp[3][3]);
 		ImGui::End();
 	}
 }
@@ -313,18 +328,10 @@ void Application::draw_main()
 		m_point_gen_queue.cmd_bind_graphics_pipeline(m_point_gen_graphics_pipeline->m_pipeline);
 		m_point_gen_queue.cmd_bind_vertex_buffer(m_point_gen_output_buffer.get_buffer(), 16);
 		m_point_gen_queue.cmd_begin_render_pass(m_point_gen_render_pass, m_window_states.swapchain_framebuffers[index]);
-		m_point_gen_queue.cmd_draw_indirect(m_point_gen_output_buffer.get_buffer());
+		//m_point_gen_queue.cmd_draw_indirect(m_point_gen_output_buffer.get_buffer());
 		m_point_gen_queue.cmd_end_render_pass();
 
-		m_point_gen_queue.cmd_image_barrier(
-			image,
-			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_ACCESS_MEMORY_READ_BIT,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+
 
 
 		m_point_gen_queue.end_recording();
@@ -334,40 +341,47 @@ void Application::draw_main()
 		// end of RENDER------------------
 	}
 
+	// Do debug drawing
+	{
+		m_debug_drawer.draw_line({ 0,0,0 }, { 100, 0, 0 }, { 1, 0, 0 });
+		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 100, 0 }, { 0, 1, 0 });
+		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 0, 100 }, { 0, 0, 1 });
 
-	// Transfer swapchin image to color attachment
-	//m_debug_queue.cmd_image_barrier(image,
-	//	VK_ACCESS_MEMORY_READ_BIT,
-	//	VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-	//	VK_IMAGE_LAYOUT_UNDEFINED,
-	//	VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-	//	VK_IMAGE_ASPECT_COLOR_BIT,
-	//	VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-	//	VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		m_debug_drawer.draw_line({ 110,0,0 }, { 90, 0, 0 }, { 1, 0, 0 });
+		m_debug_drawer.draw_line({ 0,110,0 }, { 0, 90, 0 }, { 0, 1, 0 });
+		m_debug_drawer.draw_line({ 0,0,110 }, { 0, 0, 90 }, { 1, 0, 1 });
 
-	//// Do debug drawing
-	//m_debug_queue.start_recording();
-	// wip
+		m_debug_queue.start_recording();
 
+		// Copy lines specified on CPU to GPU buffer
+		m_debug_queue.cmd_copy_buffer(m_debug_drawer.get_cpu_buffer().get_buffer(),
+			m_debug_drawer.get_gpu_buffer().get_buffer(),
+			m_debug_drawer.get_active_buffer_size());
 	
+		// Memory barrier for GPU buffer
+		m_debug_queue.cmd_buffer_barrier(m_debug_drawer.get_gpu_buffer().get_buffer(),
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
 
-	m_debug_queue.cmd_buffer_barrier(m_debug_drawer.get_gpu_buffer().get_buffer(),
-		VK_ACCESS_TRANSFER_WRITE_BIT,
-		VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
+		m_debug_queue.cmd_begin_render_pass(m_debug_render_pass, m_window_states.swapchain_framebuffers[index]);
 
-	m_debug_queue.end_recording();
-	m_debug_queue.submit();
-	m_debug_queue.wait();
+		m_debug_queue.cmd_bind_graphics_pipeline(m_debug_pipeline->m_pipeline);
+		m_debug_queue.cmd_bind_vertex_buffer(m_debug_drawer.get_gpu_buffer().get_buffer(), 0);
+		m_debug_queue.cmd_push_constants(m_debug_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT, sizeof(DebugDrawingFrameData), &m_debug_draw_frame_data);
+		m_debug_queue.cmd_draw(m_debug_drawer.get_num_lines() * 2);
+
+		m_debug_queue.cmd_end_render_pass();
+
+		m_debug_queue.end_recording();
+		m_debug_queue.submit();
+		m_debug_queue.wait();
+	}
 
 	imgui_draw(m_window_states.swapchain_framebuffers[index], m_imgui_vulkan_state.done_drawing_semaphores[index]);
 
 	present(m_window, m_point_gen_queue.get_queue(), index, m_imgui_vulkan_state.done_drawing_semaphores[index]);
-
-	//m_debug_queue.end_recording();
-	//m_debug_queue.submit();
-	//m_debug_queue.wait();
 }
 
 void Application::draw_ray_march()
@@ -463,14 +477,14 @@ void Application::imgui_setup()
     ImGuiIO& io = ImGui::GetIO();
     ImGui::StyleColorsDark();
 
-    ImGui_ImplGlfw_InitForVulkan(m_ray_march_window->get_glfw_window(), true);
+    ImGui_ImplGlfw_InitForVulkan(m_window->get_glfw_window(), true);
 
 	m_imgui_vulkan_state.queue = m_vulkan_context.create_graphics_queue();
 
 	// Create the Render Pass
     {
         VkAttachmentDescription attachment = {};
-        attachment.format = m_ray_march_window->get_format();
+        attachment.format = m_window->get_format();
         attachment.samples = VK_SAMPLE_COUNT_1_BIT;
         attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
         attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -608,8 +622,8 @@ void Application::imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_co
 		info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		info.renderPass = m_imgui_vulkan_state.render_pass;
 		info.framebuffer = framebuffer.get_framebuffer();
-		info.renderArea.extent.width = m_ray_march_window->get_size().x;
-		info.renderArea.extent.height = m_ray_march_window->get_size().y;
+		info.renderArea.extent.width = m_window->get_size().x;
+		info.renderArea.extent.height = m_window->get_size().y;
 		info.clearValueCount = 1;
 		VkClearValue clear_value;
 		clear_value.color.float32[0] = 0.0f;

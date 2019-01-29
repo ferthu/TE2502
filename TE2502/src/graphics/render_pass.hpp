@@ -10,7 +10,7 @@ class RenderPass
 {
 public:
 	RenderPass();
-	RenderPass(VulkanContext& context, VkFormat color_format, VkImageLayout color_initial_layout, VkImageLayout color_final_layout);
+	RenderPass(VulkanContext& context, VkFormat color_format, VkImageLayout color_initial_layout, VkImageLayout color_final_layout, bool clear_color_image = false);
 	~RenderPass();
 
 	RenderPass(RenderPass&& other);

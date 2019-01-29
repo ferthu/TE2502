@@ -78,6 +78,11 @@ void GraphicsQueue::cmd_draw_indirect(VkBuffer buffer)
 	vkCmdDrawIndirect(m_command_buffer, buffer, 0, 1, 0);
 }
 
+void GraphicsQueue::cmd_draw(uint32_t num_vertices, uint32_t num_instances, uint32_t vertex_offset, uint32_t instance_offset)
+{
+	vkCmdDraw(m_command_buffer, num_vertices, num_instances, vertex_offset, instance_offset);
+}
+
 void GraphicsQueue::cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& framebuffer)
 {
 	VkRenderPassBeginInfo begin_info;

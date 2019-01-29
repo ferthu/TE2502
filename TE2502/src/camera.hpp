@@ -1,6 +1,8 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <GLFW/glfw3.h>
+#include "graphics/debug_drawer.hpp"
+
 
 // Camera with movement
 class Camera
@@ -11,7 +13,7 @@ public:
 
 	// Checks for input and updates
 	// Does not rotate if mouse_locked is true
-	void update(const float dt, bool mouse_locked);
+	void update(const float dt, bool mouse_locked, DebugDrawer& dd);
 
 	// Get current camera position
 	const glm::vec3& get_pos() const;

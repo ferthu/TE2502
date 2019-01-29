@@ -162,6 +162,8 @@ void Application::update(const float dt)
 		std::string text = "Frame info: " + std::to_string(int(1.f / dt)) + "fps  "
 			+ std::to_string(dt) + "s  " + std::to_string(int(100.f * dt / 0.016f)) + "%%";
 		ImGui::Text(text.c_str());
+		text = "Position: " + std::to_string(m_current_camera->get_pos().x) + ", " + std::to_string(m_current_camera->get_pos().y) + ", " + std::to_string(m_current_camera->get_pos().z);
+		ImGui::Text(text.c_str());
 		ImGui::End();
 	}
 }

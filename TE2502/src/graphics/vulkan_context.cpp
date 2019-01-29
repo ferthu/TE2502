@@ -651,11 +651,8 @@ std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::stri
 	return std::make_unique<Pipeline>(pipeline, layout, m_device);
 }
 
-std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size, PipelineLayout& layout)
+std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size, PipelineLayout& layout, VertexAttributes& vertex_attributes, VkPrimitiveTopology topology)
 {
-	//auto vert_shader_code = compile_from_file("shaders/shader.frag", shaderc_shader_kind::shaderc_glsl_vertex_shader);
-	//auto frag_shader_code = compile_from_file("shaders/shader.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
-
 	auto vert_shader_code = read_file("shaders/compiled/" + shader_name + ".vert.glsl.spv");
 	auto frag_shader_code = read_file("shaders/compiled/" + shader_name + ".frag.glsl.spv");
 
@@ -674,18 +671,18 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::str
 	frag_shader_stage_info.module = frag_shader_module;
 	frag_shader_stage_info.pName = "main";
 
-	VkPipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info };
+	VkPipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info };	
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
 	vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertex_input_info.vertexBindingDescriptionCount = 0;
-	vertex_input_info.pVertexBindingDescriptions = nullptr; // Optional
-	vertex_input_info.vertexAttributeDescriptionCount = 0;
-	vertex_input_info.pVertexAttributeDescriptions = nullptr; // Optional
+	vertex_input_info.vertexBindingDescriptionCount = vertex_attributes.get_num_bindings();
+	vertex_input_info.pVertexBindingDescriptions = vertex_attributes.get_bindings();
+	vertex_input_info.vertexAttributeDescriptionCount = vertex_attributes.get_num_attributes();
+	vertex_input_info.pVertexAttributeDescriptions = vertex_attributes.get_attributes();
 
 	VkPipelineInputAssemblyStateCreateInfo input_assembly = {};
 	input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	input_assembly.topology = topology;
 	input_assembly.primitiveRestartEnable = VK_FALSE;
 
 	VkViewport viewport = {};

@@ -33,10 +33,10 @@ public:
 class Frustum
 {
 public:
-	union 
+	union
 	{
 		Plane m_planes[6];
-		struct 
+		struct
 		{
 			Plane m_front;
 			Plane m_back;
@@ -44,6 +44,6 @@ public:
 			Plane m_right;
 			Plane m_top;
 			Plane m_bottom;
-		}
+		};
 	};
 };

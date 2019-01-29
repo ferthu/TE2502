@@ -75,7 +75,7 @@ uint32_t VertexAttributes::get_num_bindings()
 
 VkVertexInputBindingDescription* VertexAttributes::get_bindings()
 {
-	return m_bindings.data();
+	return m_bindings.size() != 0 ? m_bindings.data() : nullptr;
 }
 
 uint32_t VertexAttributes::get_num_attributes()
@@ -85,7 +85,7 @@ uint32_t VertexAttributes::get_num_attributes()
 
 VkVertexInputAttributeDescription* VertexAttributes::get_attributes()
 {
-	return m_attributes.data();
+	return m_attributes.size() != 0 ? m_attributes.data() : nullptr;
 }
 
 void VertexAttributes::move_from(VertexAttributes&& other)

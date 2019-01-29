@@ -26,17 +26,16 @@ GPUBuffer::GPUBuffer(VulkanContext& context, VkDeviceSize size, VkBufferUsageFla
 	// Assert that this object can be backed by memory_heap
 	assert(req.memoryTypeBits & (1 << memory_heap.get_memory_type()));
 
-	VkDeviceSize offset = 0;
-	VkDeviceMemory memory = memory_heap.allocate_memory(req.size + req.alignment, offset);
+	m_memory = memory_heap.allocate_memory(req.size + req.alignment, m_offset);
 
 	// If offset is not aligned, get the next aligned address
-	if (offset % req.alignment != 0)
+	if (m_offset % req.alignment != 0)
 	{
-		offset += req.alignment - (offset % req.alignment);
+		m_offset += req.alignment - (m_offset % req.alignment);
 	}
 
 	// Bind buffer to memory
-	result = vkBindBufferMemory(context.get_device(), m_buffer, memory, offset);
+	result = vkBindBufferMemory(context.get_device(), m_buffer, m_memory, m_offset);
 	assert(result == VK_SUCCESS);
 }
 
@@ -70,6 +69,10 @@ void GPUBuffer::move_from(GPUBuffer&& other)
 
 	m_size = other.m_size;
 	m_usage = other.m_usage;
+
+	m_memory = other.m_memory;
+	other.m_memory = VK_NULL_HANDLE;
+	m_offset = other.m_offset;
 }
 
 void GPUBuffer::destroy()

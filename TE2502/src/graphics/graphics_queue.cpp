@@ -88,6 +88,16 @@ void GraphicsQueue::cmd_end_render_pass()
 	vkCmdEndRenderPass(m_command_buffer);
 }
 
+void GraphicsQueue::cmd_copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size, VkDeviceSize src_offset, VkDeviceSize dst_offset)
+{
+	VkBufferCopy buffer_copy;
+	buffer_copy.size = size;
+	buffer_copy.srcOffset = src_offset;
+	buffer_copy.dstOffset = dst_offset;
+
+	vkCmdCopyBuffer(m_command_buffer, src, dst, 1, &buffer_copy);
+}
+
 GraphicsQueue::GraphicsQueue(GraphicsQueue&& other)
 {
 	move_from(std::move(other));

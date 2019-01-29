@@ -11,6 +11,7 @@
 #include "graphics/descriptor_set.hpp"
 #include "graphics/framebuffer.hpp"
 #include "graphics/render_pass.hpp"
+#include "graphics/debug_drawer.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -57,6 +58,10 @@ private:
 	{
 		glm::mat4 vp;
 		glm::vec4 position;
+	};
+	struct DebugDrawingFrameData
+	{
+		glm::mat4 vp;
 	};
 
 	RayMarchFrameData m_ray_march_frame_data;
@@ -117,6 +122,7 @@ private:
 	PipelineLayout m_debug_pipeline_layout;
 	std::unique_ptr<Pipeline> m_debug_pipeline;
 	GraphicsQueue m_debug_queue;
+	DebugDrawer m_debug_drawer;
 
 	bool m_show_imgui = true;
 };

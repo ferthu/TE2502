@@ -22,6 +22,7 @@ class Window;
 class Pipeline;
 class PipelineLayout;
 class DescriptorSetLayout;
+class DebugDrawer;
 class VertexAttributes;
 class RenderPass;
 

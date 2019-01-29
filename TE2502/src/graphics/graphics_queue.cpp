@@ -44,6 +44,11 @@ void GraphicsQueue::cmd_image_barrier(
 	vkCmdPipelineBarrier(m_command_buffer, src_stage_mask, dst_stage_mask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
+void GraphicsQueue::cmd_bind_graphics_pipeline(VkPipeline pipeline)
+{
+	vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+}
+
 GraphicsQueue::GraphicsQueue(GraphicsQueue&& other)
 {
 	move_from(std::move(other));
@@ -60,10 +65,10 @@ GraphicsQueue& GraphicsQueue::operator=(GraphicsQueue&& other)
 void GraphicsQueue::move_from(GraphicsQueue&& other)
 {
 	destroy();
-	Queue::move_from(std::move(other));
+	ComputeQueue::move_from(std::move(other));
 }
 
 void GraphicsQueue::destroy()
 {
-	Queue::destroy();
+	ComputeQueue::destroy();
 }

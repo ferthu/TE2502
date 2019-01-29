@@ -104,9 +104,9 @@ float Map(in vec3 p)
 {
 	float h = Terrain(p.xz);
 
-	float ff = Noise(p.xz*.3) + Noise(p.xz*3.3)*.5;
-	treeCol = 0.f;
-	h += treeCol;
+	//float ff = Noise(p.xz*.3) + Noise(p.xz*3.3)*.5;
+	//treeCol = 0.f;
+	//h += treeCol;
 
 	return p.y - h;
 }
@@ -238,7 +238,7 @@ float BinarySubdivision(in vec3 rO, in vec3 rD, vec2 t)
 	// Home in on the surface by dividing by two and split...
 	float halfwayT;
 
-	for (int i = 0; i < 5; i++)
+	for (int i = 0; i < 10; i++)
 	{
 
 		halfwayT = dot(t, vec2(.5));

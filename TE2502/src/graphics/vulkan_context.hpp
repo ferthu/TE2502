@@ -14,6 +14,7 @@
 #include "gpu_memory.hpp"
 #include "pipeline_layout.hpp"
 #include "descriptor_set_layout.hpp"
+#include "vertex_attributes.hpp"
 
 #include "pipeline.hpp"
 
@@ -96,7 +97,7 @@ public:
 	std::unique_ptr<Pipeline> create_compute_pipeline(const std::string& shader_name, PipelineLayout& layout);
 
 	// Creates and returns a graphics pipeline
-	std::unique_ptr<Pipeline> create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size, PipelineLayout& layout);
+	std::unique_ptr<Pipeline> create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size, PipelineLayout& layout, VertexAttributes& vertex_attributes, VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
 	// Allocate a descriptor set from descriptor pool
 	VkDescriptorSet allocate_descriptor_set(DescriptorSetLayout& layout);

@@ -109,6 +109,10 @@ private:
 	std::unique_ptr<Pipeline> m_point_gen_graphics_pipeline;
 	GraphicsQueue m_point_gen_queue;
 
+	// Debug drawing
+	PipelineLayout m_debug_pipeline_layout;
+	std::unique_ptr<Pipeline> m_debug_pipeline;
+	GraphicsQueue m_debug_queue;
 
 	bool m_show_imgui = true;
 };

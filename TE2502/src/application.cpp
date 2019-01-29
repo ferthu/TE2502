@@ -155,26 +155,26 @@ Application::Application()
 
 	// Set up debug drawing
 
-	m_debug_pipeline_layout = PipelineLayout(m_vulkan_context);
-	{
-		// Set up push constant range for frame data
-		VkPushConstantRange push_range;
-		push_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-		push_range.offset = 0;
-		push_range.size = sizeof(DebugDrawingFrameData);
+	//m_debug_pipeline_layout = PipelineLayout(m_vulkan_context);
+	//{
+	//	// Set up push constant range for frame data
+	//	VkPushConstantRange push_range;
+	//	push_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	//	push_range.offset = 0;
+	//	push_range.size = sizeof(DebugDrawingFrameData);
 
-		m_debug_pipeline_layout.create(&push_range);
-	}
+	//	m_debug_pipeline_layout.create(&push_range);
+	//}
 
-	VertexAttributes debug_attributes;
-	debug_attributes.add_buffer();
-	debug_attributes.add_attribute(3);
-	debug_attributes.add_attribute(3);
+	//VertexAttributes debug_attributes;
+	//debug_attributes.add_buffer();
+	//debug_attributes.add_attribute(3);
+	//debug_attributes.add_attribute(3);
 
-	m_debug_pipeline = m_vulkan_context.create_graphics_pipeline("debug", m_window->get_size(), m_debug_pipeline_layout, debug_attributes, VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+	//m_debug_pipeline = m_vulkan_context.create_graphics_pipeline("debug", m_window->get_size(), m_debug_pipeline_layout, debug_attributes, VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
 
-	m_debug_queue = m_vulkan_context.create_graphics_queue();
-	m_debug_drawer = DebugDrawer(m_vulkan_context, 1000);
+	//m_debug_queue = m_vulkan_context.create_graphics_queue();
+	//m_debug_drawer = DebugDrawer(m_vulkan_context, 1000);
 }
 
 Application::~Application()

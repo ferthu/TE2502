@@ -228,7 +228,7 @@ float BinarySubdivision(in vec3 rO, in vec3 rD, vec2 t)
 	// Home in on the surface by dividing by two and split...
 	float halfwayT;
 
-	for (int i = 0; i < 20; i++)
+	for (int i = 0; i < 10; i++)
 	{
 		halfwayT = dot(t, vec2(.5));
 		float d = Map(rO + halfwayT * rD);

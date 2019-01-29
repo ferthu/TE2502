@@ -19,10 +19,10 @@ DebugDrawer::DebugDrawer(DebugDrawer && other)
 {
 }
 
-DebugDrawer & DebugDrawer::operator=(DebugDrawer && other)
-{
-	// TODO: insert return statement here
-}
+//DebugDrawer & DebugDrawer::operator=(DebugDrawer && other)
+//{
+//	// TODO: insert return statement here
+//}
 
 GPUBuffer& DebugDrawer::get_cpu_buffer()
 {

@@ -3,6 +3,8 @@
 #include "compute_queue.hpp"
 
 class VulkanContext;
+class Framebuffer;
+class RenderPass;
 
 // Represents a hardware queue used for graphics commands
 class GraphicsQueue : public ComputeQueue
@@ -27,6 +29,14 @@ public:
 		VkPipelineStageFlags dst_stage_mask);
 
 	void cmd_bind_graphics_pipeline(VkPipeline pipeline);
+
+	void cmd_bind_vertex_buffer(VkBuffer buffer, VkDeviceSize offset);
+
+	void cmd_draw_indirect(VkBuffer buffer);
+
+	void cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& framebuffer);
+
+	void cmd_end_render_pass();
 
 private:
 	// Move other into this

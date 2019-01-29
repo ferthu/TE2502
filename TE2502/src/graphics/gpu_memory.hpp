@@ -43,7 +43,7 @@ private:
 	VkDeviceSize m_size;
 
 	// Offset of the next free memeory
-	VkDeviceSize m_next_free;
+	VkDeviceSize m_next_free = 0;
 
 	// The memory type this memory object was created from
 	uint32_t m_memory_type;

@@ -5,6 +5,10 @@
 DescriptorSet::DescriptorSet(VulkanContext& vulkan_context, DescriptorSetLayout& layout) : m_context(&vulkan_context), m_layout(&layout)
 {
 	m_descriptor_set = m_context->allocate_descriptor_set(layout);
+
+	m_descriptors.resize(10);
+	m_image_desc.resize(10);
+	m_buffer_desc.resize(10);
 }
 
 

@@ -9,6 +9,7 @@
 #include "utilities.hpp"
 #include "window.hpp"
 #include "pipeline.hpp"
+#include "render_pass.hpp"
 
 VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_error_callback(
 	VkDebugReportFlagsEXT       flags,
@@ -81,8 +82,6 @@ VulkanContext::VulkanContext()
 VulkanContext::~VulkanContext()
 {
 	vkDestroyDescriptorPool(m_device, m_descriptor_pool, m_allocation_callbacks);
-
-	vkDestroyRenderPass(m_device, m_render_pass, nullptr);
 
 	vkDeviceWaitIdle(m_device);
 
@@ -554,37 +553,6 @@ void VulkanContext::write_required_features(VkPhysicalDeviceFeatures& features)
 	features.shaderCullDistance = VK_TRUE;
 }
 
-void VulkanContext::create_render_pass(const Window* window)
-{
-	VkAttachmentDescription color_attachment = {};
-	color_attachment.format = window->get_format();
-	color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-	VkAttachmentReference color_attachment_ref = {};
-	color_attachment_ref.attachment = 0;
-	color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpass = {};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;  // VK_PIPELINE_BIND_POINT_COMPUTE?
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &color_attachment_ref;
-
-	VkRenderPassCreateInfo render_pass_info = {};
-	render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	render_pass_info.attachmentCount = 1;
-	render_pass_info.pAttachments = &color_attachment;
-	render_pass_info.subpassCount = 1;
-	render_pass_info.pSubpasses = &subpass;
-
-	VK_CHECK(vkCreateRenderPass(m_device, &render_pass_info, nullptr, &m_render_pass), "Failed to create render pass!");
-}
-
 static std::vector<char> read_file(const std::string& filename)
 {
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -651,7 +619,7 @@ std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::stri
 	return std::make_unique<Pipeline>(pipeline, layout, m_device);
 }
 
-std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size, PipelineLayout& layout, VertexAttributes& vertex_attributes, VkPrimitiveTopology topology)
+std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size, PipelineLayout& layout, VertexAttributes& vertex_attributes, RenderPass& render_pass, VkPrimitiveTopology topology)
 {
 	auto vert_shader_code = read_file("shaders/compiled/" + shader_name + ".vert.glsl.spv");
 	auto frag_shader_code = read_file("shaders/compiled/" + shader_name + ".frag.glsl.spv");
@@ -760,7 +728,7 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::str
 	pipeline_info.pColorBlendState = &color_blending;
 	pipeline_info.pDynamicState = nullptr; // Optional
 	pipeline_info.layout = layout.get_pipeline_layout();
-	pipeline_info.renderPass = m_render_pass;
+	pipeline_info.renderPass = render_pass.get_render_pass();
 	pipeline_info.subpass = 0;
 	pipeline_info.basePipelineHandle = VK_NULL_HANDLE; // Optional
 	pipeline_info.basePipelineIndex = -1; // Optional

@@ -26,6 +26,9 @@ public:
 
 	VkFramebuffer get_framebuffer();
 
+	uint32_t get_width() const;
+	uint32_t get_height() const;
+
 private:
 	// Move other into this
 	void move_from(Framebuffer&& other);
@@ -39,5 +42,8 @@ private:
 	VulkanContext* m_context;
 
 	VkFramebuffer m_framebuffer = VK_NULL_HANDLE;
+
+	uint32_t m_width;
+	uint32_t m_height;
 };
 

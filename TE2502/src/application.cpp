@@ -66,45 +66,45 @@ Application::Application()
 
 	// Point generation
 	// Compute
-	m_point_gen_buffer_set_layout_compute = DescriptorSetLayout(m_vulkan_context);
-	m_point_gen_buffer_set_layout_compute.add_uniform_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
-	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
-	m_point_gen_buffer_set_layout_compute.create();
+	//m_point_gen_buffer_set_layout_compute = DescriptorSetLayout(m_vulkan_context);
+	//m_point_gen_buffer_set_layout_compute.add_uniform_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	//m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	//m_point_gen_buffer_set_layout_compute.create();
 
-	m_point_gen_buffer_set_compute = DescriptorSet(m_vulkan_context, m_point_gen_buffer_set_layout_compute);
+	//m_point_gen_buffer_set_compute = DescriptorSet(m_vulkan_context, m_point_gen_buffer_set_layout_compute);
 
-	m_point_gen_pipeline_layout_compute = PipelineLayout(m_vulkan_context);
-	m_point_gen_pipeline_layout_compute.add_descriptor_set_layout(m_point_gen_buffer_set_layout_compute);
-	{
-		// Set up push constant range for frame data
-		VkPushConstantRange push_range;
-		push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-		push_range.offset = 0;
-		push_range.size = sizeof(PointGenerationFrameData);
+	//m_point_gen_pipeline_layout_compute = PipelineLayout(m_vulkan_context);
+	//m_point_gen_pipeline_layout_compute.add_descriptor_set_layout(m_point_gen_buffer_set_layout_compute);
+	//{
+	//	// Set up push constant range for frame data
+	//	VkPushConstantRange push_range;
+	//	push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	//	push_range.offset = 0;
+	//	push_range.size = sizeof(PointGenerationFrameData);
 
-		m_point_gen_pipeline_layout_compute.create(&push_range);
-	}
+	//	m_point_gen_pipeline_layout_compute.create(&push_range);
+	//}
 
-	m_point_gen_compute_pipeline = m_vulkan_context.create_compute_pipeline("test", m_point_gen_pipeline_layout_compute);
+	//m_point_gen_compute_pipeline = m_vulkan_context.create_compute_pipeline("test", m_point_gen_pipeline_layout_compute);
 
-	// Graphics
-	m_point_gen_buffer_set_layout_graphics = DescriptorSetLayout(m_vulkan_context);
-	m_point_gen_buffer_set_layout_graphics.add_uniform_buffer(VK_SHADER_STAGE_VERTEX_BIT);
-	m_point_gen_buffer_set_layout_graphics.create();
+	//// Graphics
+	//m_point_gen_buffer_set_layout_graphics = DescriptorSetLayout(m_vulkan_context);
+	//m_point_gen_buffer_set_layout_graphics.add_uniform_buffer(VK_SHADER_STAGE_VERTEX_BIT);
+	//m_point_gen_buffer_set_layout_graphics.create();
 
-	m_point_gen_buffer_set_graphics = DescriptorSet(m_vulkan_context, m_point_gen_buffer_set_layout_graphics);
+	//m_point_gen_buffer_set_graphics = DescriptorSet(m_vulkan_context, m_point_gen_buffer_set_layout_graphics);
 
-	m_point_gen_pipeline_layout_graphics = PipelineLayout(m_vulkan_context);
-	m_point_gen_pipeline_layout_graphics.add_descriptor_set_layout(m_point_gen_buffer_set_layout_graphics);
-	{
-		// Set up push constant range for frame data
-		VkPushConstantRange push_range;
-		push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-		push_range.offset = 0;
-		push_range.size = sizeof(PointGenerationFrameData);
+	//m_point_gen_pipeline_layout_graphics = PipelineLayout(m_vulkan_context);
+	//m_point_gen_pipeline_layout_graphics.add_descriptor_set_layout(m_point_gen_buffer_set_layout_graphics);
+	//{
+	//	// Set up push constant range for frame data
+	//	VkPushConstantRange push_range;
+	//	push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	//	push_range.offset = 0;
+	//	push_range.size = sizeof(PointGenerationFrameData);
 
-		m_point_gen_pipeline_layout_graphics.create(&push_range);
-	}
+	//	m_point_gen_pipeline_layout_graphics.create(&push_range);
+	//}
 
 	VertexAttributes vertex_attributes;
 	m_point_gen_graphics_pipeline = m_vulkan_context.create_graphics_pipeline("test", m_window->get_size(), m_point_gen_pipeline_layout_compute, vertex_attributes);
@@ -231,7 +231,7 @@ void Application::update(const float dt)
 
 void Application::draw()
 {
-	draw_main();
+	//draw_main();
 	draw_ray_march();
 }
 

@@ -21,8 +21,6 @@ layout(set = 0, binding = 0, rgba8) uniform image2D image;
 
 vec2 iResolution = frame_data.screen_size;
 
-float treeCol = 0.0;
-
 vec3 sunLight = normalize(vec3(0.4, 0.4, 0.48));
 vec3 sunColour = vec3(1.0, .9, .83);
 float specular = 0.0;
@@ -104,10 +102,6 @@ float Map(in vec3 p)
 {
 	float h = Terrain(p.xz);
 
-	//float ff = Noise(p.xz*.3) + Noise(p.xz*3.3)*.5;
-	//treeCol = 0.f;
-	//h += treeCol;
-
 	return p.y - h;
 }
 
@@ -130,10 +124,6 @@ float Terrain2(in vec2 p)
 	}
 	float ff = Noise(pos*.002);
 	f += pow(abs(ff), 5.0)*275. - 5.0;
-
-
-	treeCol = 0.f;
-	f += treeCol;
 
 
 	// That's the last of the low resolution, now go down further for the Normal data...
@@ -238,13 +228,11 @@ float BinarySubdivision(in vec3 rO, in vec3 rD, vec2 t)
 	// Home in on the surface by dividing by two and split...
 	float halfwayT;
 
-	for (int i = 0; i < 10; i++)
+	for (int i = 0; i < 20; i++)
 	{
-
 		halfwayT = dot(t, vec2(.5));
 		float d = Map(rO + halfwayT * rD);
 		t = mix(vec2(t.x, halfwayT), vec2(halfwayT, t.y), step(0.5, d));
-
 	}
 	return halfwayT;
 }
@@ -252,7 +240,7 @@ float BinarySubdivision(in vec3 rO, in vec3 rD, vec2 t)
 //--------------------------------------------------------------------------
 bool Scene(in vec3 rO, in vec3 rD, out float resT, in vec2 fragCoord)
 {
-	float t = 0.01;// +Hash12(fragCoord.xy)*.2;
+	float t = 0.01;
 	float oldT = 0.0;
 	float delta = 0.0;
 	bool fin = false;

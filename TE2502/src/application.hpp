@@ -2,15 +2,15 @@
 
 #include <chrono>
 
-#include "window.hpp"
-#include "vulkan_context.hpp"
+#include "graphics/window.hpp"
+#include "graphics/vulkan_context.hpp"
 #include "camera.hpp"
-#include "compute_queue.hpp"
-#include "graphics_queue.hpp"
-#include "transfer_queue.hpp"
-#include "descriptor_set.hpp"
-#include "framebuffer.hpp"
-#include "render_pass.hpp"
+#include "graphics/compute_queue.hpp"
+#include "graphics/graphics_queue.hpp"
+#include "graphics/transfer_queue.hpp"
+#include "graphics/descriptor_set.hpp"
+#include "graphics/framebuffer.hpp"
+#include "graphics/render_pass.hpp"
 
 #include <GLFW/glfw3.h>
 

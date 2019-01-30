@@ -294,7 +294,7 @@ void main(void)
 	vec2 xy = 1.0 + -2.0*gl_GlobalInvocationID.xy / iResolution.xy;
 	vec2 uv = xy * vec2(iResolution.x / iResolution.y, 1.0);
 
-	vec3 rd = (frame_data.view * normalize(vec4(uv, 1, 0))).xyz;
+	vec3 rd = (frame_data.view * normalize(vec4(uv, -1, 0))).xyz;
 
 	vec3 position = -frame_data.position.xyz;
 

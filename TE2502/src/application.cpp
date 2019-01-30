@@ -12,7 +12,7 @@
 #include "imgui/imgui_impl_vulkan.h"
 
 #include <string>
-
+#include <glm/gtc/matrix_transform.hpp>
 
 void error_callback(int error, const char* description)
 {
@@ -353,9 +353,19 @@ void Application::draw_main()
 
 	// Do debug drawing
 	{
+		// Debug lines
+		static glm::vec3 point{1,1,1};
+
+		ImGui::Begin("Test Cross");
+		ImGui::DragFloat3("Pos", (float*)&point);
+		ImGui::End();
+
 		m_debug_drawer.draw_line({ 0,0,0 }, { 1, 0, 0 }, { 1, 0, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 1, 0 }, { 0, 1, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 0, 1 }, { 0, 0, 1 });
+		m_debug_drawer.draw_line(point - glm::vec3{1,0,0}, point + glm::vec3{1,0,0}, { 1, 1, 1 });
+		m_debug_drawer.draw_line(point - glm::vec3{0,1,0}, point + glm::vec3{0,1,0}, { 1, 1, 1 });
+		m_debug_drawer.draw_line(point - glm::vec3{0,0,1}, point + glm::vec3{0,0,1}, { 1, 1, 1 });
 
 		if (m_current_camera != m_main_camera)
 		{

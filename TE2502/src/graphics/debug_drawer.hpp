@@ -22,13 +22,33 @@ public:
 
 
 	// Draws a line
-	void draw_line(glm::vec3 from, glm::vec3 to, glm::vec3 color);
+	inline void draw_line(glm::vec3 from, glm::vec3 to, glm::vec3 color)
+	{
+		assert(m_current_lines < m_max_lines);
+
+		m_mapped_memory[m_current_lines].from = from;
+		m_mapped_memory[m_current_lines].to = to;
+		m_mapped_memory[m_current_lines].start_color = color;
+		m_mapped_memory[m_current_lines].end_color = color;
+
+		m_current_lines++;
+	}
 
 	// Draws a line
-	void draw_line(glm::vec3 from, glm::vec3 to, glm::vec3 start_color, glm::vec3 end_color);
+	inline void draw_line(glm::vec3 from, glm::vec3 to, glm::vec3 start_color, glm::vec3 end_color)
+	{
+		assert(m_current_lines < m_max_lines);
+
+		m_mapped_memory[m_current_lines].from = from;
+		m_mapped_memory[m_current_lines].to = to;
+		m_mapped_memory[m_current_lines].start_color = start_color;
+		m_mapped_memory[m_current_lines].end_color = end_color;
+
+		m_current_lines++;
+	}
 
 	// Draws a line (performs perspective divide)
-	void draw_line(glm::vec4 from, glm::vec4 to, glm::vec3 color);
+	void draw_line(glm::vec4 from, glm::vec4 to, glm::vec3 color) { draw_line(glm::vec3(from) / from.w, glm::vec3(to) / to.w, color); }
 
 	// Draws a plane
 	void draw_plane(Plane& plane, glm::vec3 position, float size, glm::vec3 plane_color, glm::vec3 normal_color);

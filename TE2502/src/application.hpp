@@ -122,7 +122,7 @@ private:
 	GPUBuffer m_point_gen_input_buffer;
 	GPUBuffer m_point_gen_output_buffer;
 	RenderPass m_point_gen_render_pass;
-	glm::vec3* m_point_gen_dirs;
+	glm::vec4* m_point_gen_dirs;
 	unsigned int m_point_gen_dirs_sent;
 
 	// Debug drawing

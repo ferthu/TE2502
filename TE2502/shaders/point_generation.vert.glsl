@@ -1,6 +1,6 @@
 #version 450 core
 
-layout(location = 0) in vec3 pos;
+layout(location = 0) in vec4 pos;
 
 layout(push_constant) uniform frame_data_t
 {
@@ -13,7 +13,7 @@ layout(push_constant) uniform frame_data_t
 void main(void)
 {
 	gl_PointSize = 5.0f;
-	gl_Position = frame_data.vp * vec4(pos, 1);
+	gl_Position = frame_data.vp * vec4(pos.xyz, 1);
 }
 
 

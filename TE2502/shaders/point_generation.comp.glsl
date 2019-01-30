@@ -1,10 +1,10 @@
 #version 450 core
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 
 layout(set = 0, binding = 0) buffer input_data_t
 {
-	vec3 dirs[10000];
+	vec3 dirs[];
 } input_data;
 layout(push_constant) uniform frame_data_t
 {
@@ -20,7 +20,7 @@ layout(set = 0, binding = 1) buffer output_data_t
 	uint instance_count;
 	uint first_vertex;
 	uint first_instance;
-	vec3 points[];
+	vec4 points[];
 } output_data;
 
 
@@ -179,7 +179,7 @@ void main(void)
 			distances = vec2(old_distance, distance); 
 			float exact_distance = binary_subdivision(origin, ray_dir, distances, 10);
 			vec3 surface_point = origin + exact_distance * ray_dir;
-			output_data.points[5 * gl_GlobalInvocationID.x + points_found] = surface_point;
+			//output_data.points[5 * gl_GlobalInvocationID.x + points_found] = surface_point;
 			++points_found;
 			distance += delta;
 		}
@@ -192,16 +192,22 @@ void main(void)
 		distance += delta;
 	}
 
-	for (int i = points_found + 1; i < 5; ++i)
-	{
-		output_data.points[5 * gl_GlobalInvocationID.x + points_found] = vec3(0, 0, 0);
-	}
+	//for (int i = points_found + 1; i < 5; ++i)
+	//{
+	//	output_data.points[5 * gl_GlobalInvocationID.x + i] = vec3(0, 0, 0);
+	//}
 
 	if (gl_GlobalInvocationID.x == 0)
 	{
-		output_data.vertex_count = 10000;
+		output_data.vertex_count = 50000;
 		output_data.instance_count = 1;
 		output_data.first_vertex = 0;
 		output_data.first_instance = 0;
+	}
+
+
+	for (int i = 0; i < 5; ++i)
+	{
+		output_data.points[5 * gl_GlobalInvocationID.x + i] = vec4(origin + ray_dir * i, 1);
 	}
 }

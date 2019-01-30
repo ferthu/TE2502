@@ -3,7 +3,7 @@
 #include "window.hpp"
 #include "utilities.hpp"
 
-Window::Window(int width, int height, const char* title, VulkanContext& vulkan_context) : m_vulkan_context(&vulkan_context), m_mouse_locked(true)
+Window::Window(int width, int height, const char* title, VulkanContext& vulkan_context, bool lock_mouse) : m_vulkan_context(&vulkan_context), m_mouse_locked(true)
 {
 	m_width = static_cast<uint32_t>(width);
 	m_height = static_cast<uint32_t>(height);
@@ -41,7 +41,8 @@ Window::Window(int width, int height, const char* title, VulkanContext& vulkan_c
 
 	VK_CHECK(vkCreateFence(m_vulkan_context->get_device(), &fence_info, m_vulkan_context->get_allocation_callbacks(), &m_swapchain_fence), "Failed to create fence!");
 
-	glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	if (lock_mouse)
+		glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
 Window::~Window()

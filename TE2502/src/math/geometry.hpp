@@ -6,13 +6,15 @@
 class Plane
 {
 public:
-	Plane();
-	Plane(glm::vec3 normal, float dist);
-	Plane(float x, float y, float z, float dist);
-	~Plane();
+	Plane() {}
+	Plane(glm::vec3 normal, float dist) : m_normal(glm::normalize(normal)), m_dist(dist) {}
+	Plane(float x, float y, float z, float dist) : m_plane(x, y, z, dist) { m_normal = glm::normalize(m_normal); }
 
 	// Returns signed distance between a point and the plane (positive if plane normal points to the halfspace the point is in)
-	float point_dist(glm::vec3 point);
+	float point_dist(glm::vec3 point) { return glm::dot(point, m_normal) - m_dist; }
+
+	// Normalizes plane normal and distance
+	void normalize();
 
 	union
 	{
@@ -33,17 +35,19 @@ public:
 class Frustum
 {
 public:
+	Frustum() {}
+
 	union
 	{
 		Plane m_planes[6];
 		struct
 		{
-			Plane m_front;
-			Plane m_back;
 			Plane m_left;
 			Plane m_right;
 			Plane m_top;
 			Plane m_bottom;
+			Plane m_near;
+			Plane m_far;
 		};
 	};
 };

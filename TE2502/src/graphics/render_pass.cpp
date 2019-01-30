@@ -6,13 +6,17 @@ RenderPass::RenderPass()
 {
 }
 
-RenderPass::RenderPass(VulkanContext& context, VkFormat color_format, VkImageLayout color_initial_layout, VkImageLayout color_final_layout) : m_context(&context)
+RenderPass::RenderPass(VulkanContext& context, VkFormat color_format, VkImageLayout color_initial_layout, VkImageLayout color_final_layout, bool clear_color_image) : m_context(&context)
 {
 	VkAttachmentDescription attachment_desc;
 	attachment_desc.flags = 0;
 	attachment_desc.format = color_format;
 	attachment_desc.samples = VK_SAMPLE_COUNT_1_BIT;
-	attachment_desc.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	if (clear_color_image)
+		attachment_desc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	else
+		attachment_desc.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+
 	attachment_desc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	attachment_desc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	attachment_desc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;

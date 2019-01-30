@@ -66,6 +66,7 @@ private:
 
 	RayMarchFrameData m_ray_march_frame_data;
 	PointGenerationFrameData m_point_gen_frame_data;
+	DebugDrawingFrameData m_debug_draw_frame_data;
 
 	VulkanContext m_vulkan_context;
 
@@ -123,6 +124,7 @@ private:
 	std::unique_ptr<Pipeline> m_debug_pipeline;
 	GraphicsQueue m_debug_queue;
 	DebugDrawer m_debug_drawer;
+	RenderPass m_debug_render_pass;
 
 	bool m_show_imgui = true;
 };

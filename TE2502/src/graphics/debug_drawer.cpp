@@ -2,8 +2,10 @@
 
 DebugDrawer::DebugDrawer(VulkanContext& context, uint32_t max_lines) : m_context(&context), m_max_lines(max_lines), m_current_lines(0)
 {
-	m_gpu_memory = context.allocate_device_memory(max_lines * sizeof(DebugLine));
-	m_cpu_memory = context.allocate_host_memory(max_lines * sizeof(DebugLine));
+	const VkDeviceSize extra_memory = 500;
+
+	m_gpu_memory = context.allocate_device_memory(max_lines * sizeof(DebugLine) + extra_memory);
+	m_cpu_memory = context.allocate_host_memory(max_lines * sizeof(DebugLine) + extra_memory);
 
 	m_gpu_buffer = GPUBuffer(context, max_lines * sizeof(DebugLine), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_gpu_memory);
 	m_cpu_buffer = GPUBuffer(context, max_lines * sizeof(DebugLine), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, m_cpu_memory);
@@ -15,14 +17,18 @@ DebugDrawer::~DebugDrawer()
 	destroy();
 }
 
-DebugDrawer::DebugDrawer(DebugDrawer && other)
+DebugDrawer::DebugDrawer(DebugDrawer&& other)
 {
+	move_from(std::move(other));
 }
 
-//DebugDrawer & DebugDrawer::operator=(DebugDrawer && other)
-//{
-//	// TODO: insert return statement here
-//}
+DebugDrawer& DebugDrawer::operator=(DebugDrawer && other)
+{
+	if (this != &other)
+		move_from(std::move(other));
+
+	return *this;
+}
 
 GPUBuffer& DebugDrawer::get_cpu_buffer()
 {

@@ -39,12 +39,28 @@ void GraphicsQueue::cmd_image_barrier(
 	barrier.dstAccessMask = dst_access_mask;
 	barrier.oldLayout = old_layout;
 	barrier.newLayout = new_layout;
-	barrier.srcQueueFamilyIndex = 0;
-	barrier.dstQueueFamilyIndex = 0;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.image = image;
 	barrier.subresourceRange = image_subresource_range;
 
 	vkCmdPipelineBarrier(m_command_buffer, src_stage_mask, dst_stage_mask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+void GraphicsQueue::cmd_buffer_barrier(VkBuffer buffer, VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask, VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask)
+{
+	VkBufferMemoryBarrier barrier;
+	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	barrier.pNext = nullptr;
+	barrier.srcAccessMask = src_access_mask;
+	barrier.dstAccessMask = dst_access_mask;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.buffer = buffer;
+	barrier.offset = 0;
+	barrier.size = VK_WHOLE_SIZE;
+
+	vkCmdPipelineBarrier(m_command_buffer, src_stage_mask, dst_stage_mask, 0, 0, nullptr, 1, &barrier, 0, nullptr);
 }
 
 void GraphicsQueue::cmd_bind_graphics_pipeline(VkPipeline pipeline)
@@ -60,6 +76,11 @@ void GraphicsQueue::cmd_bind_vertex_buffer(VkBuffer buffer, VkDeviceSize offset)
 void GraphicsQueue::cmd_draw_indirect(VkBuffer buffer)
 {
 	vkCmdDrawIndirect(m_command_buffer, buffer, 0, 1, 0);
+}
+
+void GraphicsQueue::cmd_draw(uint32_t num_vertices, uint32_t num_instances, uint32_t vertex_offset, uint32_t instance_offset)
+{
+	vkCmdDraw(m_command_buffer, num_vertices, num_instances, vertex_offset, instance_offset);
 }
 
 void GraphicsQueue::cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& framebuffer)

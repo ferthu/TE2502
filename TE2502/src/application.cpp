@@ -32,8 +32,8 @@ Application::Application()
 	int err = glfwInit();
 	assert(err == GLFW_TRUE);
 
-	m_ray_march_window = new Window(1080, 720, "TE2502 - Ray March", m_vulkan_context);
-	m_window = new Window(1080, 720, "TE2502 - Main", m_vulkan_context);
+	m_ray_march_window = new Window(1080, 720, "TE2502 - Ray March", m_vulkan_context, false);
+	m_window = new Window(1080, 720, "TE2502 - Main", m_vulkan_context, true);
 	m_main_camera = new Camera(m_window->get_glfw_window());
 	m_debug_camera = new Camera(m_window->get_glfw_window());
 	m_current_camera = m_main_camera;
@@ -343,9 +343,9 @@ void Application::draw_main()
 
 	// Do debug drawing
 	{
-		m_debug_drawer.draw_line({ 0,0,0 }, { 100, 0, 0 }, { 1, 0, 0 });
-		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 100, 0 }, { 0, 1, 0 });
-		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 0, 100 }, { 0, 0, 1 });
+		m_debug_drawer.draw_line({ 0,0,0 }, { 1, 0, 0 }, { 1, 0, 0 });
+		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 1, 0 }, { 0, 1, 0 });
+		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 0, 1 }, { 0, 0, 1 });
 
 		m_debug_queue.start_recording();
 

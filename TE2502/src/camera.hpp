@@ -23,6 +23,8 @@ public:
 	const glm::mat4& get_vp() const;
 	// Get perspective matrix
 	const glm::mat4& get_perspective() const;
+	// Get ray march view matrix
+	const glm::mat4& get_ray_march_view() const;
 
 	// Set new camera position
 	// Is preferrably called before camera.update()
@@ -45,4 +47,5 @@ private:
 	glm::mat4 m_view;
 	glm::mat4 m_perspective;
 	glm::mat4 m_vp;
+	glm::mat4 m_ray_march_view;
 };

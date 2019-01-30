@@ -296,9 +296,11 @@ void main(void)
 
 	vec3 rd = (frame_data.view * normalize(vec4(uv, 1, 0))).xyz;
 
+	vec3 position = -frame_data.position.xyz;
+
 	vec3 col;
 	float distance;
-	if (!Scene(frame_data.position.xyz, rd, distance, gl_GlobalInvocationID.xy))
+	if (!Scene(position, rd, distance, gl_GlobalInvocationID.xy))
 	{
 		// Missed scene, now just get the sky value...
 		col = vec3(0.1, 0.15, 0.3);
@@ -306,7 +308,7 @@ void main(void)
 	else
 	{
 		// Get world coordinate of landscape...
-		vec3 pos = frame_data.position.xyz + distance * rd;
+		vec3 pos = position + distance * rd;
 		// Get normal from sampling the high definition height map
 		// Use the distance to sample larger gaps to help stop aliasing...
 		float p = min(.3, .0005 + .00005 * distance*distance);

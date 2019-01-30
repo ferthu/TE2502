@@ -256,7 +256,7 @@ void Application::update(const float dt)
 	m_point_gen_frame_data.vp = m_current_camera->get_vp();
 	m_point_gen_frame_data.position = glm::vec4(m_current_camera->get_pos(), 0);
 
-	m_ray_march_frame_data.view = m_current_camera->get_view();
+	m_ray_march_frame_data.view = m_current_camera->get_ray_march_view();
 	m_ray_march_frame_data.screen_size = m_ray_march_window->get_size();
 	m_ray_march_frame_data.position = glm::vec4(m_current_camera->get_pos(), 0);
 
@@ -346,10 +346,6 @@ void Application::draw_main()
 		m_debug_drawer.draw_line({ 0,0,0 }, { 100, 0, 0 }, { 1, 0, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 100, 0 }, { 0, 1, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 0, 100 }, { 0, 0, 1 });
-
-		m_debug_drawer.draw_line({ 110,0,0 }, { 90, 0, 0 }, { 1, 0, 0 });
-		m_debug_drawer.draw_line({ 0,110,0 }, { 0, 90, 0 }, { 0, 1, 0 });
-		m_debug_drawer.draw_line({ 0,0,110 }, { 0, 0, 90 }, { 1, 0, 1 });
 
 		m_debug_queue.start_recording();
 

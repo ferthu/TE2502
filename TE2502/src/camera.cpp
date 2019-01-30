@@ -83,9 +83,18 @@ void Camera::update(const float dt, bool mouse_locked, DebugDrawer& dd)
 	ImGui::End();
 
 	m_perspective = glm::perspective(glm::radians(fov), (float)m_window_width / m_window_height, m_near, m_far);
-
-
 	m_vp = m_perspective * m_view;
+
+	////////////////////////////
+	//const glm::mat4 yaw = glm::rotate(glm::mat4(1), m_yaw, glm::vec3(0, 1, 0));
+	//const glm::mat4 pitch = glm::rotate(glm::mat4(1), m_pitch, glm::vec3(1, 0, 0));
+
+	//const glm::vec3 forward_dir = glm::vec3(yaw * pitch * glm::vec4(0, 0, 1, 0));
+	//const glm::vec3 left_dir = glm::vec3(yaw * pitch * glm::vec4(1, 0, 0, 0));
+
+	//m_position += forward_dir * horiz_dir.y + left_dir * horiz_dir.x + glm::vec3(0, up, 0);
+
+	m_ray_march_view = glm::inverse(glm::lookAt(m_position, m_position + forward_dir, glm::vec3(0, 1, 0)));
 }
 
 const glm::vec3& Camera::get_pos() const
@@ -108,7 +117,12 @@ const glm::mat4& Camera::get_perspective() const
 	return m_perspective;
 }
 
-void Camera::set_pos(const glm::vec3 & new_pos)
+const glm::mat4& Camera::get_ray_march_view() const
+{
+	return m_ray_march_view;
+}
+
+void Camera::set_pos(const glm::vec3& new_pos)
 {
 	m_position = new_pos;
 }

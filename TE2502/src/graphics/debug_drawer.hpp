@@ -14,7 +14,7 @@ public:
 	DebugDrawer(VulkanContext& context, uint32_t max_lines);
 	~DebugDrawer();
 	DebugDrawer(DebugDrawer&& other);
-	//DebugDrawer& operator=(DebugDrawer&& other);
+	DebugDrawer& operator=(DebugDrawer&& other);
 
 	GPUBuffer& get_cpu_buffer();
 	GPUBuffer& get_gpu_buffer();

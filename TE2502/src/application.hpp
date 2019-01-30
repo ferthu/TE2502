@@ -57,7 +57,9 @@ private:
 	struct PointGenerationFrameData
 	{
 		glm::mat4 vp;
+		glm::mat4 ray_march_view;
 		glm::vec4 position;
+		int dir_count;
 	};
 	struct DebugDrawingFrameData
 	{
@@ -114,10 +116,14 @@ private:
 	std::unique_ptr<Pipeline> m_point_gen_compute_pipeline;
 	std::unique_ptr<Pipeline> m_point_gen_graphics_pipeline;
 	GraphicsQueue m_point_gen_queue;
-	GPUMemory m_point_gen_memory;
+	GPUMemory m_point_gen_cpu_memory;
+	GPUMemory m_point_gen_gpu_memory;
+	GPUBuffer m_point_gen_cpu_buffer;
 	GPUBuffer m_point_gen_input_buffer;
 	GPUBuffer m_point_gen_output_buffer;
 	RenderPass m_point_gen_render_pass;
+	glm::vec3* m_point_gen_dirs;
+	unsigned int m_point_gen_dirs_sent;
 
 	// Debug drawing
 	PipelineLayout m_debug_pipeline_layout;

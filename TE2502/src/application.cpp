@@ -115,14 +115,30 @@ Application::Application()
 	m_point_gen_graphics_pipeline = m_vulkan_context.create_graphics_pipeline("point_generation", m_window->get_size(), 
 		m_point_gen_pipeline_layout_graphics, 
 		vertex_attributes, 
-		m_point_gen_render_pass);
+		m_point_gen_render_pass, VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
 
-	m_point_gen_memory = m_vulkan_context.allocate_device_memory(730000);
+	const unsigned int max_rays_per_frame = 10000;
+	const unsigned int max_points_per_ray = 5;
+	VkDeviceSize mem_size = sizeof(glm::vec3) * (max_rays_per_frame + max_rays_per_frame * max_points_per_ray) + 1000;
+	m_point_gen_cpu_memory = m_vulkan_context.allocate_host_memory(mem_size);
+	m_point_gen_gpu_memory = m_vulkan_context.allocate_device_memory(mem_size);
 
-	m_point_gen_input_buffer = GPUBuffer(m_vulkan_context, 120000, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, m_point_gen_memory);
-	m_point_gen_output_buffer = GPUBuffer(m_vulkan_context, 600000, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_point_gen_memory);
+	m_point_gen_cpu_buffer = GPUBuffer(m_vulkan_context, sizeof(glm::vec3) * max_rays_per_frame, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, m_point_gen_cpu_memory);
+	m_point_gen_input_buffer = GPUBuffer(m_vulkan_context, sizeof(glm::vec3) * max_rays_per_frame, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, m_point_gen_gpu_memory);
+	m_point_gen_output_buffer = GPUBuffer(m_vulkan_context, sizeof(glm::vec3) * max_rays_per_frame * max_points_per_ray, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_point_gen_gpu_memory);
+
+	vkMapMemory(m_vulkan_context.get_device(), m_point_gen_cpu_buffer.get_memory(), m_point_gen_cpu_buffer.get_offset(), m_point_gen_cpu_buffer.get_size(), 0, (void**)&m_point_gen_dirs);
 
 	m_point_gen_queue = m_vulkan_context.create_graphics_queue();
+
+	// Dirs
+	for (int x = 0; x < 100; ++x)
+	{
+		for (int y = 0; y < 100; ++y)
+		{
+			m_point_gen_dirs[m_point_gen_dirs_sent++] = glm::vec3(x - 50, y - 50, -100);
+		}
+	}
 	// !Point generation
 
 	glfwSetKeyCallback(m_ray_march_window->get_glfw_window(), key_callback);
@@ -158,21 +174,21 @@ Application::Application()
 
 	// Set up debug drawing
 
-	//m_debug_pipeline_layout = PipelineLayout(m_vulkan_context);
-	//{
-	//	// Set up push constant range for frame data
-	//	VkPushConstantRange push_range;
-	//	push_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	//	push_range.offset = 0;
-	//	push_range.size = sizeof(DebugDrawingFrameData);
+	m_debug_pipeline_layout = PipelineLayout(m_vulkan_context);
+	{
+		// Set up push constant range for frame data
+		VkPushConstantRange push_range;
+		push_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		push_range.offset = 0;
+		push_range.size = sizeof(DebugDrawingFrameData);
 
-	//	m_debug_pipeline_layout.create(&push_range);
-	//}
+		m_debug_pipeline_layout.create(&push_range);
+	}
 
-	//VertexAttributes debug_attributes;
-	//debug_attributes.add_buffer();
-	//debug_attributes.add_attribute(3);
-	//debug_attributes.add_attribute(3);
+	VertexAttributes debug_attributes;
+	debug_attributes.add_buffer();
+	debug_attributes.add_attribute(3);
+	debug_attributes.add_attribute(3);
 
 	m_debug_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
@@ -191,6 +207,9 @@ Application::~Application()
 		vkDestroySemaphore(m_vulkan_context.get_device(), m_imgui_vulkan_state.done_drawing_semaphores[i], 
 			m_vulkan_context.get_allocation_callbacks());
 	}
+
+	vkUnmapMemory(m_vulkan_context.get_device(), m_point_gen_cpu_buffer.get_memory());
+	m_point_gen_dirs = nullptr;
 
 	delete m_debug_camera;
 	delete m_main_camera;
@@ -254,7 +273,9 @@ void Application::update(const float dt)
 	m_current_camera->update(dt, m_window->get_mouse_locked(), m_debug_drawer);
 
 	m_point_gen_frame_data.vp = m_current_camera->get_vp();
+	m_point_gen_frame_data.ray_march_view = m_current_camera->get_ray_march_view();
 	m_point_gen_frame_data.position = glm::vec4(m_current_camera->get_pos(), 0);
+	m_point_gen_frame_data.dir_count = m_point_gen_dirs_sent;
 
 	m_ray_march_frame_data.view = m_current_camera->get_ray_march_view();
 	m_ray_march_frame_data.screen_size = m_ray_march_window->get_size();
@@ -311,9 +332,18 @@ void Application::draw_main()
 		// Push frame data
 		m_point_gen_queue.cmd_push_constants(m_point_gen_pipeline_layout_compute.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT, sizeof(PointGenerationFrameData), &m_point_gen_frame_data);
 
+		m_point_gen_queue.cmd_copy_buffer(m_point_gen_cpu_buffer.get_buffer(), m_point_gen_input_buffer.get_buffer(), m_point_gen_dirs_sent * sizeof(glm::vec3));
+
+		// Memory barrier for GPU buffer
+		m_point_gen_queue.cmd_buffer_barrier(m_point_gen_input_buffer.get_buffer(),
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
 		// Dispatch
 		const uint32_t group_size = 32;
-		m_point_gen_queue.cmd_dispatch(32, 1, 1);
+		m_point_gen_queue.cmd_dispatch(m_point_gen_dirs_sent / group_size + 1, 1, 1);
 
 		m_point_gen_queue.cmd_image_barrier(
 			image,
@@ -325,10 +355,12 @@ void Application::draw_main()
 			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
+
+
 		m_point_gen_queue.cmd_bind_graphics_pipeline(m_point_gen_graphics_pipeline->m_pipeline);
 		m_point_gen_queue.cmd_bind_vertex_buffer(m_point_gen_output_buffer.get_buffer(), 16);
 		m_point_gen_queue.cmd_begin_render_pass(m_point_gen_render_pass, m_window_states.swapchain_framebuffers[index]);
-		//m_point_gen_queue.cmd_draw_indirect(m_point_gen_output_buffer.get_buffer());
+		m_point_gen_queue.cmd_draw_indirect(m_point_gen_output_buffer.get_buffer());
 		m_point_gen_queue.cmd_end_render_pass();
 
 

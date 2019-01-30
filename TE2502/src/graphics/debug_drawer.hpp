@@ -5,6 +5,7 @@
 #include "vulkan_context.hpp"
 #include "gpu_memory.hpp"
 #include "gpu_buffer.hpp"
+#include "math/geometry.hpp"
 
 // Class handling debug drawing
 class DebugDrawer
@@ -19,8 +20,21 @@ public:
 	GPUBuffer& get_cpu_buffer();
 	GPUBuffer& get_gpu_buffer();
 
+
+	// Draws a line
 	void draw_line(glm::vec3 from, glm::vec3 to, glm::vec3 color);
+
+	// Draws a line
 	void draw_line(glm::vec3 from, glm::vec3 to, glm::vec3 start_color, glm::vec3 end_color);
+
+	// Draws a line (performs perspective divide)
+	void draw_line(glm::vec4 from, glm::vec4 to, glm::vec3 color);
+
+	// Draws a plane
+	void draw_plane(Plane& plane, glm::vec3 position, float size, glm::vec3 plane_color, glm::vec3 normal_color);
+
+	// Draws frustum using VP matrix
+	void draw_frustum(glm::mat4 vp_matrix, glm::vec3 color);
 
 	// Clear line buffer to prepare for new frame
 	void new_frame();

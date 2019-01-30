@@ -2,7 +2,7 @@
 #include <glm/glm.hpp>
 #include <GLFW/glfw3.h>
 #include "graphics/debug_drawer.hpp"
-
+#include "math/geometry.hpp"
 
 // Camera with movement
 class Camera
@@ -30,12 +30,17 @@ public:
 	// Is preferrably called before camera.update()
 	void set_pos(const glm::vec3& new_pos);
 
+	Frustum get_frustum() const;
+
 private:
+	// Fills m_frustum with data on current frustum planes
+	void get_camera_planes();
+
 	const float m_slow_speed = 3.f;
 	const float m_fast_speed = 50.f;
 	const float m_fov = 90.f;
 	const float m_near = 0.1f;
-	const float m_far = 1000.f;
+	const float m_far = 100.f;
 	const float m_mouse_sensitivity = 0.01f;
 
 	GLFWwindow* m_window;
@@ -48,4 +53,6 @@ private:
 	glm::mat4 m_perspective;
 	glm::mat4 m_vp;
 	glm::mat4 m_ray_march_view;
+
+	Frustum m_frustum;
 };

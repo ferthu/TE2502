@@ -11,6 +11,7 @@ Camera::Camera(GLFWwindow* window)
 	m_window = window;
 	glfwGetWindowSize(m_window, &m_window_width, &m_window_height);
 	m_perspective = glm::perspective(90.0f, (float)m_window_width / m_window_height, m_near, m_far);
+	get_camera_planes();
 }
 
 Camera::~Camera()
@@ -85,16 +86,9 @@ void Camera::update(const float dt, bool mouse_locked, DebugDrawer& dd)
 	m_perspective = glm::perspective(glm::radians(fov), (float)m_window_width / m_window_height, m_near, m_far);
 	m_vp = m_perspective * m_view;
 
-	////////////////////////////
-	//const glm::mat4 yaw = glm::rotate(glm::mat4(1), m_yaw, glm::vec3(0, 1, 0));
-	//const glm::mat4 pitch = glm::rotate(glm::mat4(1), m_pitch, glm::vec3(1, 0, 0));
-
-	//const glm::vec3 forward_dir = glm::vec3(yaw * pitch * glm::vec4(0, 0, 1, 0));
-	//const glm::vec3 left_dir = glm::vec3(yaw * pitch * glm::vec4(1, 0, 0, 0));
-
-	//m_position += forward_dir * horiz_dir.y + left_dir * horiz_dir.x + glm::vec3(0, up, 0);
-
 	m_ray_march_view = glm::inverse(glm::lookAt(m_position, m_position + forward_dir, glm::vec3(0, 1, 0)));
+
+	get_camera_planes();
 }
 
 const glm::vec3& Camera::get_pos() const
@@ -125,4 +119,55 @@ const glm::mat4& Camera::get_ray_march_view() const
 void Camera::set_pos(const glm::vec3& new_pos)
 {
 	m_position = new_pos;
+}
+
+Frustum Camera::get_frustum() const
+{
+	return m_frustum;
+}
+
+void Camera::get_camera_planes()
+{
+	// Left clipping plane
+	m_frustum.m_left.m_plane.x = m_vp[0][3] + m_vp[0][0];
+	m_frustum.m_left.m_plane.y = m_vp[1][3] + m_vp[1][0];
+	m_frustum.m_left.m_plane.z = m_vp[2][3] + m_vp[2][0];
+	m_frustum.m_left.m_plane.w = m_vp[3][3] + m_vp[3][0];
+	m_frustum.m_left.normalize();
+
+	// Right clipping plane
+	m_frustum.m_right.m_plane.x = m_vp[0][3] - m_vp[0][0];
+	m_frustum.m_right.m_plane.y = m_vp[1][3] - m_vp[1][0];
+	m_frustum.m_right.m_plane.z = m_vp[2][3] - m_vp[2][0];
+	m_frustum.m_right.m_plane.w = m_vp[3][3] - m_vp[3][0];
+	m_frustum.m_right.normalize();
+
+	// Top clipping plane
+	m_frustum.m_top.m_plane.x = m_vp[0][3] + m_vp[0][1];
+	m_frustum.m_top.m_plane.y = m_vp[1][3] + m_vp[1][1];
+	m_frustum.m_top.m_plane.z = m_vp[2][3] + m_vp[2][1];
+	m_frustum.m_top.m_plane.w = m_vp[3][3] + m_vp[3][1];
+	m_frustum.m_top.normalize();
+	
+	// Bottom clipping plane
+	m_frustum.m_bottom.m_plane.x = m_vp[0][3] - m_vp[0][1];
+	m_frustum.m_bottom.m_plane.y = m_vp[1][3] - m_vp[1][1];
+	m_frustum.m_bottom.m_plane.z = m_vp[2][3] - m_vp[2][1];
+	m_frustum.m_bottom.m_plane.w = m_vp[3][3] - m_vp[3][1];
+	m_frustum.m_bottom.normalize();
+
+	// Near clipping plane
+	m_frustum.m_near.m_plane.x = m_vp[0][3] + m_vp[0][2];
+	m_frustum.m_near.m_plane.y = m_vp[1][3] + m_vp[1][2];
+	m_frustum.m_near.m_plane.z = m_vp[2][3] + m_vp[2][2];
+	m_frustum.m_near.m_plane.w = m_vp[3][3] + m_vp[3][2];
+	m_frustum.m_near.normalize();
+
+	// Far clipping plane
+	m_frustum.m_far.m_plane.x = m_vp[0][3] - m_vp[0][2];
+	m_frustum.m_far.m_plane.y = m_vp[1][3] - m_vp[1][2];
+	m_frustum.m_far.m_plane.z = m_vp[2][3] - m_vp[2][2];
+	m_frustum.m_far.m_plane.w = m_vp[3][3] - m_vp[3][2];
+	m_frustum.m_far.normalize();
+
 }

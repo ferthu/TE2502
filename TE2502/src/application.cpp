@@ -205,6 +205,7 @@ void Application::run()
 	bool right_mouse_clicked = false;
 	bool f_pressed = false;
 	bool demo_window = true;
+	bool camera_switch_pressed = false;
 
 	while (!glfwWindowShouldClose(m_window->get_glfw_window()))
 	{
@@ -224,6 +225,20 @@ void Application::run()
 		else if (m_window && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE
 			&& !ImGui::GetIO().WantCaptureMouse)
 			right_mouse_clicked = false;
+
+		// Switch camera
+		if (!camera_switch_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F1) == GLFW_PRESS
+			&& !ImGui::GetIO().WantCaptureMouse)
+		{
+			if (m_current_camera == m_main_camera)
+				m_current_camera = m_debug_camera;
+			else
+				m_current_camera = m_main_camera;
+			camera_switch_pressed = true;
+		}
+		else if (m_window && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F1) == GLFW_RELEASE
+			&& !ImGui::GetIO().WantCaptureMouse)
+			camera_switch_pressed = false;
 
 		// Toggle imgui
 		if (!f_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F) == GLFW_PRESS)
@@ -270,11 +285,6 @@ void Application::update(const float dt)
 		ImGui::Text(text.c_str());
 		text = "Position: " + std::to_string(m_current_camera->get_pos().x) + ", " + std::to_string(m_current_camera->get_pos().y) + ", " + std::to_string(m_current_camera->get_pos().z);
 		ImGui::Text(text.c_str());
-		ImGui::Text("VP:");
-		ImGui::Text("%f, %f, %f, %f", m_debug_draw_frame_data.vp[0][0], m_debug_draw_frame_data.vp[1][0], m_debug_draw_frame_data.vp[2][0], m_debug_draw_frame_data.vp[3][0]);
-		ImGui::Text("%f, %f, %f, %f", m_debug_draw_frame_data.vp[0][1], m_debug_draw_frame_data.vp[1][1], m_debug_draw_frame_data.vp[2][1], m_debug_draw_frame_data.vp[3][1]);
-		ImGui::Text("%f, %f, %f, %f", m_debug_draw_frame_data.vp[0][2], m_debug_draw_frame_data.vp[1][2], m_debug_draw_frame_data.vp[2][2], m_debug_draw_frame_data.vp[3][2]);
-		ImGui::Text("%f, %f, %f, %f", m_debug_draw_frame_data.vp[0][3], m_debug_draw_frame_data.vp[1][3], m_debug_draw_frame_data.vp[2][3], m_debug_draw_frame_data.vp[3][3]);
 		ImGui::End();
 	}
 }
@@ -346,6 +356,28 @@ void Application::draw_main()
 		m_debug_drawer.draw_line({ 0,0,0 }, { 1, 0, 0 }, { 1, 0, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 1, 0 }, { 0, 1, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 0, 1 }, { 0, 0, 1 });
+
+		if (m_current_camera != m_main_camera)
+		{
+			// Draw frustum
+			m_debug_drawer.draw_frustum(m_main_camera->get_vp(), {1, 0, 1});
+
+			glm::mat4 inv_vp = glm::inverse(m_main_camera->get_vp());
+			glm::vec4 left_pos = inv_vp * glm::vec4(-1, 0, 0.99f, 1); left_pos /= left_pos.w;
+			glm::vec4 right_pos = inv_vp * glm::vec4(1, 0, 0.99f, 1); right_pos /= right_pos.w;
+			glm::vec4 top_pos = inv_vp * glm::vec4(0, -1, 0.99f, 1); top_pos /= top_pos.w;
+			glm::vec4 bottom_pos = inv_vp * glm::vec4(0, 1, 0.99f, 1); bottom_pos /= bottom_pos.w;
+			glm::vec4 near_pos = inv_vp * glm::vec4(0, 0, 0, 1); near_pos /= near_pos.w;
+			glm::vec4 far_pos = inv_vp * glm::vec4(0, 0, 1, 1); far_pos /= far_pos.w;
+
+			Frustum frustum = m_main_camera->get_frustum();
+			m_debug_drawer.draw_plane(frustum.m_left, left_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			m_debug_drawer.draw_plane(frustum.m_right, right_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			m_debug_drawer.draw_plane(frustum.m_top, top_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			m_debug_drawer.draw_plane(frustum.m_bottom, bottom_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			m_debug_drawer.draw_plane(frustum.m_near, near_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			m_debug_drawer.draw_plane(frustum.m_far, far_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+		}
 
 		m_debug_queue.start_recording();
 

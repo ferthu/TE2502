@@ -86,7 +86,7 @@ void Camera::update(const float dt, bool mouse_locked, DebugDrawer& dd)
 	m_perspective = calculate_perspective(fov, m_near, m_far, m_window_width, m_window_height);
 	m_vp = m_perspective * m_view;
 
-	m_ray_march_view = glm::inverse(m_view);
+	m_ray_march_view = glm::inverse(camera_rotation);
 
 	get_camera_planes();
 }

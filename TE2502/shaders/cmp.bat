@@ -1,3 +1,5 @@
+echo off
+
 if exist "compiled\" del "compiled\" /q
 if not exist "compiled\" mkdir "compiled"
 

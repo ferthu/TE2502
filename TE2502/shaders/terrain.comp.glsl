@@ -99,7 +99,7 @@ float height_to_surface(in vec3 p)
 {
 	float h = terrain(p.xz);
 
-	return p.y - h;
+	return -p.y - h;
 }
 
 //--------------------------------------------------------------------------
@@ -269,7 +269,7 @@ void main(void)
 
 	vec3 rd = (frame_data.view * normalize(vec4(uv, 1, 0))).xyz;
 
-	vec3 position = -frame_data.position.xyz;
+	vec3 position = frame_data.position.xyz;
 
 	vec3 color;
 	float distance;

@@ -32,6 +32,8 @@ public:
 
 	Frustum get_frustum() const;
 
+	static glm::mat4 calculate_perspective(float horiz_fov_degrees, float near, float far, float window_width, float window_height);
+
 private:
 	// Fills m_frustum with data on current frustum planes
 	void get_camera_planes();

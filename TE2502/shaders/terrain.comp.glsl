@@ -102,7 +102,7 @@ float Map(in vec3 p)
 {
 	float h = Terrain(p.xz);
 
-	return p.y - h;
+	return -p.y - h;
 }
 
 //--------------------------------------------------------------------------
@@ -291,12 +291,12 @@ void main(void)
 	if (gl_GlobalInvocationID.x >= WIDTH || gl_GlobalInvocationID.y >= HEIGHT)
 		return;
 
-	vec2 xy = 1.0 + -2.0*gl_GlobalInvocationID.xy / iResolution.xy;
+	vec2 xy = 2.0*gl_GlobalInvocationID.xy / iResolution.xy - 1.0f;
 	vec2 uv = xy * vec2(iResolution.x / iResolution.y, 1.0);
 
-	vec3 rd = (frame_data.view * normalize(vec4(uv, -1, 0))).xyz;
+	vec3 rd = (frame_data.view * normalize(vec4(uv, 1, 0))).xyz;
 
-	vec3 position = -frame_data.position.xyz;
+	vec3 position = frame_data.position.xyz;
 
 	vec3 col;
 	float distance;

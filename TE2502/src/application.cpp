@@ -108,7 +108,7 @@ Application::Application()
 
 	VertexAttributes vertex_attributes;
 	vertex_attributes.add_buffer();
-	vertex_attributes.add_attribute(3);
+	vertex_attributes.add_attribute(4);
 
 	m_point_gen_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
 
@@ -125,7 +125,7 @@ Application::Application()
 
 	m_point_gen_cpu_buffer = GPUBuffer(m_vulkan_context, sizeof(glm::vec4) * max_rays_per_frame, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, m_point_gen_cpu_memory);
 	m_point_gen_input_buffer = GPUBuffer(m_vulkan_context, sizeof(glm::vec4) * max_rays_per_frame, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, m_point_gen_gpu_memory);
-	m_point_gen_output_buffer = GPUBuffer(m_vulkan_context, sizeof(glm::vec4) * max_rays_per_frame * max_points_per_ray, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_point_gen_gpu_memory);
+	m_point_gen_output_buffer = GPUBuffer(m_vulkan_context, sizeof(glm::vec4) * max_rays_per_frame * max_points_per_ray + 16, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_point_gen_gpu_memory);
 
 	vkMapMemory(m_vulkan_context.get_device(), m_point_gen_cpu_buffer.get_memory(), m_point_gen_cpu_buffer.get_offset(), m_point_gen_cpu_buffer.get_size(), 0, (void**)&m_point_gen_dirs);
 
@@ -136,7 +136,7 @@ Application::Application()
 	{
 		for (int y = 0; y < 100; ++y)
 		{
-			m_point_gen_dirs[m_point_gen_dirs_sent++] = glm::normalize(glm::vec4(x - 50, y - 50, 100, 0));
+			m_point_gen_dirs[m_point_gen_dirs_sent++] = glm::normalize(glm::vec4(x - 50, y - 50, 50, 0));
 		}
 	}
 	// !Point generation
@@ -287,7 +287,7 @@ void Application::update(const float dt)
 {
 	m_current_camera->update(dt, m_window->get_mouse_locked(), m_debug_drawer);
 
-	m_point_gen_frame_data.vp = m_main_camera->get_vp();
+	m_point_gen_frame_data.vp = m_current_camera->get_vp();
 	m_point_gen_frame_data.ray_march_view = m_main_camera->get_ray_march_view();
 	m_point_gen_frame_data.position = glm::vec4(m_main_camera->get_pos(), 0);
 	m_point_gen_frame_data.dir_count = m_point_gen_dirs_sent;
@@ -377,7 +377,7 @@ void Application::draw_main()
 
 		for (int i = 0; i < m_point_gen_dirs_sent; ++i)
 		{
-			m_debug_drawer.draw_line(m_main_camera->get_pos(), m_main_camera->get_pos() + glm::vec3(m_main_camera->get_vp() * m_point_gen_dirs[i] * 100.f), { 0.5, 0, 0.5 });
+			//m_debug_drawer.draw_line(m_main_camera->get_pos(), m_main_camera->get_pos() + glm::vec3(m_main_camera->get_ray_march_view() * m_point_gen_dirs[i] * 100.f), { 0.5, 0, 0.5 });
 		}
 		// end of RENDER------------------
 	}

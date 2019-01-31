@@ -264,7 +264,7 @@ void main(void)
 	if (gl_GlobalInvocationID.x >= WIDTH || gl_GlobalInvocationID.y >= HEIGHT)
 		return;
 
-	vec2 xy = 1.0 + -2.0*gl_GlobalInvocationID.xy / frame_data.screen_size.xy;
+	vec2 xy = 2.0*gl_GlobalInvocationID.xy / frame_data.screen_size.xy - 1.0;
 	vec2 uv = xy * vec2(frame_data.screen_size.x / frame_data.screen_size.y, 1.0);
 
 	vec3 rd = (frame_data.view * normalize(vec4(uv, 1, 0))).xyz;

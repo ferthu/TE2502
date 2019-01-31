@@ -6,6 +6,7 @@
 #include "graphics/gpu_image.hpp"
 #include "graphics/gpu_buffer.hpp"
 #include "graphics/pipeline_layout.hpp"
+#include "quadtree.hpp"
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
@@ -179,7 +180,7 @@ Application::Application()
 	m_debug_pipeline = m_vulkan_context.create_graphics_pipeline("debug", m_window->get_size(), m_debug_pipeline_layout, debug_attributes, m_debug_render_pass, VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
 
 	m_debug_queue = m_vulkan_context.create_graphics_queue();
-	m_debug_drawer = DebugDrawer(m_vulkan_context, 1000);
+	m_debug_drawer = DebugDrawer(m_vulkan_context, 10000);
 }
 
 Application::~Application()
@@ -366,6 +367,11 @@ void Application::draw_main()
 		m_debug_drawer.draw_line(point - glm::vec3{1,0,0}, point + glm::vec3{1,0,0}, { 1, 1, 1 });
 		m_debug_drawer.draw_line(point - glm::vec3{0,1,0}, point + glm::vec3{0,1,0}, { 1, 1, 1 });
 		m_debug_drawer.draw_line(point - glm::vec3{0,0,1}, point + glm::vec3{0,0,1}, { 1, 1, 1 });
+
+		Frustum fr = m_main_camera->get_frustum();
+
+		Quadtree qt(200.0f, 5);
+		qt.frustum_cull(fr, m_debug_drawer);
 
 		if (m_current_camera != m_main_camera)
 		{

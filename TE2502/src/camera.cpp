@@ -187,4 +187,16 @@ void Camera::get_camera_planes()
 	m_frustum.m_far.m_plane.w = m_vp[3][3] - m_vp[3][2];
 	m_frustum.m_far.normalize();
 
+	// Calculate frustum corners
+	glm::mat4 inv_vp = glm::inverse(m_vp);
+
+	glm::vec4 point;
+	point = inv_vp * glm::vec4( 1,  1, 0, 1); m_frustum.m_corners[0] = point / point.w;
+	point = inv_vp * glm::vec4(-1,  1, 0, 1); m_frustum.m_corners[1] = point / point.w;
+	point = inv_vp * glm::vec4( 1, -1, 0, 1); m_frustum.m_corners[2] = point / point.w;
+	point = inv_vp * glm::vec4(-1, -1, 0, 1); m_frustum.m_corners[3] = point / point.w;
+	point = inv_vp * glm::vec4( 1,  1, 1, 1); m_frustum.m_corners[4] = point / point.w;
+	point = inv_vp * glm::vec4(-1,  1, 1, 1); m_frustum.m_corners[5] = point / point.w;
+	point = inv_vp * glm::vec4( 1, -1, 1, 1); m_frustum.m_corners[6] = point / point.w;
+	point = inv_vp * glm::vec4(-1, -1, 1, 1); m_frustum.m_corners[7] = point / point.w;
 }

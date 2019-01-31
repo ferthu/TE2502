@@ -370,7 +370,7 @@ void Application::draw_main()
 
 		Frustum fr = m_main_camera->get_frustum();
 
-		Quadtree qt(200.0f, 5);
+		Quadtree qt(200.0f, 3, 100, 300, 1200);
 		qt.frustum_cull(fr, m_debug_drawer);
 
 		if (m_current_camera != m_main_camera)

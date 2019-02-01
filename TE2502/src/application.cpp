@@ -33,7 +33,7 @@ Application::Application()
 	int err = glfwInit();
 	assert(err == GLFW_TRUE);
 
-	m_ray_march_window = new Window(1080, 720, "TE2502 - Ray March", m_vulkan_context, false);
+	//m_ray_march_window = new Window(1080, 720, "TE2502 - Ray March", m_vulkan_context, false);
 	m_window = new Window(1080, 720, "TE2502 - Main", m_vulkan_context, true);
 	m_main_camera = new Camera(m_window->get_glfw_window());
 	m_debug_camera = new Camera(m_window->get_glfw_window());
@@ -126,18 +126,18 @@ Application::Application()
 	m_point_gen_queue = m_vulkan_context.create_graphics_queue();
 	// !Point generation
 
-	glfwSetKeyCallback(m_ray_march_window->get_glfw_window(), key_callback);
+	//glfwSetKeyCallback(m_ray_march_window->get_glfw_window(), key_callback);
 	glfwSetKeyCallback(m_window->get_glfw_window(), key_callback);
 
 	imgui_setup();
 
-	m_ray_march_window_states.swapchain_framebuffers.resize(m_ray_march_window->get_swapchain_size());
-	for (uint32_t i = 0; i < m_ray_march_window->get_swapchain_size(); i++)
-	{
-		m_ray_march_window_states.swapchain_framebuffers[i] = Framebuffer(m_vulkan_context);
-		m_ray_march_window_states.swapchain_framebuffers[i].add_attachment(m_ray_march_window->get_swapchain_image_view(i));
-		m_ray_march_window_states.swapchain_framebuffers[i].create(m_imgui_vulkan_state.render_pass, m_ray_march_window->get_size().x, m_ray_march_window->get_size().y);
-	}
+	//m_ray_march_window_states.swapchain_framebuffers.resize(m_ray_march_window->get_swapchain_size());
+	//for (uint32_t i = 0; i < m_ray_march_window->get_swapchain_size(); i++)
+	//{
+	//	m_ray_march_window_states.swapchain_framebuffers[i] = Framebuffer(m_vulkan_context);
+	//	m_ray_march_window_states.swapchain_framebuffers[i].add_attachment(m_ray_march_window->get_swapchain_image_view(i));
+	//	m_ray_march_window_states.swapchain_framebuffers[i].create(m_imgui_vulkan_state.render_pass, m_ray_march_window->get_size().x, m_ray_march_window->get_size().y);
+	//}
 	m_window_states.swapchain_framebuffers.resize(m_window->get_swapchain_size());
 	for (uint32_t i = 0; i < m_window->get_swapchain_size(); i++)
 	{
@@ -158,7 +158,9 @@ Application::Application()
 	}
 
 	// Set up terrain generation/drawing
-	m_quadtree = Quadtree(m_vulkan_context, 200.0f, 3, 100, 300, 1200, *m_window);
+	uint32_t max_indices = 303;
+	assert(((max_indices + 5) * 4) % 16 == 0);	// Requires proper alignment
+	m_quadtree = Quadtree(m_vulkan_context, 2000.0f, 5, 1000, max_indices, 1200, *m_window);
 
 	// Set up debug drawing
 	m_debug_pipeline_layout = PipelineLayout(m_vulkan_context);
@@ -275,7 +277,7 @@ void Application::update(const float dt)
 	m_point_gen_frame_data.position = glm::vec4(m_current_camera->get_pos(), 0);
 
 	m_ray_march_frame_data.view = m_current_camera->get_ray_march_view();
-	m_ray_march_frame_data.screen_size = m_ray_march_window->get_size();
+	//m_ray_march_frame_data.screen_size = m_ray_march_window->get_size();
 	m_ray_march_frame_data.position = glm::vec4(m_current_camera->get_pos(), 0);
 
 	m_debug_draw_frame_data.vp = m_current_camera->get_vp();
@@ -288,6 +290,10 @@ void Application::update(const float dt)
 		ImGui::Text(text.c_str());
 		text = "Position: " + std::to_string(m_current_camera->get_pos().x) + ", " + std::to_string(m_current_camera->get_pos().y) + ", " + std::to_string(m_current_camera->get_pos().z);
 		ImGui::Text(text.c_str());
+		if (ImGui::Button("Clear Terrain"))
+		{
+			m_quadtree.clear_terrain();
+		}
 		ImGui::End();
 	}
 }
@@ -296,7 +302,7 @@ void Application::update(const float dt)
 void Application::draw()
 {
 	draw_main();
-	draw_ray_march();
+	//draw_ray_march();
 }
 
 void Application::draw_main()

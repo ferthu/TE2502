@@ -28,7 +28,11 @@ public:
 
 	Quadtree(VulkanContext& context, float total_side_length, uint32_t levels, uint32_t max_nodes, uint32_t max_node_indices, uint32_t max_node_vertices, Window& window);
 
+	// Performs frustum culling and draws/generates visible terrain
 	void draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera);
+
+	// Resets all terrain data
+	void clear_terrain();
 
 private:
 	struct GenerationData

@@ -48,7 +48,7 @@ Quadtree::Quadtree(VulkanContext& context, float total_side_length, uint32_t lev
 		m_memory);
 
 	m_generation_set_layout = DescriptorSetLayout(context);
-	m_generation_set_layout.add_storage_buffer(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	m_generation_set_layout.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
 	m_generation_set_layout.create();
 	m_descriptor_set = DescriptorSet(context, m_generation_set_layout);
 	m_generation_pipeline_layout = PipelineLayout(context);
@@ -91,7 +91,7 @@ void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& fram
 	m_descriptor_set.clear();
 	m_descriptor_set.add_storage_buffer(m_buffer);
 	m_descriptor_set.bind();
-	m_terrain_queue.cmd_bind_descriptor_set_compute(m_generation_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
+	m_terrain_queue.cmd_bind_descriptor_set_compute(m_generation_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
 
 	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
 	{
@@ -99,7 +99,7 @@ void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& fram
 		m_push_data.min = m_generate_nodes[i].min;
 		m_push_data.max = m_generate_nodes[i].max;
 
-		m_terrain_queue.cmd_push_constants(m_generation_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT, sizeof(GenerationData), &m_push_data);
+		m_terrain_queue.cmd_push_constants(m_generation_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT, sizeof(GenerationData), &m_push_data);
 		m_terrain_queue.cmd_dispatch(1, 1, 1);
 	}
 
@@ -119,7 +119,7 @@ void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& fram
 	m_terrain_queue.cmd_bind_graphics_pipeline(m_draw_pipeline->m_pipeline);
 	m_terrain_queue.cmd_begin_render_pass(m_render_pass, framebuffer);
 
-	m_terrain_queue.cmd_push_constants(m_draw_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT, sizeof(GenerationData), &m_push_data);
+	m_terrain_queue.cmd_push_constants(m_draw_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT, sizeof(GenerationData), &m_push_data);
 
 	// Render nonupdated terrain
 	for (uint32_t i = 0; i < m_num_draw_nodes; i++)
@@ -144,6 +144,12 @@ void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& fram
 	m_terrain_queue.end_recording();
 	m_terrain_queue.submit();
 	m_terrain_queue.wait();
+}
+
+void Quadtree::clear_terrain()
+{
+	memset(m_node_index_to_buffer_index, INVALID, (1 << m_levels) * (1 << m_levels) * sizeof(uint32_t));
+	memset(m_buffer_index_filled, 0, m_max_nodes * sizeof(bool));
 }
 
 void Quadtree::move_from(Quadtree&& other)

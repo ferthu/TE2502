@@ -61,13 +61,13 @@ Quadtree::Quadtree(VulkanContext& context, float total_side_length, uint32_t lev
 
 	m_generation_pipeline = context.create_compute_pipeline("terrain_generate", m_generation_pipeline_layout);
 
-	m_render_pass = RenderPass(context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	m_render_pass = RenderPass(context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false, true, false, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 	m_draw_pipeline_layout = PipelineLayout(context);
 	m_draw_pipeline_layout.create(&push);
 	VertexAttributes va(context);
 	va.add_buffer();
 	va.add_attribute(4);
-	m_draw_pipeline = context.create_graphics_pipeline("terrain_draw", window.get_size(), m_draw_pipeline_layout, va, m_render_pass);
+	m_draw_pipeline = context.create_graphics_pipeline("terrain_draw", window.get_size(), m_draw_pipeline_layout, va, m_render_pass, true);
 }
 
 void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera)

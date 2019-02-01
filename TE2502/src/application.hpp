@@ -81,6 +81,7 @@ private:
 		VkCommandPool command_pool;
 		VkCommandBuffer command_buffer;
 		VkFence command_buffer_idle;
+		std::vector<Framebuffer> swapchain_framebuffers;
 	};
 
 	ImGuiVulkanState m_imgui_vulkan_state;
@@ -93,6 +94,9 @@ private:
 	std::chrono::time_point<std::chrono::steady_clock> m_timer;
 	struct VulkanWindowStates
 	{
+		GPUMemory depth_memory;
+		std::vector<GPUImage> depth_images;
+		std::vector<ImageView> depth_image_views;
 		std::vector<Framebuffer> swapchain_framebuffers;
 	};
 	VulkanWindowStates m_ray_march_window_states;

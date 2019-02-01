@@ -102,15 +102,21 @@ void GraphicsQueue::cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& 
 	begin_info.framebuffer = framebuffer.get_framebuffer();
 	begin_info.renderArea.offset = { 0, 0 };
 	begin_info.renderArea.extent = { framebuffer.get_width(), framebuffer.get_height() };
-	begin_info.clearValueCount = 1;
-	VkClearValue clear_value;
-	clear_value.color.float32[0] = 0.0f;
-	clear_value.color.float32[1] = 0.0f;
-	clear_value.color.float32[2] = 0.0f;
-	clear_value.color.float32[3] = 0.0f;
-	clear_value.depthStencil.depth = 0.0f;
-	clear_value.depthStencil.stencil = 0;
-	begin_info.pClearValues = &clear_value;
+	begin_info.clearValueCount = 2;
+	VkClearValue clear_value[2];
+	clear_value[0].color.float32[0] = 0.0f;
+	clear_value[0].color.float32[1] = 0.0f;
+	clear_value[0].color.float32[2] = 0.0f;
+	clear_value[0].color.float32[3] = 0.0f;
+	clear_value[0].depthStencil.depth = 0.0f;
+	clear_value[0].depthStencil.stencil = 0;
+	clear_value[1].color.float32[0] = 0.0f;
+	clear_value[1].color.float32[1] = 0.0f;
+	clear_value[1].color.float32[2] = 0.0f;
+	clear_value[1].color.float32[3] = 0.0f;
+	clear_value[1].depthStencil.depth = 1.0f;
+	clear_value[1].depthStencil.stencil = 0;
+	begin_info.pClearValues = clear_value;
 	vkCmdBeginRenderPass(m_command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
 }
 

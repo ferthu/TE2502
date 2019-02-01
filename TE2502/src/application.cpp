@@ -68,6 +68,7 @@ Application::Application()
 	// Compute
 	m_point_gen_buffer_set_layout_compute = DescriptorSetLayout(m_vulkan_context);
 	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	//m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
 	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
 	m_point_gen_buffer_set_layout_compute.create();
 
@@ -119,13 +120,16 @@ Application::Application()
 
 	const unsigned int max_rays_per_frame = 10000;
 	const unsigned int max_points_per_ray = 5;
-	VkDeviceSize mem_size = sizeof(glm::vec4) * (max_rays_per_frame + max_rays_per_frame * max_points_per_ray) + 1000;
-	m_point_gen_cpu_memory = m_vulkan_context.allocate_host_memory(mem_size);
-	m_point_gen_gpu_memory = m_vulkan_context.allocate_device_memory(mem_size);
+	VkDeviceSize dirs = sizeof(glm::vec4) * max_rays_per_frame;
+	//VkDeviceSize point_counts = sizeof(uint32_t) * max_rays_per_frame;
+	VkDeviceSize points_found = sizeof(glm::vec4) * max_rays_per_frame * max_points_per_ray;
+	m_point_gen_cpu_memory = m_vulkan_context.allocate_host_memory(dirs + 1000);
+	m_point_gen_gpu_memory = m_vulkan_context.allocate_device_memory(dirs + points_found + 2000);
 
-	m_point_gen_cpu_buffer = GPUBuffer(m_vulkan_context, sizeof(glm::vec4) * max_rays_per_frame, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, m_point_gen_cpu_memory);
-	m_point_gen_input_buffer = GPUBuffer(m_vulkan_context, sizeof(glm::vec4) * max_rays_per_frame, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, m_point_gen_gpu_memory);
-	m_point_gen_output_buffer = GPUBuffer(m_vulkan_context, sizeof(glm::vec4) * max_rays_per_frame * max_points_per_ray + 16, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_point_gen_gpu_memory);
+	m_point_gen_cpu_buffer = GPUBuffer(m_vulkan_context, dirs, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, m_point_gen_cpu_memory);
+	m_point_gen_input_buffer = GPUBuffer(m_vulkan_context, dirs, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, m_point_gen_gpu_memory);
+	//m_point_gen_point_counts_buffer = GPUBuffer(m_vulkan_context, point_counts, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, m_point_gen_gpu_memory);
+	m_point_gen_output_buffer = GPUBuffer(m_vulkan_context, points_found + 16, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_point_gen_gpu_memory);
 
 	vkMapMemory(m_vulkan_context.get_device(), m_point_gen_cpu_buffer.get_memory(), m_point_gen_cpu_buffer.get_offset(), m_point_gen_cpu_buffer.get_size(), 0, (void**)&m_point_gen_dirs);
 
@@ -328,6 +332,7 @@ void Application::draw_main()
 	{
 		m_point_gen_buffer_set_compute.clear();
 		m_point_gen_buffer_set_compute.add_storage_buffer(m_point_gen_input_buffer);
+		//m_point_gen_buffer_set_compute.add_storage_buffer(m_point_gen_point_counts_buffer);
 		m_point_gen_buffer_set_compute.add_storage_buffer(m_point_gen_output_buffer);
 		m_point_gen_buffer_set_compute.bind();
 
@@ -375,10 +380,6 @@ void Application::draw_main()
 		m_point_gen_queue.submit();
 		m_point_gen_queue.wait();
 
-		for (int i = 0; i < m_point_gen_dirs_sent; ++i)
-		{
-			//m_debug_drawer.draw_line(m_main_camera->get_pos(), m_main_camera->get_pos() + glm::vec3(m_main_camera->get_ray_march_view() * m_point_gen_dirs[i] * 100.f), { 0.5, 0, 0.5 });
-		}
 		// end of RENDER------------------
 	}
 

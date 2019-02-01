@@ -114,12 +114,14 @@ private:
 	PipelineLayout m_point_gen_pipeline_layout_compute;
 	PipelineLayout m_point_gen_pipeline_layout_graphics;
 	std::unique_ptr<Pipeline> m_point_gen_compute_pipeline;
+	std::unique_ptr<Pipeline> m_point_gen_prefix_sum_pipeline;
 	std::unique_ptr<Pipeline> m_point_gen_graphics_pipeline;
 	GraphicsQueue m_point_gen_queue;
 	GPUMemory m_point_gen_cpu_memory;
 	GPUMemory m_point_gen_gpu_memory;
 	GPUBuffer m_point_gen_cpu_buffer;
 	GPUBuffer m_point_gen_input_buffer;
+	GPUBuffer m_point_gen_point_counts_buffer;
 	GPUBuffer m_point_gen_output_buffer;
 	RenderPass m_point_gen_render_pass;
 	glm::vec4* m_point_gen_dirs;

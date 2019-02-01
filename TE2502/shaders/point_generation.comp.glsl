@@ -1,11 +1,14 @@
 #version 450 core
 
-layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+#define WORK_GROUP_SIZE 32
+layout(local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
+//// INPUT
 layout(set = 0, binding = 0) buffer input_data_t
 {
 	vec4 dirs[];
 } input_data;
+
 layout(push_constant) uniform frame_data_t
 {
 	mat4 camera_vp;
@@ -13,6 +16,13 @@ layout(push_constant) uniform frame_data_t
 	vec4 position;
 	int dir_count;
 } frame_data;
+
+
+//// OUPUT
+//layout(set = 0, binding = 1) buffer point_counts_t
+//{
+//	uint counts[];
+//} point_counts;
 
 layout(set = 0, binding = 1) buffer output_data_t
 {
@@ -152,64 +162,81 @@ float binary_subdivision(in vec3 rO, in vec3 rD, in vec2 t, in int divisions)
 
 
 
-
+#define POINTS_PER_DIR 5
+//shared int s_points_found[WORK_GROUP_SIZE * 2];
 
 void main(void)
 {
-	if (gl_GlobalInvocationID.x > frame_data.dir_count)
+	if (gl_GlobalInvocationID.x >= frame_data.dir_count)
 		return;
 
-	vec3 ray_dir = (frame_data.ray_march_view * normalize(vec4(input_data.dirs[gl_GlobalInvocationID.x].xyz, 0))).xyz;
+	////// RAY MARCH
+	/*for (int d = 0; d < frame_data.dir_count / WORK_GROUP_SIZE + 1; ++d)
+	{*/
+		//uint index = d * WORK_GROUP_SIZE + gl_GlobalInvocationID.x;
+		//if (index > frame_data.dir_count)
+		//	break;
 
-	vec3 origin = frame_data.position.xyz;
+		vec3 ray_dir = (frame_data.ray_march_view * normalize(vec4(input_data.dirs[gl_GlobalInvocationID.x]))).xyz;
 
-	for (int i = 0; i < 5; ++i)
-	{
-		output_data.points[5 * gl_GlobalInvocationID.x + i] = vec4(0, 0, 0, 1);
-	}
+		vec3 origin = frame_data.position.xyz;
 
-	int points_found = 0;
-	float distance = 0.01;
-	float old_distance = 0.0;
-	float delta = 0.0;
-	vec2 distances;
-	float flip = 1.0;
-	for (int j = 0; j < 350; j++)
-	{
-		if (points_found == 5 || distance > 1000.0) break;
-		vec3 p = origin + distance * ray_dir;
-		float h = height_to_surface(p); // ...Get this positions height mapping.
-		// Are we inside, and close enough to fudge a hit?...
-		if (flip * h < 0.5)
+		for (int i = 0; i < POINTS_PER_DIR; ++i)
 		{
-			distances = vec2(old_distance, distance); 
-			float exact_distance = binary_subdivision(origin, ray_dir, distances, 10);
-			vec3 surface_point = origin + exact_distance * ray_dir;
-			output_data.points[5 * gl_GlobalInvocationID.x + points_found] = vec4(surface_point, 1);
-			++points_found;
-			distance += delta * 4;
-			flip *= -1;
+			output_data.points[gl_GlobalInvocationID.x * POINTS_PER_DIR + i] = vec4(0, -50, 0, 1);
 		}
-		// Delta ray advance - a fudge between the height returned
-		// and the distance already travelled.
-		// It's a really fiddly compromise between speed and accuracy
-		// Too large a step and the tops of ridges get missed.
-		delta = max(0.1, 0.2*h) + (distance*0.0025);
-		old_distance = distance;
-		distance += delta;
-	}
 
+		int points_found = 0;
+		//vec3 points[POINTS_PER_DIR];
+
+		float distance = 0.01;
+		float old_distance = 0.0;
+		float delta = 0.0;
+		vec2 distances;
+		float my_sign = 1.0;
+
+		for (int j = 0; j < 350; j++)
+		{
+			if (points_found == POINTS_PER_DIR || distance > 1000.0)
+				break;
+			vec3 p = origin + distance * ray_dir;
+			float h = height_to_surface(p);
+			// Check if close to surface
+			if (sign(h - 0.5) != my_sign)
+			{
+				distances = vec2(old_distance, distance);
+				float exact_distance = binary_subdivision(origin, ray_dir, distances, 12);
+				vec3 surface_point = origin + exact_distance * ray_dir;
+				output_data.points[gl_GlobalInvocationID.x * POINTS_PER_DIR + points_found] = vec4(surface_point, 1);
+				++points_found;
+				distance += delta * 2;
+				my_sign *= -1;
+			}
+
+			// Step forward
+			delta = max(0.1, 0.2*h*my_sign) + (distance*0.0025);
+			old_distance = distance;
+			distance += delta;
+		}
+	//}
+
+
+	////// PREFIX SUM
+	//s_points_found[]
+	//barrier();
+
+
+
+
+
+
+
+	
 	if (gl_GlobalInvocationID.x == 0)
 	{
-		output_data.vertex_count = 50000;
+		output_data.vertex_count = frame_data.dir_count * POINTS_PER_DIR;
 		output_data.instance_count = 1;
 		output_data.first_vertex = 0;
 		output_data.first_instance = 0;
 	}
-
-
-	//for (int i = 0; i < 10; ++i)
-	//{
-	//	output_data.points[10 * gl_GlobalInvocationID.x + i] = vec4(origin + ray_dir * (i + 1), gl_GlobalInvocationID.x / 11000.0);
-	//}
 }

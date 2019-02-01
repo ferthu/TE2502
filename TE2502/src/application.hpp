@@ -12,6 +12,7 @@
 #include "graphics/framebuffer.hpp"
 #include "graphics/render_pass.hpp"
 #include "graphics/debug_drawer.hpp"
+#include "quadtree.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -118,6 +119,9 @@ private:
 	GPUBuffer m_point_gen_input_buffer;
 	GPUBuffer m_point_gen_output_buffer;
 	RenderPass m_point_gen_render_pass;
+
+	// Terrain generation/drawing
+	Quadtree m_quadtree;
 
 	// Debug drawing
 	PipelineLayout m_debug_pipeline_layout;

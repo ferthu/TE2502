@@ -60,7 +60,7 @@ private:
 
 	void create_binding(VkShaderStageFlags stage_flags, VkDescriptorType type);
 
-	VulkanContext* m_context;
+	VulkanContext* m_context = nullptr;
 
 	VkDescriptorSetLayout m_descriptor_set_layout = VK_NULL_HANDLE;
 
@@ -68,5 +68,5 @@ private:
 	std::vector<VkDescriptorSetLayoutBinding> m_bindings;
 
 	// True if the descriptor set has been created
-	bool m_is_created;
+	bool m_is_created = false;
 };

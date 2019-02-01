@@ -47,7 +47,7 @@ void GraphicsQueue::cmd_image_barrier(
 	vkCmdPipelineBarrier(m_command_buffer, src_stage_mask, dst_stage_mask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
-void GraphicsQueue::cmd_buffer_barrier(VkBuffer buffer, VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask, VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask)
+void GraphicsQueue::cmd_buffer_barrier(VkBuffer buffer, VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask, VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask, VkDeviceSize offset, VkDeviceSize size)
 {
 	VkBufferMemoryBarrier barrier;
 	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
@@ -73,9 +73,19 @@ void GraphicsQueue::cmd_bind_vertex_buffer(VkBuffer buffer, VkDeviceSize offset)
 	vkCmdBindVertexBuffers(m_command_buffer, 0, 1, &buffer, &offset);
 }
 
-void GraphicsQueue::cmd_draw_indirect(VkBuffer buffer)
+void GraphicsQueue::cmd_bind_index_buffer(VkBuffer buffer, VkDeviceSize offset)
 {
-	vkCmdDrawIndirect(m_command_buffer, buffer, 0, 1, 0);
+	vkCmdBindIndexBuffer(m_command_buffer, buffer, offset, VkIndexType::VK_INDEX_TYPE_UINT32);
+}
+
+void GraphicsQueue::cmd_draw_indirect(VkBuffer buffer, VkDeviceSize offset)
+{
+	vkCmdDrawIndirect(m_command_buffer, buffer, offset, 1, 0);
+}
+
+void GraphicsQueue::cmd_draw_indexed_indirect(VkBuffer buffer, VkDeviceSize offset)
+{
+	vkCmdDrawIndexedIndirect(m_command_buffer, buffer, offset, 1, 0);
 }
 
 void GraphicsQueue::cmd_draw(uint32_t num_vertices, uint32_t num_instances, uint32_t vertex_offset, uint32_t instance_offset)

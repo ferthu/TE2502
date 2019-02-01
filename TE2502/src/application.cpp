@@ -157,8 +157,10 @@ Application::Application()
 			&m_imgui_vulkan_state.done_drawing_semaphores[i]), "Semaphore creation failed!")
 	}
 
-	// Set up debug drawing
+	// Set up terrain generation/drawing
+	m_quadtree = Quadtree(m_vulkan_context, 200.0f, 3, 100, 300, 1200, *m_window);
 
+	// Set up debug drawing
 	m_debug_pipeline_layout = PipelineLayout(m_vulkan_context);
 	{
 		// Set up push constant range for frame data
@@ -352,47 +354,36 @@ void Application::draw_main()
 		// end of RENDER------------------
 	}
 
+	// Perform terrain generation/drawing
+	Frustum fr = m_main_camera->get_frustum();
+	m_quadtree.draw_terrain(fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_current_camera);
+
 	// Do debug drawing
 	{
-		// Debug lines
-		static glm::vec3 point{1,1,1};
-
-		ImGui::Begin("Test Cross");
-		ImGui::DragFloat3("Pos", (float*)&point);
-		ImGui::End();
-
 		m_debug_drawer.draw_line({ 0,0,0 }, { 1, 0, 0 }, { 1, 0, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 1, 0 }, { 0, 1, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 0, 1 }, { 0, 0, 1 });
-		m_debug_drawer.draw_line(point - glm::vec3{1,0,0}, point + glm::vec3{1,0,0}, { 1, 1, 1 });
-		m_debug_drawer.draw_line(point - glm::vec3{0,1,0}, point + glm::vec3{0,1,0}, { 1, 1, 1 });
-		m_debug_drawer.draw_line(point - glm::vec3{0,0,1}, point + glm::vec3{0,0,1}, { 1, 1, 1 });
-
-		Frustum fr = m_main_camera->get_frustum();
-
-		Quadtree qt(200.0f, 3, 100, 300, 1200);
-		qt.frustum_cull(fr, m_debug_drawer);
 
 		if (m_current_camera != m_main_camera)
 		{
 			// Draw frustum
 			m_debug_drawer.draw_frustum(m_main_camera->get_vp(), {1, 0, 1});
 
-			glm::mat4 inv_vp = glm::inverse(m_main_camera->get_vp());
-			glm::vec4 left_pos = inv_vp * glm::vec4(-1, 0, 0.99f, 1); left_pos /= left_pos.w;
-			glm::vec4 right_pos = inv_vp * glm::vec4(1, 0, 0.99f, 1); right_pos /= right_pos.w;
-			glm::vec4 top_pos = inv_vp * glm::vec4(0, -1, 0.99f, 1); top_pos /= top_pos.w;
-			glm::vec4 bottom_pos = inv_vp * glm::vec4(0, 1, 0.99f, 1); bottom_pos /= bottom_pos.w;
-			glm::vec4 near_pos = inv_vp * glm::vec4(0, 0, 0, 1); near_pos /= near_pos.w;
-			glm::vec4 far_pos = inv_vp * glm::vec4(0, 0, 1, 1); far_pos /= far_pos.w;
+			//glm::mat4 inv_vp = glm::inverse(m_main_camera->get_vp());
+			//glm::vec4 left_pos = inv_vp * glm::vec4(-1, 0, 0.99f, 1); left_pos /= left_pos.w;
+			//glm::vec4 right_pos = inv_vp * glm::vec4(1, 0, 0.99f, 1); right_pos /= right_pos.w;
+			//glm::vec4 top_pos = inv_vp * glm::vec4(0, -1, 0.99f, 1); top_pos /= top_pos.w;
+			//glm::vec4 bottom_pos = inv_vp * glm::vec4(0, 1, 0.99f, 1); bottom_pos /= bottom_pos.w;
+			//glm::vec4 near_pos = inv_vp * glm::vec4(0, 0, 0, 1); near_pos /= near_pos.w;
+			//glm::vec4 far_pos = inv_vp * glm::vec4(0, 0, 1, 1); far_pos /= far_pos.w;
 
-			Frustum frustum = m_main_camera->get_frustum();
-			m_debug_drawer.draw_plane(frustum.m_left, left_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
-			m_debug_drawer.draw_plane(frustum.m_right, right_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
-			m_debug_drawer.draw_plane(frustum.m_top, top_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
-			m_debug_drawer.draw_plane(frustum.m_bottom, bottom_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
-			m_debug_drawer.draw_plane(frustum.m_near, near_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
-			m_debug_drawer.draw_plane(frustum.m_far, far_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			//Frustum frustum = m_main_camera->get_frustum();
+			//m_debug_drawer.draw_plane(frustum.m_left, left_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			//m_debug_drawer.draw_plane(frustum.m_right, right_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			//m_debug_drawer.draw_plane(frustum.m_top, top_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			//m_debug_drawer.draw_plane(frustum.m_bottom, bottom_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			//m_debug_drawer.draw_plane(frustum.m_near, near_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			//m_debug_drawer.draw_plane(frustum.m_far, far_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
 		}
 
 		m_debug_queue.start_recording();

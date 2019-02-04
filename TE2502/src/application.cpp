@@ -38,7 +38,8 @@ Application::Application()
 	m_debug_camera = new Camera(m_window->get_glfw_window());
 	m_current_camera = m_main_camera;
 
-	glfwSetWindowPos(m_window->get_glfw_window(), 1000, 100);
+	glfwSetWindowPos(m_ray_march_window->get_glfw_window(), 0, 100);
+	glfwSetWindowPos(m_window->get_glfw_window(), 800, 100);
 
 	// Ray marching
 	m_ray_march_set_layout = DescriptorSetLayout(m_vulkan_context);
@@ -68,7 +69,7 @@ Application::Application()
 	// Compute
 	m_point_gen_buffer_set_layout_compute = DescriptorSetLayout(m_vulkan_context);
 	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
-	//m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
 	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
 	m_point_gen_buffer_set_layout_compute.create();
 
@@ -87,6 +88,10 @@ Application::Application()
 	}
 
 	m_point_gen_compute_pipeline = m_vulkan_context.create_compute_pipeline("point_generation", m_point_gen_pipeline_layout_compute);
+
+	// Prefix sum
+	m_point_gen_prefix_sum_pipeline = m_vulkan_context.create_compute_pipeline("prefix_sum", m_point_gen_pipeline_layout_compute);
+
 
 	// Graphics
 	m_point_gen_buffer_set_layout_graphics = DescriptorSetLayout(m_vulkan_context);
@@ -121,28 +126,30 @@ Application::Application()
 	const unsigned int max_rays_per_frame = 10000;
 	const unsigned int max_points_per_ray = 5;
 	VkDeviceSize dirs = sizeof(glm::vec4) * max_rays_per_frame;
-	//VkDeviceSize point_counts = sizeof(uint32_t) * max_rays_per_frame;
+	VkDeviceSize point_counts = sizeof(uint32_t) * (max_rays_per_frame + 1);
 	VkDeviceSize points_found = sizeof(glm::vec4) * max_rays_per_frame * max_points_per_ray;
 	m_point_gen_cpu_memory = m_vulkan_context.allocate_host_memory(dirs + 1000);
-	m_point_gen_gpu_memory = m_vulkan_context.allocate_device_memory(dirs + points_found + 2000);
+	m_point_gen_gpu_memory = m_vulkan_context.allocate_device_memory(dirs + point_counts + points_found + 2000);
 
 	m_point_gen_cpu_buffer = GPUBuffer(m_vulkan_context, dirs, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, m_point_gen_cpu_memory);
 	m_point_gen_input_buffer = GPUBuffer(m_vulkan_context, dirs, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, m_point_gen_gpu_memory);
-	//m_point_gen_point_counts_buffer = GPUBuffer(m_vulkan_context, point_counts, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, m_point_gen_gpu_memory);
-	m_point_gen_output_buffer = GPUBuffer(m_vulkan_context, points_found + 16, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_point_gen_gpu_memory);
+	m_point_gen_point_counts_buffer = GPUBuffer(m_vulkan_context, point_counts, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, m_point_gen_gpu_memory);
+	m_point_gen_output_buffer = GPUBuffer(m_vulkan_context, points_found + sizeof(VkDrawIndirectCommand), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_point_gen_gpu_memory);
 
 	vkMapMemory(m_vulkan_context.get_device(), m_point_gen_cpu_buffer.get_memory(), m_point_gen_cpu_buffer.get_offset(), m_point_gen_cpu_buffer.get_size(), 0, (void**)&m_point_gen_dirs);
 
 	m_point_gen_queue = m_vulkan_context.create_graphics_queue();
 
 	// Dirs
-	for (int x = 0; x < 100; ++x)
+	const int t = 10;
+	for (int x = 0; x < t; ++x)
 	{
-		for (int y = 0; y < 100; ++y)
+		for (int y = 0; y < t; ++y)
 		{
-			m_point_gen_dirs[m_point_gen_dirs_sent++] = glm::normalize(glm::vec4(x - 50, y - 50, 50, 0));
+			m_point_gen_dirs[m_point_gen_dirs_sent++] = glm::normalize(glm::vec4(x - t / 2.f, y - t / 2.f, t / 2.f, 0));
 		}
 	}
+	m_point_gen_dirs_sent = 2048;
 	// !Point generation
 
 	glfwSetKeyCallback(m_ray_march_window->get_glfw_window(), key_callback);
@@ -332,7 +339,7 @@ void Application::draw_main()
 	{
 		m_point_gen_buffer_set_compute.clear();
 		m_point_gen_buffer_set_compute.add_storage_buffer(m_point_gen_input_buffer);
-		//m_point_gen_buffer_set_compute.add_storage_buffer(m_point_gen_point_counts_buffer);
+		m_point_gen_buffer_set_compute.add_storage_buffer(m_point_gen_point_counts_buffer);
 		m_point_gen_buffer_set_compute.add_storage_buffer(m_point_gen_output_buffer);
 		m_point_gen_buffer_set_compute.bind();
 
@@ -356,9 +363,26 @@ void Application::draw_main()
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
-		// Dispatch
+		// Dispatch point generation/gathering
 		const uint32_t group_size = 32;
 		m_point_gen_queue.cmd_dispatch(m_point_gen_dirs_sent / group_size + 1, 1, 1);
+
+		m_point_gen_queue.cmd_buffer_barrier(m_point_gen_point_counts_buffer.get_buffer(),
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+		m_point_gen_queue.cmd_buffer_barrier(m_point_gen_output_buffer.get_buffer(),
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+		m_point_gen_queue.cmd_bind_compute_pipeline(m_point_gen_prefix_sum_pipeline->m_pipeline);
+
+		// Dispatch prefix sum
+		m_point_gen_queue.cmd_dispatch(1, 1, 1);
 
 		m_point_gen_queue.cmd_image_barrier(
 			image,
@@ -370,8 +394,14 @@ void Application::draw_main()
 			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
+		m_point_gen_queue.cmd_buffer_barrier(m_point_gen_output_buffer.get_buffer(),
+			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
+
 		m_point_gen_queue.cmd_bind_graphics_pipeline(m_point_gen_graphics_pipeline->m_pipeline);
-		m_point_gen_queue.cmd_bind_vertex_buffer(m_point_gen_output_buffer.get_buffer(), 16);
+		m_point_gen_queue.cmd_bind_vertex_buffer(m_point_gen_output_buffer.get_buffer(), sizeof(VkDrawIndirectCommand));
 		m_point_gen_queue.cmd_begin_render_pass(m_point_gen_render_pass, m_window_states.swapchain_framebuffers[index]);
 		m_point_gen_queue.cmd_draw_indirect(m_point_gen_output_buffer.get_buffer());
 		m_point_gen_queue.cmd_end_render_pass();

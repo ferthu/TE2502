@@ -14,6 +14,7 @@
 #include "gpu_memory.hpp"
 #include "pipeline_layout.hpp"
 #include "descriptor_set_layout.hpp"
+#include "vertex_attributes.hpp"
 
 #include "pipeline.hpp"
 
@@ -21,6 +22,9 @@ class Window;
 class Pipeline;
 class PipelineLayout;
 class DescriptorSetLayout;
+class DebugDrawer;
+class VertexAttributes;
+class RenderPass;
 
 // Class for handling Vulkan instance
 class VulkanContext
@@ -89,14 +93,13 @@ public:
 	// Returns a memory object allocated from host
 	GPUMemory allocate_host_memory(VkDeviceSize byte_size);
 
-	// Creates the render pass 
-	void create_render_pass(const Window* window);
-
 	// Creates and returns a compute pipeline
 	std::unique_ptr<Pipeline> create_compute_pipeline(const std::string& shader_name, PipelineLayout& layout);
 
 	// Creates and returns a graphics pipeline
-	std::unique_ptr<Pipeline> create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size, PipelineLayout& layout);
+	std::unique_ptr<Pipeline> create_graphics_pipeline(const std::string& shader_name, 
+		const glm::vec2 window_size, PipelineLayout& layout, VertexAttributes& vertex_attributes, 
+		RenderPass& render_pass, bool enable_depth, VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
 	// Allocate a descriptor set from descriptor pool
 	VkDescriptorSet allocate_descriptor_set(DescriptorSetLayout& layout);
@@ -177,8 +180,6 @@ private:
 
 	// Initialize the descriptor pool
 	void create_descriptor_pool();
-
-	VkRenderPass m_render_pass;
 
 	VkInstance m_instance;
 	VkPhysicalDevice m_physical_device;

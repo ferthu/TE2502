@@ -21,8 +21,6 @@ layout(set = 0, binding = 0, rgba8) uniform image2D image;
 
 vec2 iResolution = frame_data.screen_size;
 
-float treeCol = 0.0;
-
 vec3 sunLight = normalize(vec3(0.4, 0.4, 0.48));
 vec3 sunColour = vec3(1.0, .9, .83);
 float specular = 0.0;
@@ -104,11 +102,7 @@ float Map(in vec3 p)
 {
 	float h = Terrain(p.xz);
 
-	float ff = Noise(p.xz*.3) + Noise(p.xz*3.3)*.5;
-	treeCol = 0.f;
-	h += treeCol;
-
-	return p.y - h;
+	return -p.y - h;
 }
 
 //--------------------------------------------------------------------------
@@ -130,10 +124,6 @@ float Terrain2(in vec2 p)
 	}
 	float ff = Noise(pos*.002);
 	f += pow(abs(ff), 5.0)*275. - 5.0;
-
-
-	treeCol = 0.f;
-	f += treeCol;
 
 
 	// That's the last of the low resolution, now go down further for the Normal data...
@@ -238,13 +228,11 @@ float BinarySubdivision(in vec3 rO, in vec3 rD, vec2 t)
 	// Home in on the surface by dividing by two and split...
 	float halfwayT;
 
-	for (int i = 0; i < 5; i++)
+	for (int i = 0; i < 20; i++)
 	{
-
 		halfwayT = dot(t, vec2(.5));
 		float d = Map(rO + halfwayT * rD);
 		t = mix(vec2(t.x, halfwayT), vec2(halfwayT, t.y), step(0.5, d));
-
 	}
 	return halfwayT;
 }
@@ -252,7 +240,7 @@ float BinarySubdivision(in vec3 rO, in vec3 rD, vec2 t)
 //--------------------------------------------------------------------------
 bool Scene(in vec3 rO, in vec3 rD, out float resT, in vec2 fragCoord)
 {
-	float t = 0.01;// +Hash12(fragCoord.xy)*.2;
+	float t = 0.01;
 	float oldT = 0.0;
 	float delta = 0.0;
 	bool fin = false;
@@ -285,7 +273,7 @@ bool Scene(in vec3 rO, in vec3 rD, out float resT, in vec2 fragCoord)
 
 //--------------------------------------------------------------------------
 // Some would say, most of the magic is done in post! :D
-vec3 PostEffects(vec3 rgb, vec2 uv)
+vec3 PostEffects(vec3 rgb)
 {
 	//#define CONTRAST 1.1
 	//#define SATURATION 1.12
@@ -303,14 +291,18 @@ void main(void)
 	if (gl_GlobalInvocationID.x >= WIDTH || gl_GlobalInvocationID.y >= HEIGHT)
 		return;
 
-	vec2 xy = 1.0 + -2.0*gl_GlobalInvocationID.xy / iResolution.xy;
-	vec2 uv = xy * vec2(iResolution.x / iResolution.y, 1.0);
+	const float deg_to_rad = 3.1415 / 180.0;
+	const float fov = 90.0;	// In degrees
+	float px = (2 * ((gl_GlobalInvocationID.x + 0.5) / frame_data.screen_size.x) - 1) * tan(fov / 2.0 * deg_to_rad);
+	float py = (2 * ((gl_GlobalInvocationID.y + 0.5) / frame_data.screen_size.y) - 1) * tan(fov / 2.0 * deg_to_rad) * frame_data.screen_size.y / frame_data.screen_size.x;
+	vec3 rd = vec3(px, py, 1);
+	rd = (frame_data.view * vec4(normalize(rd), 0.0)).xyz;
 
-	vec3 rd = (frame_data.view * normalize(vec4(uv, 1, 0))).xyz;
+	vec3 position = frame_data.position.xyz;
 
 	vec3 col;
 	float distance;
-	if (!Scene(frame_data.position.xyz, rd, distance, gl_GlobalInvocationID.xy))
+	if (!Scene(position, rd, distance, gl_GlobalInvocationID.xy))
 	{
 		// Missed scene, now just get the sky value...
 		col = vec3(0.1, 0.15, 0.3);
@@ -318,7 +310,7 @@ void main(void)
 	else
 	{
 		// Get world coordinate of landscape...
-		vec3 pos = frame_data.position.xyz + distance * rd;
+		vec3 pos = position + distance * rd;
 		// Get normal from sampling the high definition height map
 		// Use the distance to sample larger gaps to help stop aliasing...
 		float p = min(.3, .0005 + .00005 * distance*distance);
@@ -332,7 +324,7 @@ void main(void)
 		col = TerrainColour(pos, nor, distance);
 	}
 
-	col = PostEffects(col, uv);
+	col = PostEffects(col);
 
 	vec4 fragColor = vec4(col, 1.0);
 	imageStore(image, ivec2(gl_GlobalInvocationID.xy), fragColor);

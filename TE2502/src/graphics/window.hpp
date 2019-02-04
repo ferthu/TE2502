@@ -14,7 +14,7 @@ class Window
 {
 public:
 	Window() {};
-	Window(int width, int height, const char* title, VulkanContext& vulkan_context);
+	Window(int width, int height, const char* title, VulkanContext& vulkan_context, bool lock_mouse);
 	virtual ~Window();
 
 	Window(Window&& other);

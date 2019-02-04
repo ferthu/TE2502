@@ -25,6 +25,9 @@ public:
 	VkImageUsageFlags get_usage() { return m_usage; }
 	VkFormat get_format() { return m_format; }
 
+	VkDeviceMemory get_memory() { return m_memory; }
+	VkDeviceSize get_offset() { return m_offset; }
+
 private:
 	// Moves other into this
 	void move_from(GPUImage&& other);
@@ -41,6 +44,12 @@ private:
 	VkImageUsageFlags m_usage;
 
 	VkFormat m_format;
+
+	// The memory the image resides in
+	VkDeviceMemory m_memory;
+
+	// Offset of image's memory location
+	VkDeviceSize m_offset;
 };
 
 // An object that references an image

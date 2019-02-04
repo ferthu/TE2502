@@ -38,7 +38,7 @@ public:
 	// Upload push constant range to pipeline
 	void cmd_push_constants(VkPipelineLayout layout, VkShaderStageFlags stage_flags, uint32_t size, const void* data_pointer);
 
-private:
+protected:
 	// Move other into this
 	void move_from(ComputeQueue&& other);
 	

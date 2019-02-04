@@ -33,14 +33,13 @@ GPUImage::GPUImage(VulkanContext& context, VkExtent3D size, VkFormat format,
 	// Assert that this object can be backed by memory_heap
 	assert(req.memoryTypeBits & (1 << memory_heap.get_memory_type()));
 
-	VkDeviceSize offset = 0;
-	VkDeviceMemory memory = memory_heap.allocate_memory(req.size + req.alignment, offset);
+	m_memory = memory_heap.allocate_memory(req.size + req.alignment, m_offset);
 
 	// Get the next aligned address
-	offset += req.alignment - (offset % req.alignment);
+	m_offset += req.alignment - (m_offset % req.alignment);
 
 	// Bind buffer to memory
-	result = vkBindImageMemory(context.get_device(), m_image, memory, offset);
+	result = vkBindImageMemory(context.get_device(), m_image, m_memory, m_offset);
 	assert(result == VK_SUCCESS);
 }
 
@@ -74,6 +73,9 @@ void GPUImage::move_from(GPUImage&& other)
 	m_size = other.m_size;
 	m_usage = other.m_usage;
 	m_format = other.m_format;
+	m_memory = other.m_memory;
+	other.m_memory = VK_NULL_HANDLE;
+	m_offset = other.m_offset;
 }
 
 void GPUImage::destroy()

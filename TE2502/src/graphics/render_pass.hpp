@@ -10,7 +10,8 @@ class RenderPass
 {
 public:
 	RenderPass();
-	RenderPass(VulkanContext& context, VkFormat color_format, VkImageLayout color_initial_layout, VkImageLayout color_final_layout);
+	RenderPass(VulkanContext& context, VkFormat color_format, VkImageLayout color_initial_layout, VkImageLayout color_final_layout, bool clear_color_image, 
+		bool use_depth, bool clear_depth = false, VkImageLayout depth_initial_layout = VK_IMAGE_LAYOUT_UNDEFINED, VkImageLayout depth_final_layout = VK_IMAGE_LAYOUT_UNDEFINED);
 	~RenderPass();
 
 	RenderPass(RenderPass&& other);

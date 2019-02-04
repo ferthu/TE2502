@@ -37,6 +37,9 @@ void Framebuffer::add_attachment(ImageView& image_view)
 
 void Framebuffer::create(VkRenderPass render_pass, uint32_t width, uint32_t height)
 {
+	m_width = width;
+	m_height = height;
+
 	assert(m_framebuffer == VK_NULL_HANDLE);
 	assert(m_attachments.size());
 
@@ -60,6 +63,16 @@ VkFramebuffer Framebuffer::get_framebuffer()
 	return m_framebuffer;
 }
 
+uint32_t Framebuffer::get_width() const
+{
+	return m_width;
+}
+
+uint32_t Framebuffer::get_height() const
+{
+	return m_height;
+}
+
 void Framebuffer::move_from(Framebuffer&& other)
 {
 	destroy();
@@ -68,6 +81,9 @@ void Framebuffer::move_from(Framebuffer&& other)
 
 	m_framebuffer = other.m_framebuffer;
 	other.m_framebuffer = VK_NULL_HANDLE;
+
+	m_width = other.m_width;
+	m_height = other.m_height;
 
 	m_attachments = std::move(other.m_attachments);
 }

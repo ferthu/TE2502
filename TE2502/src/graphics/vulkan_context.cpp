@@ -9,6 +9,7 @@
 #include "utilities.hpp"
 #include "window.hpp"
 #include "pipeline.hpp"
+#include "render_pass.hpp"
 
 VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_error_callback(
 	VkDebugReportFlagsEXT       flags,
@@ -81,8 +82,6 @@ VulkanContext::VulkanContext()
 VulkanContext::~VulkanContext()
 {
 	vkDestroyDescriptorPool(m_device, m_descriptor_pool, m_allocation_callbacks);
-
-	vkDestroyRenderPass(m_device, m_render_pass, nullptr);
 
 	vkDeviceWaitIdle(m_device);
 
@@ -552,37 +551,8 @@ void VulkanContext::write_required_features(VkPhysicalDeviceFeatures& features)
 	features.shaderClipDistance = VK_TRUE;
 	assert(m_device_features.shaderCullDistance);
 	features.shaderCullDistance = VK_TRUE;
-}
-
-void VulkanContext::create_render_pass(const Window* window)
-{
-	VkAttachmentDescription color_attachment = {};
-	color_attachment.format = window->get_format();
-	color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-	VkAttachmentReference color_attachment_ref = {};
-	color_attachment_ref.attachment = 0;
-	color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpass = {};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;  // VK_PIPELINE_BIND_POINT_COMPUTE?
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &color_attachment_ref;
-
-	VkRenderPassCreateInfo render_pass_info = {};
-	render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	render_pass_info.attachmentCount = 1;
-	render_pass_info.pAttachments = &color_attachment;
-	render_pass_info.subpassCount = 1;
-	render_pass_info.pSubpasses = &subpass;
-
-	VK_CHECK(vkCreateRenderPass(m_device, &render_pass_info, nullptr, &m_render_pass), "Failed to create render pass!");
+	assert(m_device_features.multiDrawIndirect);
+	features.multiDrawIndirect = VK_TRUE;
 }
 
 static std::vector<char> read_file(const std::string& filename)
@@ -651,11 +621,8 @@ std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::stri
 	return std::make_unique<Pipeline>(pipeline, layout, m_device);
 }
 
-std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size, PipelineLayout& layout)
+std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size, PipelineLayout& layout, VertexAttributes& vertex_attributes, RenderPass& render_pass, bool enable_depth, VkPrimitiveTopology topology)
 {
-	//auto vert_shader_code = compile_from_file("shaders/shader.frag", shaderc_shader_kind::shaderc_glsl_vertex_shader);
-	//auto frag_shader_code = compile_from_file("shaders/shader.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
-
 	auto vert_shader_code = read_file("shaders/compiled/" + shader_name + ".vert.glsl.spv");
 	auto frag_shader_code = read_file("shaders/compiled/" + shader_name + ".frag.glsl.spv");
 
@@ -674,18 +641,18 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::str
 	frag_shader_stage_info.module = frag_shader_module;
 	frag_shader_stage_info.pName = "main";
 
-	VkPipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info };
+	VkPipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info };	
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
 	vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertex_input_info.vertexBindingDescriptionCount = 0;
-	vertex_input_info.pVertexBindingDescriptions = nullptr; // Optional
-	vertex_input_info.vertexAttributeDescriptionCount = 0;
-	vertex_input_info.pVertexAttributeDescriptions = nullptr; // Optional
+	vertex_input_info.vertexBindingDescriptionCount = vertex_attributes.get_num_bindings();
+	vertex_input_info.pVertexBindingDescriptions = vertex_attributes.get_bindings();
+	vertex_input_info.vertexAttributeDescriptionCount = vertex_attributes.get_num_attributes();
+	vertex_input_info.pVertexAttributeDescriptions = vertex_attributes.get_attributes();
 
 	VkPipelineInputAssemblyStateCreateInfo input_assembly = {};
 	input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	input_assembly.topology = topology;
 	input_assembly.primitiveRestartEnable = VK_FALSE;
 
 	VkViewport viewport = {};
@@ -750,6 +717,30 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::str
 	color_blending.blendConstants[2] = 0.0f; // Optional
 	color_blending.blendConstants[3] = 0.0f; // Optional
 
+	VkPipelineDepthStencilStateCreateInfo depth_stencil;
+	depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depth_stencil.pNext = nullptr;
+	depth_stencil.flags = 0;
+	depth_stencil.depthTestEnable = enable_depth ? VK_TRUE : VK_FALSE;
+	depth_stencil.depthWriteEnable = enable_depth ? VK_TRUE : VK_FALSE;
+	depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
+	depth_stencil.depthBoundsTestEnable = VK_FALSE;
+	depth_stencil.stencilTestEnable = VK_FALSE;
+
+	VkStencilOpState stencil_state; 
+	stencil_state.failOp = VK_STENCIL_OP_INCREMENT_AND_CLAMP;
+	stencil_state.passOp = VK_STENCIL_OP_INCREMENT_AND_CLAMP;
+	stencil_state.depthFailOp = VK_STENCIL_OP_INCREMENT_AND_CLAMP;
+	stencil_state.compareOp = VK_COMPARE_OP_ALWAYS;
+	stencil_state.compareMask = 1;
+	stencil_state.writeMask = 1;
+	stencil_state.reference = 1;
+
+	depth_stencil.front = stencil_state;
+	depth_stencil.back = stencil_state;
+	depth_stencil.minDepthBounds = 0.0f;
+	depth_stencil.maxDepthBounds = 1.0f;
+
 	VkGraphicsPipelineCreateInfo pipeline_info = {};
 	pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipeline_info.stageCount = 2;
@@ -759,11 +750,11 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::str
 	pipeline_info.pViewportState = &viewport_state;
 	pipeline_info.pRasterizationState = &rasterizer;
 	pipeline_info.pMultisampleState = &multisampling;
-	pipeline_info.pDepthStencilState = nullptr; // Optional
+	pipeline_info.pDepthStencilState = &depth_stencil;
 	pipeline_info.pColorBlendState = &color_blending;
 	pipeline_info.pDynamicState = nullptr; // Optional
 	pipeline_info.layout = layout.get_pipeline_layout();
-	pipeline_info.renderPass = m_render_pass;
+	pipeline_info.renderPass = render_pass.get_render_pass();
 	pipeline_info.subpass = 0;
 	pipeline_info.basePipelineHandle = VK_NULL_HANDLE; // Optional
 	pipeline_info.basePipelineIndex = -1; // Optional

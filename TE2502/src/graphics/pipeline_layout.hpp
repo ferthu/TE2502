@@ -35,12 +35,12 @@ private:
 	// Destroys object
 	void destroy();
 
-	VulkanContext* m_context;
+	VulkanContext* m_context = nullptr;
 
 	VkPipelineLayout m_pipeline_layout = VK_NULL_HANDLE;
 
 	std::vector<VkDescriptorSetLayout> m_descriptor_set_layouts;
 
-	bool m_is_created;
+	bool m_is_created = false;
 };
 

@@ -340,3 +340,5 @@ ASALocalRun/
 TE2502/imgui\.ini
 
 *.ini
+
+*.cap

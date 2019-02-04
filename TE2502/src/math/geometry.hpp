@@ -32,6 +32,7 @@ public:
 	};
 };
 
+// Describes a camera frustum with 6 planes
 class Frustum
 {
 public:
@@ -50,4 +51,24 @@ public:
 			Plane m_far;
 		};
 	};
+
+	// Positions of frustum corners
+	glm::vec3 m_corners[8];
 };
+
+// Represents an AABB with infinite Y height
+class AabbXZ
+{
+public:
+	AabbXZ() {};
+	AabbXZ(glm::vec2 min, glm::vec2 max);
+
+	// Corner with lowest coordinates
+	glm::vec2 m_min;
+
+	// Corner with highest coordinates
+	glm::vec2 m_max;
+};
+
+// Returns true if frustum intersects AABB
+bool frustum_aabbxz_intersection(Frustum& frustum, AabbXZ& aabb);

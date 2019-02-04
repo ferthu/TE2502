@@ -10,7 +10,7 @@ Camera::Camera(GLFWwindow* window)
 {
 	m_window = window;
 	glfwGetWindowSize(m_window, &m_window_width, &m_window_height);
-	m_perspective = calculate_perspective(90.0f, m_near, m_far, m_window_width, m_window_height);
+	m_perspective = calculate_perspective(90.0f, m_near, m_far, (float)m_window_width, (float)m_window_height);
 	get_camera_planes();
 }
 
@@ -78,12 +78,7 @@ void Camera::update(const float dt, bool mouse_locked, DebugDrawer& dd)
 
 	m_view = glm::translate(camera_rotation, glm::vec3{ -m_position });
 
-	static float fov = 90.0f;
-	ImGui::Begin("Camera Settings");
-	ImGui::DragFloat("fov", &fov, 1.0f, 10.0f, 120.0f);
-	ImGui::End();
-
-	m_perspective = calculate_perspective(fov, m_near, m_far, m_window_width, m_window_height);
+	m_perspective = calculate_perspective(90.0f, m_near, m_far, (float)m_window_width, (float)m_window_height);
 	m_vp = m_perspective * m_view;
 
 	m_ray_march_view = glm::inverse(camera_rotation);
@@ -187,4 +182,16 @@ void Camera::get_camera_planes()
 	m_frustum.m_far.m_plane.w = m_vp[3][3] - m_vp[3][2];
 	m_frustum.m_far.normalize();
 
+	// Calculate frustum corners
+	glm::mat4 inv_vp = glm::inverse(m_vp);
+
+	glm::vec4 point;
+	point = inv_vp * glm::vec4( 1,  1, 0, 1); m_frustum.m_corners[0] = point / point.w;
+	point = inv_vp * glm::vec4(-1,  1, 0, 1); m_frustum.m_corners[1] = point / point.w;
+	point = inv_vp * glm::vec4( 1, -1, 0, 1); m_frustum.m_corners[2] = point / point.w;
+	point = inv_vp * glm::vec4(-1, -1, 0, 1); m_frustum.m_corners[3] = point / point.w;
+	point = inv_vp * glm::vec4( 1,  1, 1, 1); m_frustum.m_corners[4] = point / point.w;
+	point = inv_vp * glm::vec4(-1,  1, 1, 1); m_frustum.m_corners[5] = point / point.w;
+	point = inv_vp * glm::vec4( 1, -1, 1, 1); m_frustum.m_corners[6] = point / point.w;
+	point = inv_vp * glm::vec4(-1, -1, 1, 1); m_frustum.m_corners[7] = point / point.w;
 }

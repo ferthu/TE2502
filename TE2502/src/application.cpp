@@ -6,6 +6,7 @@
 #include "graphics/gpu_image.hpp"
 #include "graphics/gpu_buffer.hpp"
 #include "graphics/pipeline_layout.hpp"
+#include "quadtree.hpp"
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
@@ -116,12 +117,13 @@ Application::Application()
 	vertex_attributes.add_buffer();
 	vertex_attributes.add_attribute(4);
 
-	m_point_gen_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true);
+	m_point_gen_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, 
+		true, true, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 	m_point_gen_graphics_pipeline = m_vulkan_context.create_graphics_pipeline("point_generation", m_window->get_size(), 
 		m_point_gen_pipeline_layout_graphics, 
 		vertex_attributes, 
-		m_point_gen_render_pass, VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
+		m_point_gen_render_pass, true);
 
 	const unsigned int max_rays_per_frame = 10000;
 	const unsigned int max_points_per_ray = 5;
@@ -156,7 +158,7 @@ Application::Application()
 	m_point_gen_power2_dirs_sent = (unsigned int)(powf(2, p));
 	// !Point generation
 
-	glfwSetKeyCallback(m_ray_march_window->get_glfw_window(), key_callback);
+	//glfwSetKeyCallback(m_ray_march_window->get_glfw_window(), key_callback);
 	glfwSetKeyCallback(m_window->get_glfw_window(), key_callback);
 
 	imgui_setup();
@@ -168,12 +170,30 @@ Application::Application()
 		m_ray_march_window_states.swapchain_framebuffers[i].add_attachment(m_ray_march_window->get_swapchain_image_view(i));
 		m_ray_march_window_states.swapchain_framebuffers[i].create(m_imgui_vulkan_state.render_pass, m_ray_march_window->get_size().x, m_ray_march_window->get_size().y);
 	}
+	m_window_states.depth_memory = m_vulkan_context.allocate_device_memory(m_window->get_size().x * m_window->get_size().y * 2 * m_window->get_swapchain_size() * 4 + 1024);
 	m_window_states.swapchain_framebuffers.resize(m_window->get_swapchain_size());
+	m_imgui_vulkan_state.swapchain_framebuffers.resize(m_window->get_swapchain_size());
 	for (uint32_t i = 0; i < m_window->get_swapchain_size(); i++)
 	{
+		VkExtent3D depth_size;
+		depth_size.width = m_window->get_size().x;
+		depth_size.height = m_window->get_size().y;
+		depth_size.depth = 1;
+		m_window_states.depth_images.push_back(GPUImage(m_vulkan_context, depth_size, 
+			VK_FORMAT_D32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, 
+			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, 
+			m_window_states.depth_memory));
+
+		m_window_states.depth_image_views.push_back(ImageView(m_vulkan_context, m_window_states.depth_images[i], VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT));
+
 		m_window_states.swapchain_framebuffers[i] = Framebuffer(m_vulkan_context);
 		m_window_states.swapchain_framebuffers[i].add_attachment(m_window->get_swapchain_image_view(i));
-		m_window_states.swapchain_framebuffers[i].create(m_imgui_vulkan_state.render_pass, m_window->get_size().x, m_window->get_size().y);
+		m_window_states.swapchain_framebuffers[i].add_attachment(m_window_states.depth_image_views[i]);
+		m_window_states.swapchain_framebuffers[i].create(m_point_gen_render_pass.get_render_pass(), m_window->get_size().x, m_window->get_size().y);
+
+		m_imgui_vulkan_state.swapchain_framebuffers[i] = Framebuffer(m_vulkan_context);
+		m_imgui_vulkan_state.swapchain_framebuffers[i].add_attachment(m_window->get_swapchain_image_view(i));
+		m_imgui_vulkan_state.swapchain_framebuffers[i].create(m_imgui_vulkan_state.render_pass, m_window->get_size().x, m_window->get_size().y);
 	}
 
 	m_imgui_vulkan_state.done_drawing_semaphores.resize(m_window->get_swapchain_size());
@@ -187,8 +207,12 @@ Application::Application()
 			&m_imgui_vulkan_state.done_drawing_semaphores[i]), "Semaphore creation failed!")
 	}
 
-	// Set up debug drawing
+	// Set up terrain generation/drawing
+	uint32_t max_indices = 300003;
+	assert(((max_indices + 5) * 4) % 16 == 0);	// Requires proper alignment
+	m_quadtree = Quadtree(m_vulkan_context, 20000.0f, 5, 1000, max_indices, 80000, *m_window);
 
+	// Set up debug drawing
 	m_debug_pipeline_layout = PipelineLayout(m_vulkan_context);
 	{
 		// Set up push constant range for frame data
@@ -205,9 +229,9 @@ Application::Application()
 	debug_attributes.add_attribute(3);
 	debug_attributes.add_attribute(3);
 
-	m_debug_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	m_debug_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, false, true, false, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-	m_debug_pipeline = m_vulkan_context.create_graphics_pipeline("debug", m_window->get_size(), m_debug_pipeline_layout, debug_attributes, m_debug_render_pass, VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+	m_debug_pipeline = m_vulkan_context.create_graphics_pipeline("debug", m_window->get_size(), m_debug_pipeline_layout, debug_attributes, m_debug_render_pass, true, VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
 
 	m_debug_queue = m_vulkan_context.create_graphics_queue();
 	m_debug_drawer = DebugDrawer(m_vulkan_context, 11000);
@@ -317,11 +341,25 @@ void Application::update(const float dt)
 	if (m_show_imgui)
 	{
 		ImGui::Begin("Info");
+
+		static const uint32_t num_frames = 200;
+		static float values[num_frames] = { 0 };
+		static int values_offset = 0;
+		values[values_offset] = dt;
+		values_offset = (values_offset + 1) % num_frames;
+		ImGui::PlotLines("Frame Time", values, num_frames, values_offset, nullptr, 0.0f, 0.02f, ImVec2(150, 30));
+		
+
 		std::string text = "Frame info: " + std::to_string(int(1.f / dt)) + "fps  "
 			+ std::to_string(dt) + "s  " + std::to_string(int(100.f * dt / 0.016f)) + "%%";
 		ImGui::Text(text.c_str());
 		text = "Position: " + std::to_string(m_main_camera->get_pos().x) + ", " + std::to_string(m_main_camera->get_pos().y) + ", " + std::to_string(m_main_camera->get_pos().z);
 		ImGui::Text(text.c_str());
+		ImGui::Checkbox("Draw Ray Marched View", &m_draw_ray_march);
+		if (ImGui::Button("Clear Terrain"))
+		{
+			m_quadtree.clear_terrain();
+		}
 		ImGui::End();
 	}
 }
@@ -330,7 +368,8 @@ void Application::update(const float dt)
 void Application::draw()
 {
 	draw_main();
-	draw_ray_march();
+	if (m_draw_ray_march)
+		draw_ray_march();
 }
 
 void Application::draw_main()
@@ -399,6 +438,16 @@ void Application::draw_main()
 			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
+		m_point_gen_queue.cmd_image_barrier(
+			m_window_states.depth_images[index].get_image(),
+			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_ASPECT_DEPTH_BIT,
+			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
+
 		m_point_gen_queue.cmd_buffer_barrier(m_point_gen_output_buffer.get_buffer(),
 			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT |	VK_ACCESS_INDEX_READ_BIT,
@@ -418,42 +467,36 @@ void Application::draw_main()
 		// end of RENDER------------------
 	}
 
+	// Perform terrain generation/drawing
+	Frustum fr = m_main_camera->get_frustum();
+	m_quadtree.draw_terrain(fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_current_camera);
+
 	// Do debug drawing
 	{
-		// Debug lines
-		static glm::vec3 point{1,1,1};
-
-		ImGui::Begin("Test Cross");
-		ImGui::DragFloat3("Pos", (float*)&point);
-		ImGui::End();
-
 		m_debug_drawer.draw_line({ 0,0,0 }, { 1, 0, 0 }, { 1, 0, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 1, 0 }, { 0, 1, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 0, 1 }, { 0, 0, 1 });
-		m_debug_drawer.draw_line(point - glm::vec3{1,0,0}, point + glm::vec3{1,0,0}, { 1, 1, 1 });
-		m_debug_drawer.draw_line(point - glm::vec3{0,1,0}, point + glm::vec3{0,1,0}, { 1, 1, 1 });
-		m_debug_drawer.draw_line(point - glm::vec3{0,0,1}, point + glm::vec3{0,0,1}, { 1, 1, 1 });
 
 		if (m_current_camera != m_main_camera)
 		{
 			// Draw frustum
 			m_debug_drawer.draw_frustum(m_main_camera->get_vp(), {1, 0, 1});
 
-			glm::mat4 inv_vp = glm::inverse(m_main_camera->get_vp());
-			glm::vec4 left_pos = inv_vp * glm::vec4(-1, 0, 0.99f, 1); left_pos /= left_pos.w;
-			glm::vec4 right_pos = inv_vp * glm::vec4(1, 0, 0.99f, 1); right_pos /= right_pos.w;
-			glm::vec4 top_pos = inv_vp * glm::vec4(0, -1, 0.99f, 1); top_pos /= top_pos.w;
-			glm::vec4 bottom_pos = inv_vp * glm::vec4(0, 1, 0.99f, 1); bottom_pos /= bottom_pos.w;
-			glm::vec4 near_pos = inv_vp * glm::vec4(0, 0, 0, 1); near_pos /= near_pos.w;
-			glm::vec4 far_pos = inv_vp * glm::vec4(0, 0, 1, 1); far_pos /= far_pos.w;
+			//glm::mat4 inv_vp = glm::inverse(m_main_camera->get_vp());
+			//glm::vec4 left_pos = inv_vp * glm::vec4(-1, 0, 0.99f, 1); left_pos /= left_pos.w;
+			//glm::vec4 right_pos = inv_vp * glm::vec4(1, 0, 0.99f, 1); right_pos /= right_pos.w;
+			//glm::vec4 top_pos = inv_vp * glm::vec4(0, -1, 0.99f, 1); top_pos /= top_pos.w;
+			//glm::vec4 bottom_pos = inv_vp * glm::vec4(0, 1, 0.99f, 1); bottom_pos /= bottom_pos.w;
+			//glm::vec4 near_pos = inv_vp * glm::vec4(0, 0, 0, 1); near_pos /= near_pos.w;
+			//glm::vec4 far_pos = inv_vp * glm::vec4(0, 0, 1, 1); far_pos /= far_pos.w;
 
-			Frustum frustum = m_main_camera->get_frustum();
-			m_debug_drawer.draw_plane(frustum.m_left, left_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
-			m_debug_drawer.draw_plane(frustum.m_right, right_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
-			m_debug_drawer.draw_plane(frustum.m_top, top_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
-			m_debug_drawer.draw_plane(frustum.m_bottom, bottom_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
-			m_debug_drawer.draw_plane(frustum.m_near, near_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
-			m_debug_drawer.draw_plane(frustum.m_far, far_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			//Frustum frustum = m_main_camera->get_frustum();
+			//m_debug_drawer.draw_plane(frustum.m_left, left_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			//m_debug_drawer.draw_plane(frustum.m_right, right_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			//m_debug_drawer.draw_plane(frustum.m_top, top_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			//m_debug_drawer.draw_plane(frustum.m_bottom, bottom_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			//m_debug_drawer.draw_plane(frustum.m_near, near_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
+			//m_debug_drawer.draw_plane(frustum.m_far, far_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
 		}
 
 		m_debug_queue.start_recording();
@@ -484,7 +527,7 @@ void Application::draw_main()
 		m_debug_queue.wait();
 	}
 
-	imgui_draw(m_window_states.swapchain_framebuffers[index], m_imgui_vulkan_state.done_drawing_semaphores[index]);
+	imgui_draw(m_imgui_vulkan_state.swapchain_framebuffers[index], m_imgui_vulkan_state.done_drawing_semaphores[index]);
 
 	present(m_window, m_point_gen_queue.get_queue(), index, m_imgui_vulkan_state.done_drawing_semaphores[index]);
 }
@@ -711,7 +754,7 @@ void Application::imgui_shutdown()
 
 void Application::imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_complete_semaphore)
 {
-    ImGui::Render();
+	ImGui::Render();
 
 	{
 		vkWaitForFences(m_vulkan_context.get_device(), 1, &m_imgui_vulkan_state.command_buffer_idle, VK_FALSE, ~0ull);

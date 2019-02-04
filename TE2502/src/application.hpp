@@ -12,6 +12,7 @@
 #include "graphics/framebuffer.hpp"
 #include "graphics/render_pass.hpp"
 #include "graphics/debug_drawer.hpp"
+#include "quadtree.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -83,6 +84,7 @@ private:
 		VkCommandPool command_pool;
 		VkCommandBuffer command_buffer;
 		VkFence command_buffer_idle;
+		std::vector<Framebuffer> swapchain_framebuffers;
 	};
 
 	ImGuiVulkanState m_imgui_vulkan_state;
@@ -95,6 +97,9 @@ private:
 	std::chrono::time_point<std::chrono::steady_clock> m_timer;
 	struct VulkanWindowStates
 	{
+		GPUMemory depth_memory;
+		std::vector<GPUImage> depth_images;
+		std::vector<ImageView> depth_image_views;
 		std::vector<Framebuffer> swapchain_framebuffers;
 	};
 	VulkanWindowStates m_ray_march_window_states;
@@ -129,6 +134,9 @@ private:
 	unsigned int m_point_gen_dirs_sent;
 	unsigned int m_point_gen_power2_dirs_sent;
 
+	// Terrain generation/drawing
+	Quadtree m_quadtree;
+
 	// Debug drawing
 	PipelineLayout m_debug_pipeline_layout;
 	std::unique_ptr<Pipeline> m_debug_pipeline;
@@ -137,5 +145,6 @@ private:
 	RenderPass m_debug_render_pass;
 
 	bool m_show_imgui = true;
+	bool m_draw_ray_march = true;
 };
 

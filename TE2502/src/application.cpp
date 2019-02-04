@@ -123,7 +123,7 @@ Application::Application()
 	m_point_gen_graphics_pipeline = m_vulkan_context.create_graphics_pipeline("point_generation", m_window->get_size(), 
 		m_point_gen_pipeline_layout_graphics, 
 		vertex_attributes, 
-		m_point_gen_render_pass, true);
+		m_point_gen_render_pass, true, VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
 
 	const unsigned int max_rays_per_frame = 10000;
 	const unsigned int max_points_per_ray = 5;

@@ -90,7 +90,7 @@ void main(void)
 			float x = frame_data.min.x + (((gl_GlobalInvocationID.x + i * GROUP_SIZE) % (GRID_SIDE)) / float(GRID_SIDE - 1)) * (frame_data.max.x - frame_data.min.x);
 			float y = frame_data.min.y + float((gl_GlobalInvocationID.x + i * GROUP_SIZE) / GRID_SIDE) / float(GRID_SIDE - 1) * (frame_data.max.y - frame_data.min.y);
 
-			terrain_buffer.data[frame_data.buffer_slot].positions[gl_GlobalInvocationID.x + i * GROUP_SIZE] = vec4(x, -Terrain(vec2(x, y)), y, 1.0);
+			terrain_buffer.data[frame_data.buffer_slot].positions[gl_GlobalInvocationID.x + i * GROUP_SIZE] = vec4(x, -Terrain(vec2(x, y)) - 0.5, y, 1.0);
 
 			if (gl_GlobalInvocationID.x + i * GROUP_SIZE < GRID_SIDE * GRID_SIDE - GRID_SIDE && (gl_GlobalInvocationID.x + i * GROUP_SIZE) % GRID_SIDE != GRID_SIDE - 1)
 			{

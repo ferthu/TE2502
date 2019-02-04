@@ -38,11 +38,11 @@ private:
 	// Fills m_frustum with data on current frustum planes
 	void get_camera_planes();
 
-	const float m_slow_speed = 3.f;
-	const float m_fast_speed = 50.f;
+	const float m_slow_speed = 4.f;
+	const float m_fast_speed = 100.f;
 	const float m_fov = 90.f;
 	const float m_near = 0.1f;
-	const float m_far = 1000.f;
+	const float m_far = 1500.f;
 	const float m_mouse_sensitivity = 0.01f;
 
 	GLFWwindow* m_window;

@@ -1,33 +1,21 @@
 #version 450 core
 
-//layout(location = 0) in vec3 pos;
-//
+layout(location = 0) in vec4 pos;
+
 layout(push_constant) uniform frame_data_t
 {
 	mat4 vp;
+	mat4 ray_march_view;
 	vec4 pos;
+	uint dir_count;
+	uint power2_dir_count;
 } frame_data;
-//
-//void main(void)
-//{
-//	gl_Position = frame_data.vp * vec4(pos, 1);
-//}
 
-layout(location = 0) out vec3 fragColor;
+layout(location = 0) out vec4 out_pos;
 
-vec2 positions[3] = vec2[](
-	vec2(0.0, -0.5),
-	vec2(0.5, 0.5),
-	vec2(-0.5, 0.5)
-	);
-
-vec3 colors[3] = vec3[](
-	vec3(1.0, 0.0, 0.0),
-	vec3(0.0, 1.0, 0.0),
-	vec3(0.0, 0.0, 1.0)
-	);
-
-void main() {
-	gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
-	fragColor = colors[gl_VertexIndex];
+void main(void)
+{
+	gl_PointSize = 5.0f;
+	gl_Position = frame_data.vp * vec4(pos.xyz, 1);
+	out_pos = pos;
 }

@@ -273,7 +273,7 @@ bool Scene(in vec3 rO, in vec3 rD, out float resT, in vec2 fragCoord)
 
 //--------------------------------------------------------------------------
 // Some would say, most of the magic is done in post! :D
-vec3 PostEffects(vec3 rgb, vec2 uv)
+vec3 PostEffects(vec3 rgb)
 {
 	//#define CONTRAST 1.1
 	//#define SATURATION 1.12
@@ -291,10 +291,12 @@ void main(void)
 	if (gl_GlobalInvocationID.x >= WIDTH || gl_GlobalInvocationID.y >= HEIGHT)
 		return;
 
-	vec2 xy = 2.0*gl_GlobalInvocationID.xy / iResolution.xy - 1.0f;
-	vec2 uv = xy * vec2(iResolution.x / iResolution.y, 1.0);
-
-	vec3 rd = (frame_data.view * normalize(vec4(uv, 1, 0))).xyz;
+	const float deg_to_rad = 3.1415 / 180.0;
+	const float fov = 90.0;	// In degrees
+	float px = (2 * ((gl_GlobalInvocationID.x + 0.5) / frame_data.screen_size.x) - 1) * tan(fov / 2.0 * deg_to_rad);
+	float py = (2 * ((gl_GlobalInvocationID.y + 0.5) / frame_data.screen_size.y) - 1) * tan(fov / 2.0 * deg_to_rad) * frame_data.screen_size.y / frame_data.screen_size.x;
+	vec3 rd = vec3(px, py, 1);
+	rd = (frame_data.view * vec4(normalize(rd), 0.0)).xyz;
 
 	vec3 position = frame_data.position.xyz;
 
@@ -322,7 +324,7 @@ void main(void)
 		col = TerrainColour(pos, nor, distance);
 	}
 
-	col = PostEffects(col, uv);
+	col = PostEffects(col);
 
 	vec4 fragColor = vec4(col, 1.0);
 	imageStore(image, ivec2(gl_GlobalInvocationID.xy), fragColor);

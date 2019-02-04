@@ -211,17 +211,17 @@ void Quadtree::intersect(Frustum& frustum, DebugDrawer& dd, AabbXZ aabb, uint32_
 {
 	if (level == m_levels)
 	{
-		float minx = aabb.m_min.x + (aabb.m_max.x - aabb.m_min.x) * 0.05f;
-		float maxx = aabb.m_min.x + (aabb.m_max.x - aabb.m_min.x) * 0.95f;
+		//float minx = aabb.m_min.x + (aabb.m_max.x - aabb.m_min.x) * 0.05f;
+		//float maxx = aabb.m_min.x + (aabb.m_max.x - aabb.m_min.x) * 0.95f;
 
-		float minz = aabb.m_min.y + (aabb.m_max.y - aabb.m_min.y) * 0.05f;
-		float maxz = aabb.m_min.y + (aabb.m_max.y - aabb.m_min.y) * 0.95f;
+		//float minz = aabb.m_min.y + (aabb.m_max.y - aabb.m_min.y) * 0.05f;
+		//float maxz = aabb.m_min.y + (aabb.m_max.y - aabb.m_min.y) * 0.95f;
 
-		dd.draw_line({ minx, 0, minz }, { minx, 0, maxz }, { 1, 1, 0 });
-		dd.draw_line({ minx, 0, minz }, { maxx, 0, minz }, { 1, 1, 0 });
+		//dd.draw_line({ minx, 0, minz }, { minx, 0, maxz }, { 1, 1, 0 });
+		//dd.draw_line({ minx, 0, minz }, { maxx, 0, minz }, { 1, 1, 0 });
 
-		dd.draw_line({ maxx, 0, maxz }, { maxx, 0, minz }, { 1, 1, 0 });
-		dd.draw_line({ maxx, 0, maxz }, { minx, 0, maxz }, { 1, 1, 0 });
+		//dd.draw_line({ maxx, 0, maxz }, { maxx, 0, minz }, { 1, 1, 0 });
+		//dd.draw_line({ maxx, 0, maxz }, { minx, 0, maxz }, { 1, 1, 0 });
 
 		// Index into m_node_index_to_buffer_index
 		uint32_t index = (1 << m_levels) * y + x;

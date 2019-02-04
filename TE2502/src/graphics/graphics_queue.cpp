@@ -109,13 +109,10 @@ void GraphicsQueue::cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& 
 	begin_info.renderArea.extent = { framebuffer.get_width(), framebuffer.get_height() };
 	begin_info.clearValueCount = 2;
 	VkClearValue clear_value[2];
-	
 	clear_value[0].color.float32[0] = post_process(0.1f);
 	clear_value[0].color.float32[1] = post_process(0.15f);
 	clear_value[0].color.float32[2] = post_process(0.3f);
 	clear_value[0].color.float32[3] = 0.0f;
-	//clear_value[0].depthStencil.depth = 0.0f;
-	//clear_value[0].depthStencil.stencil = 0;
 	clear_value[1].color.float32[0] = 0.0f;
 	clear_value[1].color.float32[1] = 0.0f;
 	clear_value[1].color.float32[2] = 0.0f;

@@ -403,7 +403,7 @@ void Application::draw_main()
 	m_quadtree.draw_terrain(fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_current_camera);
 
 	// Do debug drawing
-	if (0){
+	{
 		m_debug_drawer.draw_line({ 0,0,0 }, { 1, 0, 0 }, { 1, 0, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 1, 0 }, { 0, 1, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 0, 1 }, { 0, 0, 1 });

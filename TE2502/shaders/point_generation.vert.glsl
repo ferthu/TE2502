@@ -7,7 +7,8 @@ layout(push_constant) uniform frame_data_t
 	mat4 vp;
 	mat4 ray_march_view;
 	vec4 pos;
-	int dir_count;
+	uint dir_count;
+	uint power2_dir_count;
 } frame_data;
 
 layout(location = 0) out vec4 out_pos;

@@ -59,7 +59,8 @@ private:
 		glm::mat4 vp;
 		glm::mat4 ray_march_view;
 		glm::vec4 position;
-		int dir_count;
+		unsigned int dir_count;
+		unsigned int power2_dir_count;
 	};
 	struct DebugDrawingFrameData
 	{
@@ -126,6 +127,7 @@ private:
 	RenderPass m_point_gen_render_pass;
 	glm::vec4* m_point_gen_dirs;
 	unsigned int m_point_gen_dirs_sent;
+	unsigned int m_point_gen_power2_dirs_sent;
 
 	// Debug drawing
 	PipelineLayout m_debug_pipeline_layout;

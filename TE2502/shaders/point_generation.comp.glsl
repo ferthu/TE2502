@@ -14,7 +14,8 @@ layout(push_constant) uniform frame_data_t
 	mat4 camera_vp;
 	mat4 ray_march_view;
 	vec4 position;
-	int dir_count;
+	uint dir_count;
+	uint power2_dir_count;
 } frame_data;
 
 
@@ -167,16 +168,14 @@ float binary_subdivision(in vec3 rO, in vec3 rD, in vec2 t, in int divisions)
 void main(void)
 {
 	if (gl_GlobalInvocationID.x >= frame_data.dir_count)
+	{
+		point_counts.counts[gl_GlobalInvocationID.x] = 0;
 		return;
+	}
 
 	vec3 ray_dir = (frame_data.ray_march_view * normalize(vec4(input_data.dirs[gl_GlobalInvocationID.x]))).xyz;
 
 	vec3 origin = frame_data.position.xyz;
-
-	//for (int i = 0; i < POINTS_PER_DIR; ++i)
-	//{
-		//output_data.points[gl_GlobalInvocationID.x * POINTS_PER_DIR + i] = vec4(0, -50, 0, 1);
-	//}
 
 	uint points_found = 0;
 

@@ -49,6 +49,8 @@ public:
 	void cmd_end_render_pass();
 
 	void cmd_copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size, VkDeviceSize src_offset = 0, VkDeviceSize dst_offset = 0);
+	
+	void cmd_pipeline_barrier();
 
 private:
 	// Move other into this

@@ -14,7 +14,8 @@ layout(push_constant) uniform frame_data_t
 	mat4 camera_vp;
 	mat4 ray_march_view;
 	vec4 position;
-	int dir_count;
+	uint dir_count;
+	uint power2_dir_count;
 } frame_data;
 
 
@@ -36,18 +37,18 @@ shared uint temp[WORK_GROUP_SIZE * 2 + 1];
 
 //#define NUM_BANKS 16
 //#define LOG_NUM_BANKS 4
-//#define CONFLICT_FREE_OFFSET(n) \
-//    ((n) >> NUM_BANKS + (n) >> (2 * LOG_NUM_BANKS))
+//#define CONFLICT_FREE_OFFSET(n) ((n) >> NUM_BANKS + (n) >> (2 * LOG_NUM_BANKS))
 
 void main(void)
 {
 	uint thid = gl_GlobalInvocationID.x;
+	uint n = frame_data.dir_count;
+	uint m = frame_data.power2_dir_count;
 
-	if (thid * 2 >= frame_data.dir_count)
+	if (thid * 2 >= m)
 		return;
 
 	//// PREFIX SUM
-	int n = frame_data.dir_count;
 
 	int offset = 1;
 
@@ -103,8 +104,9 @@ void main(void)
 
 
 
-	temp[thid] = point_counts.counts[thid]; // load input into shared memory
-	temp[n / 2 + thid] = point_counts.counts[n / 2 + thid];
+	// Load input into shared memory
+	temp[thid] = point_counts.counts[thid]; 
+	temp[m / 2 + thid] = point_counts.counts[m / 2 + thid];
 
 	barrier();
 	memoryBarrierShared();
@@ -113,7 +115,7 @@ void main(void)
 	if (thid == 0)
 		total = temp[n - 1];
 
-	for (int d = n >> 1; d > 0; d >>= 1)                    // build sum in place up the tree
+	for (uint d = m >> 1; d > 0; d >>= 1) // Build sum in place up the tree
 	{
 		barrier();
 		memoryBarrierShared();
@@ -125,8 +127,8 @@ void main(void)
 		}
 		offset *= 2;
 	}
-	if (thid == 0) { temp[n - 1] = 0; } // clear the last element
-	for (int d = 1; d < n; d *= 2) // traverse down tree & build scan
+	if (thid == 0) { temp[m - 1] = 0; } // Clear the last element
+	for (int d = 1; d < m; d *= 2) // Traverse down tree & build scan
 	{
 		offset >>= 1;
 		barrier();
@@ -143,6 +145,9 @@ void main(void)
 	}
 	barrier();
 	memoryBarrierShared();
+
+	if (thid * 2 >= n)
+		return;
 
 	// Make sure the total is saved as well
 	if (thid == 0)

@@ -39,7 +39,7 @@ Application::Application()
 	m_current_camera = m_main_camera;
 
 	glfwSetWindowPos(m_ray_march_window->get_glfw_window(), 0, 100);
-	glfwSetWindowPos(m_window->get_glfw_window(), 800, 100);
+	glfwSetWindowPos(m_window->get_glfw_window(), 840, 100);
 
 	// Ray marching
 	m_ray_march_set_layout = DescriptorSetLayout(m_vulkan_context);
@@ -141,15 +141,19 @@ Application::Application()
 	m_point_gen_queue = m_vulkan_context.create_graphics_queue();
 
 	// Dirs
-	const int t = 10;
-	for (int x = 0; x < t; ++x)
+	const int t = 30;
+	for (int y = 0; y < t; ++y)
 	{
-		for (int y = 0; y < t; ++y)
+		for (int x = 0; x < t; ++x)
 		{
 			m_point_gen_dirs[m_point_gen_dirs_sent++] = glm::normalize(glm::vec4(x - t / 2.f, y - t / 2.f, t / 2.f, 0));
 		}
 	}
-	m_point_gen_dirs_sent = 2048;
+	//m_point_gen_dirs_sent = 98;
+	int p = 0;
+	for (; powf(2, p) < m_point_gen_dirs_sent; ++p)
+	{ }
+	m_point_gen_power2_dirs_sent = (unsigned int)(powf(2, p));
 	// !Point generation
 
 	glfwSetKeyCallback(m_ray_march_window->get_glfw_window(), key_callback);
@@ -301,7 +305,8 @@ void Application::update(const float dt)
 	m_point_gen_frame_data.vp = m_current_camera->get_vp();
 	m_point_gen_frame_data.ray_march_view = m_main_camera->get_ray_march_view();
 	m_point_gen_frame_data.position = glm::vec4(m_main_camera->get_pos(), 0);
-	m_point_gen_frame_data.dir_count = m_point_gen_dirs_sent;
+	m_point_gen_frame_data.dir_count = m_point_gen_dirs_sent; 
+	m_point_gen_frame_data.power2_dir_count = m_point_gen_power2_dirs_sent;
 
 	m_ray_march_frame_data.view = m_current_camera->get_ray_march_view();
 	m_ray_march_frame_data.screen_size = m_ray_march_window->get_size();
@@ -365,7 +370,7 @@ void Application::draw_main()
 
 		// Dispatch point generation/gathering
 		const uint32_t group_size = 32;
-		m_point_gen_queue.cmd_dispatch(m_point_gen_dirs_sent / group_size + 1, 1, 1);
+		m_point_gen_queue.cmd_dispatch(m_point_gen_power2_dirs_sent / group_size + 1, 1, 1);
 
 		m_point_gen_queue.cmd_buffer_barrier(m_point_gen_point_counts_buffer.get_buffer(),
 			VK_ACCESS_SHADER_WRITE_BIT,
@@ -396,9 +401,9 @@ void Application::draw_main()
 
 		m_point_gen_queue.cmd_buffer_barrier(m_point_gen_output_buffer.get_buffer(),
 			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+			VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT |	VK_ACCESS_INDEX_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
+			VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT |	VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
 
 		m_point_gen_queue.cmd_bind_graphics_pipeline(m_point_gen_graphics_pipeline->m_pipeline);
 		m_point_gen_queue.cmd_bind_vertex_buffer(m_point_gen_output_buffer.get_buffer(), sizeof(VkDrawIndirectCommand));

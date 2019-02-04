@@ -177,9 +177,9 @@ Application::Application()
 	}
 
 	// Set up terrain generation/drawing
-	uint32_t max_indices = 303;
+	uint32_t max_indices = 300003;
 	assert(((max_indices + 5) * 4) % 16 == 0);	// Requires proper alignment
-	m_quadtree = Quadtree(m_vulkan_context, 2000.0f, 5, 1000, max_indices, 1200, *m_window);
+	m_quadtree = Quadtree(m_vulkan_context, 20000.0f, 5, 1000, max_indices, 80000, *m_window);
 
 	// Set up debug drawing
 	m_debug_pipeline_layout = PipelineLayout(m_vulkan_context);
@@ -403,7 +403,7 @@ void Application::draw_main()
 	m_quadtree.draw_terrain(fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_current_camera);
 
 	// Do debug drawing
-	{
+	if (0){
 		m_debug_drawer.draw_line({ 0,0,0 }, { 1, 0, 0 }, { 1, 0, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 1, 0 }, { 0, 1, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 0, 1 }, { 0, 0, 1 });
@@ -685,7 +685,7 @@ void Application::imgui_shutdown()
 
 void Application::imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_complete_semaphore)
 {
-    ImGui::Render();
+	ImGui::Render();
 
 	{
 		vkWaitForFences(m_vulkan_context.get_device(), 1, &m_imgui_vulkan_state.command_buffer_idle, VK_FALSE, ~0ull);

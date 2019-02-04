@@ -83,14 +83,19 @@ void GraphicsQueue::cmd_draw_indirect(VkBuffer buffer, VkDeviceSize offset)
 	vkCmdDrawIndirect(m_command_buffer, buffer, offset, 1, 0);
 }
 
-void GraphicsQueue::cmd_draw_indexed_indirect(VkBuffer buffer, VkDeviceSize offset)
+void GraphicsQueue::cmd_draw_indexed_indirect(VkBuffer buffer, VkDeviceSize offset, uint32_t draw_count, uint32_t stride)
 {
-	vkCmdDrawIndexedIndirect(m_command_buffer, buffer, offset, 1, 0);
+	vkCmdDrawIndexedIndirect(m_command_buffer, buffer, offset, draw_count, stride);
 }
 
 void GraphicsQueue::cmd_draw(uint32_t num_vertices, uint32_t num_instances, uint32_t vertex_offset, uint32_t instance_offset)
 {
 	vkCmdDraw(m_command_buffer, num_vertices, num_instances, vertex_offset, instance_offset);
+}
+
+float post_process(float color)
+{
+	return (1.0f - expf(-color * 6.0f)) * 1.0024f;
 }
 
 void GraphicsQueue::cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& framebuffer)
@@ -104,12 +109,13 @@ void GraphicsQueue::cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& 
 	begin_info.renderArea.extent = { framebuffer.get_width(), framebuffer.get_height() };
 	begin_info.clearValueCount = 2;
 	VkClearValue clear_value[2];
-	clear_value[0].color.float32[0] = 0.0f;
-	clear_value[0].color.float32[1] = 0.0f;
-	clear_value[0].color.float32[2] = 0.0f;
+	
+	clear_value[0].color.float32[0] = post_process(0.1f);
+	clear_value[0].color.float32[1] = post_process(0.15f);
+	clear_value[0].color.float32[2] = post_process(0.3f);
 	clear_value[0].color.float32[3] = 0.0f;
-	clear_value[0].depthStencil.depth = 0.0f;
-	clear_value[0].depthStencil.stencil = 0;
+	//clear_value[0].depthStencil.depth = 0.0f;
+	//clear_value[0].depthStencil.stencil = 0;
 	clear_value[1].color.float32[0] = 0.0f;
 	clear_value[1].color.float32[1] = 0.0f;
 	clear_value[1].color.float32[2] = 0.0f;

@@ -551,6 +551,8 @@ void VulkanContext::write_required_features(VkPhysicalDeviceFeatures& features)
 	features.shaderClipDistance = VK_TRUE;
 	assert(m_device_features.shaderCullDistance);
 	features.shaderCullDistance = VK_TRUE;
+	assert(m_device_features.multiDrawIndirect);
+	features.multiDrawIndirect = VK_TRUE;
 }
 
 static std::vector<char> read_file(const std::string& filename)

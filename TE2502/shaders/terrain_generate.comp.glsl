@@ -1,7 +1,9 @@
 #version 450 core
 
+#define GRID_SIDE 200
+#define GROUP_SIZE 32
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
 struct terrain_data_t
 {
@@ -10,8 +12,8 @@ struct terrain_data_t
 	uint    first_index;
 	int     vertex_offset;
 	uint    first_instance;
-	uint	indices[303];	
-	vec4	positions[1200];
+	uint	indices[300003];
+	vec4	positions[80000];
 };
 
 layout(set = 0, binding = 0) buffer terrain_buffer_t
@@ -71,22 +73,34 @@ float Terrain(in vec2 p)
 
 void main(void)
 {
-	terrain_buffer.data[frame_data.buffer_slot].index_count = 6;
-	terrain_buffer.data[frame_data.buffer_slot].instance_count = 1;
-	terrain_buffer.data[frame_data.buffer_slot].first_index = 0;
-	terrain_buffer.data[frame_data.buffer_slot].vertex_offset = 0;
-	terrain_buffer.data[frame_data.buffer_slot].first_instance = 0;
+	if (gl_GlobalInvocationID.x == 0)
+	{
+		terrain_buffer.data[frame_data.buffer_slot].index_count = 6 * (GRID_SIDE) * (GRID_SIDE);
+		terrain_buffer.data[frame_data.buffer_slot].instance_count = 1;
+		terrain_buffer.data[frame_data.buffer_slot].first_index = 0;
+		terrain_buffer.data[frame_data.buffer_slot].vertex_offset = 0;
+		terrain_buffer.data[frame_data.buffer_slot].first_instance = 0;
+	}
 
-	terrain_buffer.data[frame_data.buffer_slot].positions[0] = vec4(frame_data.min.x, -Terrain(vec2(frame_data.min.x, frame_data.min.y)), frame_data.min.y, 1.0);
-	terrain_buffer.data[frame_data.buffer_slot].positions[1] = vec4(frame_data.min.x, -Terrain(vec2(frame_data.min.x, frame_data.max.y)), frame_data.max.y, 1.0);
-	terrain_buffer.data[frame_data.buffer_slot].positions[2] = vec4(frame_data.max.x, -Terrain(vec2(frame_data.max.x, frame_data.min.y)), frame_data.min.y, 1.0);
-	terrain_buffer.data[frame_data.buffer_slot].positions[3] = vec4(frame_data.max.x, -Terrain(vec2(frame_data.max.x, frame_data.max.y)), frame_data.max.y, 1.0);
+	for (uint i = 0; i < GRID_SIDE * GRID_SIDE / GROUP_SIZE + 1; i++)
+	{
+		if (gl_GlobalInvocationID.x + i * GROUP_SIZE < GRID_SIDE * GRID_SIDE)
+		{
+			float x = frame_data.min.x + (((gl_GlobalInvocationID.x + i * GROUP_SIZE) % (GRID_SIDE)) / float(GRID_SIDE - 1)) * (frame_data.max.x - frame_data.min.x);
+			float y = frame_data.min.y + float((gl_GlobalInvocationID.x + i * GROUP_SIZE) / GRID_SIDE) / float(GRID_SIDE - 1) * (frame_data.max.y - frame_data.min.y);
 
-	terrain_buffer.data[frame_data.buffer_slot].indices[0] = 0;
-	terrain_buffer.data[frame_data.buffer_slot].indices[1] = 1;
-	terrain_buffer.data[frame_data.buffer_slot].indices[2] = 2;
+			terrain_buffer.data[frame_data.buffer_slot].positions[gl_GlobalInvocationID.x + i * GROUP_SIZE] = vec4(x, -Terrain(vec2(x, y)), y, 1.0);
 
-	terrain_buffer.data[frame_data.buffer_slot].indices[3] = 1;
-	terrain_buffer.data[frame_data.buffer_slot].indices[4] = 3;
-	terrain_buffer.data[frame_data.buffer_slot].indices[5] = 2;
+			if (gl_GlobalInvocationID.x + i * GROUP_SIZE < GRID_SIDE * GRID_SIDE - GRID_SIDE && (gl_GlobalInvocationID.x + i * GROUP_SIZE) % GRID_SIDE != GRID_SIDE - 1)
+			{
+				terrain_buffer.data[frame_data.buffer_slot].indices[(gl_GlobalInvocationID.x + i * GROUP_SIZE) * 6    ] = gl_GlobalInvocationID.x + i * GROUP_SIZE;
+				terrain_buffer.data[frame_data.buffer_slot].indices[(gl_GlobalInvocationID.x + i * GROUP_SIZE) * 6 + 1] = gl_GlobalInvocationID.x + i * GROUP_SIZE + GRID_SIDE + 1;
+				terrain_buffer.data[frame_data.buffer_slot].indices[(gl_GlobalInvocationID.x + i * GROUP_SIZE) * 6 + 2] = gl_GlobalInvocationID.x + i * GROUP_SIZE + 1;
+
+				terrain_buffer.data[frame_data.buffer_slot].indices[(gl_GlobalInvocationID.x + i * GROUP_SIZE) * 6 + 3] = gl_GlobalInvocationID.x + i * GROUP_SIZE;
+				terrain_buffer.data[frame_data.buffer_slot].indices[(gl_GlobalInvocationID.x + i * GROUP_SIZE) * 6 + 4] = gl_GlobalInvocationID.x + i * GROUP_SIZE + GRID_SIDE;
+				terrain_buffer.data[frame_data.buffer_slot].indices[(gl_GlobalInvocationID.x + i * GROUP_SIZE) * 6 + 5] = gl_GlobalInvocationID.x + i * GROUP_SIZE + GRID_SIDE + 1;
+			}
+		}
+	}
 }

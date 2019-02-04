@@ -46,7 +46,7 @@ public:
 
 	void cmd_draw_indirect(VkBuffer buffer, VkDeviceSize offset = 0);
 
-	void cmd_draw_indexed_indirect(VkBuffer buffer, VkDeviceSize offset = 0);
+	void cmd_draw_indexed_indirect(VkBuffer buffer, VkDeviceSize offset = 0, uint32_t draw_count = 1, uint32_t stride = 0);
 
 	void cmd_draw(uint32_t num_vertices, uint32_t num_instances = 1, uint32_t vertex_offset = 0, uint32_t instance_offset = 0);
 

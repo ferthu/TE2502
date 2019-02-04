@@ -146,7 +146,6 @@ void main()
 	float dist = length(world_pos - camera_pos);
 
 	float p = min(.3, .0005 + .00005 * dist*dist);
-	p = 0.3;
 	vec3 nor = vec3(0.0, Terrain2(world_pos.xz), 0.0);
 	vec3 v2 = nor - vec3(p, Terrain2(world_pos.xz + vec2(p, 0.0)), 0.0);
 	vec3 v3 = nor - vec3(0.0, Terrain2(world_pos.xz + vec2(0.0, -p)), -p);

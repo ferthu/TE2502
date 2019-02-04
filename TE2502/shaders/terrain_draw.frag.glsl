@@ -5,6 +5,7 @@ layout(location = 0) in vec3 world_pos;
 layout(push_constant) uniform frame_data_t
 {
 	mat4 camera_vp;
+	vec4 camera_pos;
 	vec2 min;
 	vec2 max;
 	uint buffer_slot;
@@ -135,19 +136,17 @@ vec3 TerrainColour(vec3 pos, vec3 normal)
 
 vec3 PostEffects(vec3 rgb)
 {
-	//#define CONTRAST 1.1
-	//#define SATURATION 1.12
-	//#define BRIGHTNESS 1.3
-	//rgb = pow(abs(rgb), vec3(0.45));
-	//rgb = mix(vec3(.5), mix(vec3(dot(vec3(.2125, .7154, .0721), rgb*BRIGHTNESS)), rgb*BRIGHTNESS, SATURATION), CONTRAST);
 	rgb = (1.0 - exp(-rgb * 6.0)) * 1.0024;
-	//rgb = clamp(rgb+hash12(fragCoord.xy*rgb.r)*0.1, 0.0, 1.0);
 	return rgb;
 }
 
 void main()
 {
-	float p = 0.1;
+	vec3 camera_pos = frame_data.camera_pos.xyz;
+	float dist = length(world_pos - camera_pos);
+
+	float p = min(.3, .0005 + .00005 * dist*dist);
+	p = 0.3;
 	vec3 nor = vec3(0.0, Terrain2(world_pos.xz), 0.0);
 	vec3 v2 = nor - vec3(p, Terrain2(world_pos.xz + vec2(p, 0.0)), 0.0);
 	vec3 v3 = nor - vec3(0.0, Terrain2(world_pos.xz + vec2(0.0, -p)), -p);

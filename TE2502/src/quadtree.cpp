@@ -85,6 +85,7 @@ void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& fram
 	m_terrain_queue.start_recording();
 
 	m_push_data.vp = camera.get_vp();
+	m_push_data.camera_pos = glm::vec4(camera.get_pos(), 1.0f);
 
 	// Dispatch terrain generation
 	m_terrain_queue.cmd_bind_compute_pipeline(m_generation_pipeline->m_pipeline);

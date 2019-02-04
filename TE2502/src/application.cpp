@@ -318,6 +318,7 @@ void Application::update(const float dt)
 		ImGui::Text(text.c_str());
 		text = "Position: " + std::to_string(m_current_camera->get_pos().x) + ", " + std::to_string(m_current_camera->get_pos().y) + ", " + std::to_string(m_current_camera->get_pos().z);
 		ImGui::Text(text.c_str());
+		ImGui::Checkbox("Draw Ray Marched View", &m_draw_ray_march);
 		if (ImGui::Button("Clear Terrain"))
 		{
 			m_quadtree.clear_terrain();
@@ -330,7 +331,8 @@ void Application::update(const float dt)
 void Application::draw()
 {
 	draw_main();
-	draw_ray_march();
+	if (m_draw_ray_march)
+		draw_ray_march();
 }
 
 void Application::draw_main()

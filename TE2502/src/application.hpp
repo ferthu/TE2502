@@ -135,5 +135,6 @@ private:
 	RenderPass m_debug_render_pass;
 
 	bool m_show_imgui = true;
+	bool m_draw_ray_march = true;
 };
 

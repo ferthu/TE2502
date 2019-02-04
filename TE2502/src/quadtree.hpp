@@ -38,6 +38,7 @@ private:
 	struct GenerationData
 	{
 		glm::mat4 vp;
+		glm::vec4 camera_pos;
 		glm::vec2 min;			// Min corner
 		glm::vec2 max;			// Max corner
 		uint32_t buffer_slot;	// Buffer slot

@@ -24,6 +24,7 @@ layout(set = 0, binding = 0) buffer terrain_buffer_t
 layout(push_constant) uniform frame_data_t
 {
 	mat4 camera_vp;
+	vec4 camera_pos;
 	vec2 min;
 	vec2 max;
 	uint buffer_slot;

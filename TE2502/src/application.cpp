@@ -235,6 +235,9 @@ Application::Application()
 
 	m_debug_queue = m_vulkan_context.create_graphics_queue();
 	m_debug_drawer = DebugDrawer(m_vulkan_context, 11000);
+
+	// Start ray march thread
+	m_ray_march_thread = std::thread(&Application::draw_ray_march, this);
 }
 
 Application::~Application()
@@ -319,6 +322,10 @@ void Application::run()
 
 		draw();
 	}
+
+	m_quit = true;
+	m_cv.notify_all();
+	m_ray_march_thread.join();
 }
 
 
@@ -367,9 +374,21 @@ void Application::update(const float dt)
 
 void Application::draw()
 {
+	// Start ray march thread
+	{
+		std::lock_guard<std::mutex> lock(m_mutex);
+		m_ray_march_new_frame = true;
+	}
+	m_cv.notify_all();
+
 	draw_main();
-	if (m_draw_ray_march)
-		draw_ray_march();
+
+	// Wait for ray march thread
+	{
+		std::unique_lock<std::mutex> lock(m_mutex);
+		m_cv.wait(lock, [this] { return m_ray_march_done; });
+		m_ray_march_done = false;
+	}
 }
 
 void Application::draw_main()
@@ -534,56 +553,71 @@ void Application::draw_main()
 
 void Application::draw_ray_march()
 {
-	const uint32_t index = m_ray_march_window->get_next_image();
-	VkImage image = m_ray_march_window->get_swapchain_image(index);
+	while (!m_quit)
+	{
+		// Wait until main thread signals new frame
+		std::unique_lock<std::mutex> lock(m_mutex);
+		m_cv.wait(lock, [this] { return m_ray_march_new_frame || m_quit; });
+		m_ray_march_new_frame = false;
 
-	m_ray_march_image_descriptor_set.clear();
-	m_ray_march_image_descriptor_set.add_storage_image(m_ray_march_window->get_swapchain_image_view(index), VK_IMAGE_LAYOUT_GENERAL);
-	m_ray_march_image_descriptor_set.bind();
+		if (m_draw_ray_march)
+		{
+			const uint32_t index = m_ray_march_window->get_next_image();
+			VkImage image = m_ray_march_window->get_swapchain_image(index);
 
-	m_ray_march_compute_queue.start_recording();
+			m_ray_march_image_descriptor_set.clear();
+			m_ray_march_image_descriptor_set.add_storage_image(m_ray_march_window->get_swapchain_image_view(index), VK_IMAGE_LAYOUT_GENERAL);
+			m_ray_march_image_descriptor_set.bind();
 
-	// RENDER-------------------
-	// Bind pipeline
-	m_ray_march_compute_queue.cmd_bind_compute_pipeline(m_ray_march_compute_pipeline->m_pipeline);
+			m_ray_march_compute_queue.start_recording();
 
-	// Bind descriptor set
-	m_ray_march_compute_queue.cmd_bind_descriptor_set_compute(m_ray_march_compute_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_ray_march_image_descriptor_set.get_descriptor_set());
+			// RENDER-------------------
+			// Bind pipeline
+			m_ray_march_compute_queue.cmd_bind_compute_pipeline(m_ray_march_compute_pipeline->m_pipeline);
 
-	// Transfer image to shader write layout
-	m_ray_march_compute_queue.cmd_image_barrier(image,
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_ACCESS_SHADER_WRITE_BIT,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+			// Bind descriptor set
+			m_ray_march_compute_queue.cmd_bind_descriptor_set_compute(m_ray_march_compute_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_ray_march_image_descriptor_set.get_descriptor_set());
 
-	// Push frame data
-	m_ray_march_compute_queue.cmd_push_constants(m_ray_march_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT, sizeof(RayMarchFrameData), &m_ray_march_frame_data);
+			// Transfer image to shader write layout
+			m_ray_march_compute_queue.cmd_image_barrier(image,
+				VK_ACCESS_MEMORY_READ_BIT,
+				VK_ACCESS_SHADER_WRITE_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_GENERAL,
+				VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
-	// Dispatch
-	const uint32_t group_size = 32;
-	m_ray_march_compute_queue.cmd_dispatch(m_ray_march_window->get_size().x / group_size + 1, m_ray_march_window->get_size().y / group_size + 1, 1);
+			// Push frame data
+			m_ray_march_compute_queue.cmd_push_constants(m_ray_march_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT, sizeof(RayMarchFrameData), &m_ray_march_frame_data);
 
-	// end of RENDER------------------
+			// Dispatch
+			const uint32_t group_size = 32;
+			m_ray_march_compute_queue.cmd_dispatch(m_ray_march_window->get_size().x / group_size + 1, m_ray_march_window->get_size().y / group_size + 1, 1);
 
-	m_ray_march_compute_queue.cmd_image_barrier(
-		image,
-		VK_ACCESS_SHADER_WRITE_BIT,
-		VK_ACCESS_MEMORY_READ_BIT,
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+			// end of RENDER------------------
 
-	m_ray_march_compute_queue.end_recording();
-	m_ray_march_compute_queue.submit();
-	m_ray_march_compute_queue.wait();
+			m_ray_march_compute_queue.cmd_image_barrier(
+				image,
+				VK_ACCESS_SHADER_WRITE_BIT,
+				VK_ACCESS_MEMORY_READ_BIT,
+				VK_IMAGE_LAYOUT_GENERAL,
+				VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+				VK_IMAGE_ASPECT_COLOR_BIT,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
-	present(m_ray_march_window, m_ray_march_compute_queue.get_queue(), index, VK_NULL_HANDLE);
+			m_ray_march_compute_queue.end_recording();
+			m_ray_march_compute_queue.submit();
+			m_ray_march_compute_queue.wait();
+
+			present(m_ray_march_window, m_ray_march_compute_queue.get_queue(), index, VK_NULL_HANDLE);
+		}
+
+		m_ray_march_done = true;
+		lock.unlock();
+		m_cv.notify_all();
+	}
 }
 
 void Application::present(Window* window, VkQueue queue, const uint32_t index, VkSemaphore wait_for) const

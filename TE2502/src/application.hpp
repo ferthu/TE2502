@@ -1,6 +1,8 @@
 #pragma once
 
 #include <chrono>
+#include <mutex>
+#include <condition_variable>
 
 #include "graphics/window.hpp"
 #include "graphics/vulkan_context.hpp"
@@ -146,5 +148,13 @@ private:
 
 	bool m_show_imgui = true;
 	bool m_draw_ray_march = true;
+
+	std::mutex m_mutex;
+	std::condition_variable m_cv;
+	std::thread m_ray_march_thread;
+	bool m_ray_march_done = false;
+	bool m_ray_march_new_frame = true;
+
+	bool m_quit = false;
 };
 

@@ -48,6 +48,7 @@ private:
 	{
 		glm::mat4 vp;
 		glm::vec4 camera_pos;
+		glm::vec2 screen_size;
 	};
 
 	// Move other into this
@@ -91,7 +92,9 @@ private:
 
 	GPUMemory m_em_memory;
 	GPUImage m_em_image;
+	GPUImage m_em_depth_image;
 	ImageView m_em_image_view;
+	ImageView m_em_depth_image_view;
 	Framebuffer m_em_framebuffer;
 	GraphicsQueue m_em_queue;
 	PipelineLayout m_em_pipeline_layout;

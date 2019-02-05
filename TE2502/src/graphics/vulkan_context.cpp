@@ -628,7 +628,7 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::str
 	VkShaderModule frag_shader_module = create_shader_module(frag_shader_code);
 
 	std::vector<char> geom_shader_code;
-	VkShaderModule geom_shader_module;
+	VkShaderModule geom_shader_module{};
 	VkPipelineShaderStageCreateInfo geom_shader_stage_info = {};
 	if (enable_geometry_shader)
 	{
@@ -786,6 +786,9 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::str
 
 	vkDestroyShaderModule(m_device, vert_shader_module, nullptr);
 	vkDestroyShaderModule(m_device, frag_shader_module, nullptr);
+
+	if (enable_geometry_shader)
+		vkDestroyShaderModule(m_device, geom_shader_module, nullptr);
 
 	return std::make_unique<Pipeline>(pipeline, layout, m_device);
 }

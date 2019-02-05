@@ -97,9 +97,15 @@ public:
 	std::unique_ptr<Pipeline> create_compute_pipeline(const std::string& shader_name, PipelineLayout& layout);
 
 	// Creates and returns a graphics pipeline
-	std::unique_ptr<Pipeline> create_graphics_pipeline(const std::string& shader_name, 
-		const glm::vec2 window_size, PipelineLayout& layout, VertexAttributes& vertex_attributes, 
-		RenderPass& render_pass, bool enable_depth, VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+	std::unique_ptr<Pipeline> create_graphics_pipeline(
+		const std::string& shader_name, 
+		const glm::vec2 window_size, 
+		PipelineLayout& layout, 
+		VertexAttributes& vertex_attributes, 
+		RenderPass& render_pass, 
+		bool enable_depth, 
+		bool enable_geometry_shader,
+		VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
 	// Allocate a descriptor set from descriptor pool
 	VkDescriptorSet allocate_descriptor_set(DescriptorSetLayout& layout);

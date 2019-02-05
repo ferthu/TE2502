@@ -67,7 +67,9 @@ Quadtree::Quadtree(VulkanContext& context, float total_side_length, uint32_t lev
 	VertexAttributes va(context);
 	va.add_buffer();
 	va.add_attribute(4);
-	m_draw_pipeline = context.create_graphics_pipeline("terrain_draw", window.get_size(), m_draw_pipeline_layout, va, m_render_pass, true);
+	m_draw_pipeline = context.create_graphics_pipeline("terrain_draw", window.get_size(), m_draw_pipeline_layout, va, m_render_pass, true, false);
+
+	error_metric_setup(window);
 }
 
 void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera)
@@ -145,6 +147,40 @@ void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& fram
 	m_terrain_queue.end_recording();
 	m_terrain_queue.submit();
 	m_terrain_queue.wait();
+
+	/////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////
+
+	// Draw error metric image
+	m_em_queue.start_recording();
+	m_em_push_data.vp = camera.get_vp();
+	m_em_push_data.camera_pos = glm::vec4(camera.get_pos(), 1.0f);
+
+	m_em_queue.cmd_bind_graphics_pipeline(m_em_pipeline->m_pipeline);
+	m_em_queue.cmd_begin_render_pass(m_em_render_pass, m_em_framebuffer);
+
+	m_em_queue.cmd_push_constants(m_em_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_GEOMETRY_BIT, sizeof(ErrorMetricData), &m_em_push_data);
+
+	// Render nonupdated terrain
+	for (uint32_t i = 0; i < m_num_draw_nodes; i++)
+	{
+		m_em_queue.cmd_bind_index_buffer(m_buffer.get_buffer(), m_draw_nodes[i] * m_node_memory_size + sizeof(VkDrawIndexedIndirectCommand));
+		m_em_queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), m_draw_nodes[i] * m_node_memory_size + m_max_indices * sizeof(uint32_t) + sizeof(VkDrawIndexedIndirectCommand));
+		m_em_queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), m_draw_nodes[i] * m_node_memory_size);
+	}
+
+	// Render newly generated terrain
+	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
+	{
+		m_em_queue.cmd_bind_index_buffer(m_buffer.get_buffer(), m_generate_nodes[i].index * m_node_memory_size + sizeof(VkDrawIndexedIndirectCommand));
+		m_em_queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), m_generate_nodes[i].index * m_node_memory_size + m_max_indices * sizeof(uint32_t) + sizeof(VkDrawIndexedIndirectCommand));
+		m_em_queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), m_generate_nodes[i].index * m_node_memory_size);
+	}
+
+	m_em_queue.end_recording();
+	m_em_queue.submit();
+	m_em_queue.wait();
 }
 
 void Quadtree::clear_terrain()
@@ -290,4 +326,34 @@ uint32_t Quadtree::get_offset(uint32_t node_x, uint32_t node_z)
 	assert(node_z >= 0u && node_z < (1u << m_levels));
 
 	return m_node_index_to_buffer_index[node_x + (1u << m_levels) * node_z];
+}
+
+void Quadtree::error_metric_setup(Window& window)
+{
+	m_em_queue = m_context->create_graphics_queue();
+
+	m_em_memory = m_context->allocate_device_memory(window.get_size().x * window.get_size().y * 4 + 500);
+	m_em_image = GPUImage(*m_context, VkExtent3D{ window.get_size().x , window.get_size().y }, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT, m_em_memory);
+	m_em_image_view = ImageView(*m_context, m_em_image, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+	m_em_framebuffer = Framebuffer(*m_context);
+	m_em_framebuffer.add_attachment(m_em_image_view);
+
+	m_em_render_pass = RenderPass(*m_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, false);
+
+	m_em_framebuffer.create(m_em_render_pass.get_render_pass(), window.get_size().x, window.get_size().y);
+
+	m_em_pipeline_layout = PipelineLayout(*m_context);
+
+	VkPushConstantRange push;
+	push.offset = 0;
+	push.size = sizeof(ErrorMetricData);
+	push.stageFlags = VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT;
+	m_em_pipeline_layout.create(&push);
+
+	VertexAttributes va(*m_context);
+	va.add_buffer();
+	va.add_attribute(4);
+
+	m_em_pipeline = m_context->create_graphics_pipeline("error_metric", window.get_size(), m_em_pipeline_layout, va, m_em_render_pass, true, true);
 }

@@ -59,18 +59,13 @@ Quadtree::Quadtree(VulkanContext& context, float total_side_length, uint32_t lev
 	push.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	m_generation_pipeline_layout.create(&push);
 
-	m_generation_pipeline = context.create_compute_pipeline("terrain_generate", m_generation_pipeline_layout, nullptr);
-
 	m_render_pass = RenderPass(context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false, true, false, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 	m_draw_pipeline_layout = PipelineLayout(context);
 	m_draw_pipeline_layout.create(&push);
-	VertexAttributes va(context);
-	va.add_buffer();
-	va.add_attribute(4);
-
-	m_draw_pipeline = context.create_graphics_pipeline("terrain_draw", window.get_size(), m_draw_pipeline_layout, va, m_render_pass, true, false, nullptr, nullptr);
 
 	error_metric_setup(window);
+
+	create_pipelines(window);
 }
 
 void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera)
@@ -192,6 +187,21 @@ void Quadtree::clear_terrain()
 {
 	memset(m_node_index_to_buffer_index, INVALID, (1 << m_levels) * (1 << m_levels) * sizeof(uint32_t));
 	memset(m_buffer_index_filled, 0, m_max_nodes * sizeof(bool));
+}
+
+void Quadtree::create_pipelines(Window& window)
+{
+	VertexAttributes em_va(*m_context);
+	em_va.add_buffer();
+	em_va.add_attribute(4);
+	m_em_pipeline = m_context->create_graphics_pipeline("error_metric", window.get_size(), m_em_pipeline_layout, em_va, m_em_render_pass, true, true, nullptr, nullptr);
+
+	VertexAttributes va(*m_context);
+	va.add_buffer();
+	va.add_attribute(4);
+	m_draw_pipeline = m_context->create_graphics_pipeline("terrain_draw", window.get_size(), m_draw_pipeline_layout, va, m_render_pass, true, false, nullptr, nullptr);
+
+	m_generation_pipeline = m_context->create_compute_pipeline("terrain_generate", m_generation_pipeline_layout, nullptr);
 }
 
 void Quadtree::move_from(Quadtree&& other)
@@ -370,12 +380,6 @@ void Quadtree::error_metric_setup(Window& window)
 	push.size = sizeof(ErrorMetricData);
 	push.stageFlags = VK_SHADER_STAGE_GEOMETRY_BIT;
 	m_em_pipeline_layout.create(&push);
-
-	VertexAttributes va(*m_context);
-	va.add_buffer();
-	va.add_attribute(4);
-
-	m_em_pipeline = m_context->create_graphics_pipeline("error_metric", window.get_size(), m_em_pipeline_layout, va, m_em_render_pass, true, true, nullptr, nullptr);
 
 	// Transfer image layouts
 	m_em_queue.start_recording();

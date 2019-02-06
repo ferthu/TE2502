@@ -52,6 +52,9 @@ private:
 	// Draw imgui
 	void imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_complete_semaphore);
 
+	// Create Vulkan pipelines
+	void create_pipelines();
+
 	struct RayMarchFrameData
 	{
 		glm::mat4 view;

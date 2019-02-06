@@ -34,6 +34,9 @@ public:
 	// Resets all terrain data
 	void clear_terrain();
 
+	// Create Vulkan pipelines
+	void create_pipelines(Window& window);
+
 private:
 	struct GenerationData
 	{

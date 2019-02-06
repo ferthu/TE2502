@@ -15,6 +15,7 @@
 #include "pipeline_layout.hpp"
 #include "descriptor_set_layout.hpp"
 #include "vertex_attributes.hpp"
+#include "specialization_info.hpp"
 
 #include "pipeline.hpp"
 
@@ -94,12 +95,22 @@ public:
 	GPUMemory allocate_host_memory(VkDeviceSize byte_size);
 
 	// Creates and returns a compute pipeline
-	std::unique_ptr<Pipeline> create_compute_pipeline(const std::string& shader_name, PipelineLayout& layout);
+	std::unique_ptr<Pipeline> create_compute_pipeline(
+		const std::string& shader_name, 
+		PipelineLayout& layout,
+		SpecializationInfo* compute_shader_specialization);
 
 	// Creates and returns a graphics pipeline
-	std::unique_ptr<Pipeline> create_graphics_pipeline(const std::string& shader_name, 
-		const glm::vec2 window_size, PipelineLayout& layout, VertexAttributes& vertex_attributes, 
-		RenderPass& render_pass, bool enable_depth, VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+	std::unique_ptr<Pipeline> create_graphics_pipeline(
+		const std::string& shader_name, 
+		const glm::vec2 window_size, 
+		PipelineLayout& layout, 
+		VertexAttributes& vertex_attributes, 
+		RenderPass& render_pass, 
+		bool enable_depth, 
+		SpecializationInfo* vertex_shader_specialization,
+		SpecializationInfo* fragment_shader_specialization,
+		VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
 	// Allocate a descriptor set from descriptor pool
 	VkDescriptorSet allocate_descriptor_set(DescriptorSetLayout& layout);

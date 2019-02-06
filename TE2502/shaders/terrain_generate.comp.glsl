@@ -1,13 +1,13 @@
 #version 450 core
 
-#define GRID_SIDE 20
+#define GRID_SIDE TERRAIN_GENERATE_GRID_SIDE
 #define GROUP_SIZE 32
 
 layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
-const uint num_indices = 99995;
-const uint num_vertices = 10000;
-const uint num_nodes = 4;
+const uint num_indices = TERRAIN_GENERATE_NUM_INDICES;
+const uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
+const uint num_nodes = TERRAIN_GENERATE_NUM_NODES;
 
 struct terrain_data_t
 {

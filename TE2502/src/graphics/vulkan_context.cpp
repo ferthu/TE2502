@@ -187,7 +187,7 @@ void VulkanContext::create_instance()
 	warning_callback_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
 	warning_callback_create_info.pNext = nullptr;
 	warning_callback_create_info.flags = VK_DEBUG_REPORT_WARNING_BIT_EXT |
-		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
+		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT /*| VK_DEBUG_REPORT_INFORMATION_BIT_EXT*/;
 	warning_callback_create_info.pfnCallback = &vulkan_debug_warning_callback;
 	warning_callback_create_info.pUserData = nullptr;
 

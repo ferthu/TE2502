@@ -15,6 +15,7 @@
 #include "graphics/render_pass.hpp"
 #include "graphics/debug_drawer.hpp"
 #include "quadtree.hpp"
+#include "tfile.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -156,5 +157,7 @@ private:
 	bool m_ray_march_new_frame = true;
 
 	bool m_quit = false;
+
+	TFile m_tfile;
 };
 

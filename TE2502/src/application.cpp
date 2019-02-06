@@ -28,8 +28,10 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-Application::Application()
+Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 {
+	m_tfile.compile_shaders();
+
 	glfwSetErrorCallback(error_callback);
 
 	int err = glfwInit();
@@ -227,11 +229,10 @@ Application::Application()
 	}
 
 	// Set up terrain generation/drawing
-	uint32_t num_indices = 99995;
-	uint32_t num_vertices = 10000;
-	uint32_t num_nodes = 4;
-	assert(((num_indices + 5) * 4) % 16 == 0);	// Requires proper alignment
-	m_quadtree = Quadtree(m_vulkan_context, 500.0f, 1, num_nodes, num_indices, num_vertices, *m_window);
+	uint32_t num_indices = m_tfile.get_u32("TERRAIN_GENERATE_NUM_INDICES");
+	uint32_t num_vertices = m_tfile.get_u32("TERRAIN_GENERATE_NUM_VERTICES");
+	uint32_t num_nodes = m_tfile.get_u32("TERRAIN_GENERATE_NUM_NODES");
+	m_quadtree = Quadtree(m_vulkan_context, 5000.0f, 3, num_nodes, num_indices, num_vertices, *m_window);
 
 	// Set up debug drawing
 	m_debug_pipeline_layout = PipelineLayout(m_vulkan_context);

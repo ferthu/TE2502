@@ -78,6 +78,8 @@ void TFile::compile_shaders()
 	std::cout << "Compiling shaders:\n";
 #endif
 
+	std::vector<PROCESS_INFORMATION> pis;
+
 	do
 	{
 		if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
@@ -138,17 +140,7 @@ void TFile::compile_shaders()
 			//	(LPTSTR)&lpMsgBuf,
 			//	0, NULL);
 
-			// Wait until child process exits
-			WaitForSingleObject(pi.hProcess, INFINITE);
-
-			LPDWORD exit_code = &error;
-			GetExitCodeProcess(pi.hProcess, exit_code);
-
-			CHECK(*exit_code == 0, "Shader compilation failed!");
-
-			// Close process and thread handles
-			CloseHandle(pi.hProcess);
-			CloseHandle(pi.hThread);
+			pis.push_back(pi);
 		}
 	} while (FindNextFileA(h_find, &ffd) != 0);
 
@@ -156,4 +148,20 @@ void TFile::compile_shaders()
 	CHECK(dw_error == ERROR_NO_MORE_FILES, "Error searching directory!");
 
 	FindClose(h_find);
+
+	for (auto& pi : pis)
+	{
+		// Wait until child process exits
+		WaitForSingleObject(pi.hProcess, INFINITE);
+
+		DWORD error;
+		LPDWORD exit_code = &error;
+		GetExitCodeProcess(pi.hProcess, exit_code);
+
+		CHECK(*exit_code == 0, "Shader compilation failed!");
+
+		// Close process and thread handles
+		CloseHandle(pi.hProcess);
+		CloseHandle(pi.hThread);
+	}
 }

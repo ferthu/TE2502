@@ -269,6 +269,7 @@ void Application::run()
 	bool f_pressed = false;
 	bool demo_window = true;
 	bool camera_switch_pressed = false;
+	bool f5_pressed = false;
 
 	while (!glfwWindowShouldClose(m_window->get_glfw_window()))
 	{
@@ -311,6 +312,16 @@ void Application::run()
 		}
 		else if (f_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F) == GLFW_RELEASE)
 			f_pressed = false;
+
+		// Reload shaders
+		if (!f5_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F5) == GLFW_PRESS)
+		{
+			f5_pressed = true;
+			m_tfile.compile_shaders();
+			create_pipelines();
+		}
+		else if (f5_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F5) == GLFW_RELEASE)
+			f5_pressed = false;
 
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame(!m_window->get_mouse_locked() && m_show_imgui);

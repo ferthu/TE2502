@@ -50,16 +50,6 @@ uint64_t TFile::get_u64(const std::string& key)
 
 void TFile::compile_shaders()
 {
-	// Get all shader files
-
-	// For all shader files
-		// Create temp copy
-		// Replace vars with numbers
-		// Save temp file
-		
-		// Start compiler
-		// Wait
-
 	TCHAR dir[MAX_PATH];
 	WIN32_FIND_DATA ffd;
 	HANDLE h_find = INVALID_HANDLE_VALUE;

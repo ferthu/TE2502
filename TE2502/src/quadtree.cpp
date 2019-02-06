@@ -18,7 +18,7 @@ Quadtree& Quadtree::operator=(Quadtree&& other)
 	return *this;
 }
 
-Quadtree::Quadtree(VulkanContext& context, float total_side_length, uint32_t levels, uint32_t max_nodes, uint32_t max_node_indices, uint32_t max_node_vertices, Window& window)
+Quadtree::Quadtree(VulkanContext& context, float total_side_length, uint32_t levels, VkDeviceSize max_nodes, VkDeviceSize max_node_indices, VkDeviceSize max_node_vertices, Window& window)
 	: m_context(&context), m_total_side_length(total_side_length), m_levels(levels), m_max_nodes(max_nodes), m_max_indices(max_node_indices), m_max_vertices(max_node_vertices)
 {
 	assert(levels > 0);
@@ -59,7 +59,7 @@ Quadtree::Quadtree(VulkanContext& context, float total_side_length, uint32_t lev
 	push.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	m_generation_pipeline_layout.create(&push);
 
-	m_generation_pipeline = context.create_compute_pipeline("terrain_generate", m_generation_pipeline_layout);
+	m_generation_pipeline = context.create_compute_pipeline("terrain_generate", m_generation_pipeline_layout, nullptr);
 
 	m_render_pass = RenderPass(context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false, true, false, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 	m_draw_pipeline_layout = PipelineLayout(context);
@@ -67,7 +67,8 @@ Quadtree::Quadtree(VulkanContext& context, float total_side_length, uint32_t lev
 	VertexAttributes va(context);
 	va.add_buffer();
 	va.add_attribute(4);
-	m_draw_pipeline = context.create_graphics_pipeline("terrain_draw", window.get_size(), m_draw_pipeline_layout, va, m_render_pass, true, false);
+
+	m_draw_pipeline = context.create_graphics_pipeline("terrain_draw", window.get_size(), m_draw_pipeline_layout, va, m_render_pass, true, false, nullptr, nullptr);
 
 	error_metric_setup(window);
 }
@@ -197,8 +198,21 @@ void Quadtree::move_from(Quadtree&& other)
 {
 	destroy();
 
+	m_context = other.m_context;
+
 	m_memory = std::move(other.m_memory);
 	m_buffer = std::move(other.m_buffer);
+
+	m_terrain_queue = std::move(other.m_terrain_queue);
+	m_generation_set_layout = std::move(other.m_generation_set_layout);
+	m_descriptor_set = std::move(other.m_descriptor_set);
+	m_generation_pipeline_layout = std::move(other.m_generation_pipeline_layout);
+	m_generation_pipeline = std::move(other.m_generation_pipeline);
+
+	m_render_pass = std::move(other.m_render_pass);
+
+	m_draw_pipeline_layout = std::move(other.m_draw_pipeline_layout);
+	m_draw_pipeline = std::move(other.m_draw_pipeline);
 
 	m_max_indices = other.m_max_indices;
 	m_max_vertices = other.m_max_vertices;
@@ -214,19 +228,6 @@ void Quadtree::move_from(Quadtree&& other)
 	m_buffer_index_filled = other.m_buffer_index_filled;
 	other.m_buffer_index_filled = nullptr;
 
-	m_context = other.m_context;
-
-	m_render_pass = std::move(other.m_render_pass);
-	m_generation_set_layout = std::move(other.m_generation_set_layout);
-	m_descriptor_set = std::move(other.m_descriptor_set);
-	m_generation_pipeline_layout = std::move(other.m_generation_pipeline_layout);
-	m_generation_pipeline = std::move(other.m_generation_pipeline);
-
-	m_draw_pipeline_layout = std::move(other.m_draw_pipeline_layout);
-	m_draw_pipeline = std::move(other.m_draw_pipeline);
-
-	m_terrain_queue = std::move(other.m_terrain_queue);
-
 	m_em_memory = std::move(other.m_em_memory);
 	m_em_image = std::move(other.m_em_image);
 	m_em_image_view = std::move(other.m_em_image_view);
@@ -239,10 +240,10 @@ void Quadtree::move_from(Quadtree&& other)
 	m_em_pipeline = std::move(other.m_em_pipeline);
 
 	m_num_generate_nodes = other.m_num_generate_nodes;
-	m_num_draw_nodes = other.m_num_draw_nodes;
-
 	m_generate_nodes = other.m_generate_nodes;
 	other.m_generate_nodes = nullptr;
+
+	m_num_draw_nodes = other.m_num_draw_nodes;
 
 	m_draw_nodes = other.m_draw_nodes;
 	other.m_draw_nodes = nullptr;
@@ -374,7 +375,7 @@ void Quadtree::error_metric_setup(Window& window)
 	va.add_buffer();
 	va.add_attribute(4);
 
-	m_em_pipeline = m_context->create_graphics_pipeline("error_metric", window.get_size(), m_em_pipeline_layout, va, m_em_render_pass, true, true);
+	m_em_pipeline = m_context->create_graphics_pipeline("error_metric", window.get_size(), m_em_pipeline_layout, va, m_em_render_pass, true, true, nullptr, nullptr);
 
 	// Transfer image layouts
 	m_em_queue.start_recording();

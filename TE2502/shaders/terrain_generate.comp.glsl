@@ -1,9 +1,13 @@
 #version 450 core
 
-#define GRID_SIDE 200
+#define GRID_SIDE 20
 #define GROUP_SIZE 32
 
 layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+const uint num_indices = 99995;
+const uint num_vertices = 10000;
+const uint num_nodes = 4;
 
 struct terrain_data_t
 {
@@ -12,13 +16,14 @@ struct terrain_data_t
 	uint    first_index;
 	int     vertex_offset;
 	uint    first_instance;
-	uint	indices[300003];
-	vec4	positions[80000];
+
+	uint	indices[num_indices];
+	vec4	positions[num_vertices];
 };
 
 layout(set = 0, binding = 0) buffer terrain_buffer_t
 {
-	terrain_data_t data[100];
+	terrain_data_t data[num_nodes];
 } terrain_buffer;
 
 layout(push_constant) uniform frame_data_t
@@ -76,7 +81,7 @@ void main(void)
 {
 	if (gl_GlobalInvocationID.x == 0)
 	{
-		terrain_buffer.data[frame_data.buffer_slot].index_count = 6 * (GRID_SIDE) * (GRID_SIDE);
+		terrain_buffer.data[frame_data.buffer_slot].index_count = 6 * (GRID_SIDE - 1) * (GRID_SIDE);
 		terrain_buffer.data[frame_data.buffer_slot].instance_count = 1;
 		terrain_buffer.data[frame_data.buffer_slot].first_index = 0;
 		terrain_buffer.data[frame_data.buffer_slot].vertex_offset = 0;

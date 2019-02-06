@@ -574,15 +574,11 @@ static std::vector<char> read_file(const std::string& filename)
 	return buffer;
 }
 
-std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::string& shader_name, PipelineLayout& layout)
+std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::string& shader_name, PipelineLayout& layout, SpecializationInfo* compute_shader_specialization)
 {
 	auto shader_code = read_file("shaders/compiled/" + shader_name + ".comp.glsl.spv");
 
 	VkShaderModule shader_module = create_shader_module(shader_code);
-
-	VkSpecializationInfo specialization_info = {};
-	specialization_info.mapEntryCount = 0;
-	specialization_info.pMapEntries = nullptr;
 
 	VkPipelineShaderStageCreateInfo shader_stage_info = {};
 	shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -591,7 +587,9 @@ std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::stri
 	shader_stage_info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
 	shader_stage_info.module = shader_module;
 	shader_stage_info.pName = "main";
-	shader_stage_info.pSpecializationInfo = &specialization_info;
+
+	if (compute_shader_specialization)
+		shader_stage_info.pSpecializationInfo = &compute_shader_specialization->get_info();
 
 	VkComputePipelineCreateInfo pipeline_info = {};
 	pipeline_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
@@ -619,7 +617,17 @@ std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::stri
 	return std::make_unique<Pipeline>(pipeline, layout, m_device);
 }
 
-std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::string& shader_name, const glm::vec2 window_size, PipelineLayout& layout, VertexAttributes& vertex_attributes, RenderPass& render_pass, bool enable_depth, bool enable_geometry_shader, VkPrimitiveTopology topology)
+std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
+	const std::string& shader_name,
+	const glm::vec2 window_size,
+	PipelineLayout& layout,
+	VertexAttributes& vertex_attributes,
+	RenderPass& render_pass,
+	bool enable_depth,
+	bool enable_geometry_shader,
+	SpecializationInfo* vertex_shader_specialization,
+	SpecializationInfo* fragment_shader_specialization,
+	VkPrimitiveTopology topology)
 {
 	auto vert_shader_code = read_file("shaders/compiled/" + shader_name + ".vert.glsl.spv");
 	auto frag_shader_code = read_file("shaders/compiled/" + shader_name + ".frag.glsl.spv");
@@ -648,11 +656,17 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(const std::str
 	vert_shader_stage_info.module = vert_shader_module;
 	vert_shader_stage_info.pName = "main";
 
+	if (vertex_shader_specialization)
+		vert_shader_stage_info.pSpecializationInfo = &vertex_shader_specialization->get_info();
+
 	VkPipelineShaderStageCreateInfo frag_shader_stage_info = {};
 	frag_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	frag_shader_stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	frag_shader_stage_info.module = frag_shader_module;
 	frag_shader_stage_info.pName = "main";
+
+	if (fragment_shader_specialization)
+		frag_shader_stage_info.pSpecializationInfo = &fragment_shader_specialization->get_info();
 
 	VkPipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info, geom_shader_stage_info };	
 

@@ -26,7 +26,7 @@ public:
 	Quadtree(Quadtree&& other);
 	Quadtree& operator=(Quadtree&& other);
 
-	Quadtree(VulkanContext& context, float total_side_length, uint32_t levels, uint32_t max_nodes, uint32_t max_node_indices, uint32_t max_node_vertices, Window& window);
+	Quadtree(VulkanContext& context, float total_side_length, uint32_t levels, VkDeviceSize max_nodes, VkDeviceSize max_node_indices, VkDeviceSize max_node_vertices, Window& window);
 
 	// Performs frustum culling and draws/generates visible terrain
 	void draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera);
@@ -102,11 +102,11 @@ private:
 	std::unique_ptr<Pipeline> m_em_pipeline;
 
 	// Max number of indices and vertices per node
-	uint32_t m_max_indices;
-	uint32_t m_max_vertices;
+	VkDeviceSize m_max_indices;
+	VkDeviceSize m_max_vertices;
 
 	// Max number of active nodes
-	uint32_t m_max_nodes;
+	VkDeviceSize m_max_nodes;
 
 	// Size and number of levels in quadtree
 	float m_total_side_length;
@@ -134,7 +134,7 @@ private:
 	uint32_t* m_draw_nodes;
 
 	// Number of bytes in buffer per node
-	uint32_t m_node_memory_size;
+	VkDeviceSize m_node_memory_size;
 
 	const uint32_t INVALID = ~0u;
 };

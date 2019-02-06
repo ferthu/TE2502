@@ -187,7 +187,7 @@ void VulkanContext::create_instance()
 	warning_callback_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
 	warning_callback_create_info.pNext = nullptr;
 	warning_callback_create_info.flags = VK_DEBUG_REPORT_WARNING_BIT_EXT |
-		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
+		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT /*| VK_DEBUG_REPORT_INFORMATION_BIT_EXT*/;
 	warning_callback_create_info.pfnCallback = &vulkan_debug_warning_callback;
 	warning_callback_create_info.pUserData = nullptr;
 
@@ -517,8 +517,6 @@ void VulkanContext::write_required_features(VkPhysicalDeviceFeatures& features)
 	memset(&features, 0, sizeof(VkPhysicalDeviceFeatures));
 
 	// Enable required features
-	assert(m_device_features.dualSrcBlend);
-	features.dualSrcBlend = VK_TRUE;
 	assert(m_device_features.logicOp);
 	features.logicOp = VK_TRUE;
 	assert(m_device_features.fillModeNonSolid);
@@ -531,8 +529,6 @@ void VulkanContext::write_required_features(VkPhysicalDeviceFeatures& features)
 	features.largePoints = VK_TRUE;
 	assert(m_device_features.samplerAnisotropy);
 	features.samplerAnisotropy = VK_TRUE;
-	assert(m_device_features.textureCompressionBC);
-	features.textureCompressionBC = VK_TRUE;
 	assert(m_device_features.vertexPipelineStoresAndAtomics);
 	features.vertexPipelineStoresAndAtomics = VK_TRUE;
 	assert(m_device_features.shaderImageGatherExtended);
@@ -553,6 +549,8 @@ void VulkanContext::write_required_features(VkPhysicalDeviceFeatures& features)
 	features.shaderCullDistance = VK_TRUE;
 	assert(m_device_features.multiDrawIndirect);
 	features.multiDrawIndirect = VK_TRUE;
+	assert(m_device_features.geometryShader);
+	features.geometryShader = VK_TRUE;
 }
 
 static std::vector<char> read_file(const std::string& filename)
@@ -626,6 +624,7 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 	VertexAttributes& vertex_attributes,
 	RenderPass& render_pass,
 	bool enable_depth,
+	bool enable_geometry_shader,
 	SpecializationInfo* vertex_shader_specialization,
 	SpecializationInfo* fragment_shader_specialization,
 	VkPrimitiveTopology topology)
@@ -635,6 +634,21 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 
 	VkShaderModule vert_shader_module = create_shader_module(vert_shader_code);
 	VkShaderModule frag_shader_module = create_shader_module(frag_shader_code);
+
+	std::vector<char> geom_shader_code;
+	VkShaderModule geom_shader_module{};
+	VkPipelineShaderStageCreateInfo geom_shader_stage_info = {};
+	if (enable_geometry_shader)
+	{
+		geom_shader_code = read_file("shaders/compiled/" + shader_name + ".geom.glsl.spv");
+		geom_shader_module = create_shader_module(geom_shader_code);
+
+		geom_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		geom_shader_stage_info.stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+		geom_shader_stage_info.module = geom_shader_module;
+		geom_shader_stage_info.pName = "main";
+
+	}
 
 	VkPipelineShaderStageCreateInfo vert_shader_stage_info = {};
 	vert_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -654,7 +668,7 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 	if (fragment_shader_specialization)
 		frag_shader_stage_info.pSpecializationInfo = &fragment_shader_specialization->get_info();
 
-	VkPipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info };	
+	VkPipelineShaderStageCreateInfo shader_stages[] = { vert_shader_stage_info, frag_shader_stage_info, geom_shader_stage_info };	
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
 	vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -756,7 +770,7 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 
 	VkGraphicsPipelineCreateInfo pipeline_info = {};
 	pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipeline_info.stageCount = 2;
+	pipeline_info.stageCount = enable_geometry_shader ? 3 : 2;
 	pipeline_info.pStages = shader_stages;
 	pipeline_info.pVertexInputState = &vertex_input_info;
 	pipeline_info.pInputAssemblyState = &input_assembly;
@@ -786,6 +800,9 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 
 	vkDestroyShaderModule(m_device, vert_shader_module, nullptr);
 	vkDestroyShaderModule(m_device, frag_shader_module, nullptr);
+
+	if (enable_geometry_shader)
+		vkDestroyShaderModule(m_device, geom_shader_module, nullptr);
 
 	return std::make_unique<Pipeline>(pipeline, layout, m_device);
 }

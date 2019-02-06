@@ -28,8 +28,10 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-Application::Application()
+Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 {
+	m_tfile.compile_shaders();
+
 	glfwSetErrorCallback(error_callback);
 
 	int err = glfwInit();
@@ -68,8 +70,6 @@ Application::Application()
 		m_ray_march_pipeline_layout.create(&push_range);
 	}
 
-	m_ray_march_compute_pipeline = m_vulkan_context.create_compute_pipeline("terrain", m_ray_march_pipeline_layout, nullptr);
-
 	m_ray_march_compute_queue = m_vulkan_context.create_compute_queue();
 	// !Ray marching
 #endif
@@ -96,12 +96,6 @@ Application::Application()
 		m_point_gen_pipeline_layout_compute.create(&push_range);
 	}
 
-	m_point_gen_compute_pipeline = m_vulkan_context.create_compute_pipeline("point_generation", m_point_gen_pipeline_layout_compute, nullptr);
-
-	// Prefix sum
-	m_point_gen_prefix_sum_pipeline = m_vulkan_context.create_compute_pipeline("prefix_sum", m_point_gen_pipeline_layout_compute, nullptr);
-
-
 	// Graphics
 	m_point_gen_buffer_set_layout_graphics = DescriptorSetLayout(m_vulkan_context);
 	m_point_gen_buffer_set_layout_graphics.add_uniform_buffer(VK_SHADER_STAGE_VERTEX_BIT);
@@ -121,17 +115,12 @@ Application::Application()
 		m_point_gen_pipeline_layout_graphics.create(&push_range);
 	}
 
-	VertexAttributes vertex_attributes;
-	vertex_attributes.add_buffer();
-	vertex_attributes.add_attribute(4);
+
 
 	m_point_gen_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, 
 		true, true, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-	m_point_gen_graphics_pipeline = m_vulkan_context.create_graphics_pipeline("point_generation", m_window->get_size(), 
-		m_point_gen_pipeline_layout_graphics, 
-		vertex_attributes, 
-		m_point_gen_render_pass, true, nullptr, nullptr, VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
+
 
 	const unsigned int max_rays_per_frame = 10000;
 	const unsigned int max_points_per_ray = 5;
@@ -219,11 +208,10 @@ Application::Application()
 	}
 
 	// Set up terrain generation/drawing
-	uint32_t num_indices = 99995;
-	uint32_t num_vertices = 10000;
-	uint32_t num_nodes = 4;
-	assert(((num_indices + 5) * 4) % 16 == 0);	// Requires proper alignment
-	m_quadtree = Quadtree(m_vulkan_context, 500.0f, 1, num_nodes, num_indices, num_vertices, *m_window);
+	uint32_t num_indices = m_tfile.get_u32("TERRAIN_GENERATE_NUM_INDICES");
+	uint32_t num_vertices = m_tfile.get_u32("TERRAIN_GENERATE_NUM_VERTICES");
+	uint32_t num_nodes = m_tfile.get_u32("TERRAIN_GENERATE_NUM_NODES");
+	m_quadtree = Quadtree(m_vulkan_context, 5000.0f, 3, num_nodes, num_indices, num_vertices, *m_window);
 
 	// Set up debug drawing
 	m_debug_pipeline_layout = PipelineLayout(m_vulkan_context);
@@ -237,17 +225,12 @@ Application::Application()
 		m_debug_pipeline_layout.create(&push_range);
 	}
 
-	VertexAttributes debug_attributes;
-	debug_attributes.add_buffer();
-	debug_attributes.add_attribute(3);
-	debug_attributes.add_attribute(3);
-
 	m_debug_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, false, true, false, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-	m_debug_pipeline = m_vulkan_context.create_graphics_pipeline("debug", m_window->get_size(), m_debug_pipeline_layout, debug_attributes, m_debug_render_pass, true, nullptr, nullptr, VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
 
 	m_debug_queue = m_vulkan_context.create_graphics_queue();
 	m_debug_drawer = DebugDrawer(m_vulkan_context, 11000);
+
+	create_pipelines();
 
 #ifdef RAY_MARCH_WINDOW
 	// Start ray march thread
@@ -286,6 +269,7 @@ void Application::run()
 	bool f_pressed = false;
 	bool demo_window = true;
 	bool camera_switch_pressed = false;
+	bool f5_pressed = false;
 
 	while (!glfwWindowShouldClose(m_window->get_glfw_window()))
 	{
@@ -328,6 +312,16 @@ void Application::run()
 		}
 		else if (f_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F) == GLFW_RELEASE)
 			f_pressed = false;
+
+		// Reload shaders
+		if (!f5_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F5) == GLFW_PRESS)
+		{
+			f5_pressed = true;
+			m_tfile.compile_shaders();
+			create_pipelines();
+		}
+		else if (f5_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F5) == GLFW_RELEASE)
+			f5_pressed = false;
 
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame(!m_window->get_mouse_locked() && m_show_imgui);
@@ -865,4 +859,39 @@ void Application::imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_co
 		VK_CHECK(vkEndCommandBuffer(m_imgui_vulkan_state.command_buffer), "imgui ending command buffer failed!");
 		VK_CHECK(vkQueueSubmit(m_imgui_vulkan_state.queue.get_queue(), 1, &info, m_imgui_vulkan_state.command_buffer_idle), "imgui submitting queue failed!");
 	}
+}
+
+void Application::create_pipelines()
+{
+#ifdef RAY_MARCH_WINDOW
+	m_ray_march_compute_pipeline = m_vulkan_context.create_compute_pipeline("terrain", m_ray_march_pipeline_layout, nullptr);
+#endif
+	VertexAttributes vertex_attributes;
+	vertex_attributes.add_buffer();
+	vertex_attributes.add_attribute(4);
+	m_point_gen_graphics_pipeline = m_vulkan_context.create_graphics_pipeline(
+		"point_generation",
+		m_window->get_size(),
+		m_point_gen_pipeline_layout_graphics,
+		vertex_attributes,
+		m_point_gen_render_pass,
+		true,
+		false,
+		nullptr,
+		nullptr,
+		VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
+
+	VertexAttributes debug_attributes;
+	debug_attributes.add_buffer();
+	debug_attributes.add_attribute(3);
+	debug_attributes.add_attribute(3);
+	m_debug_pipeline = m_vulkan_context.create_graphics_pipeline("debug", m_window->get_size(), m_debug_pipeline_layout, debug_attributes, m_debug_render_pass, true, false, nullptr, nullptr, VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+
+
+	m_point_gen_compute_pipeline = m_vulkan_context.create_compute_pipeline("point_generation", m_point_gen_pipeline_layout_compute, nullptr);
+
+	// Prefix sum
+	m_point_gen_prefix_sum_pipeline = m_vulkan_context.create_compute_pipeline("prefix_sum", m_point_gen_pipeline_layout_compute, nullptr);
+
+	m_quadtree.create_pipelines(*m_window);
 }

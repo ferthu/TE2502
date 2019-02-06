@@ -107,7 +107,8 @@ public:
 		PipelineLayout& layout, 
 		VertexAttributes& vertex_attributes, 
 		RenderPass& render_pass, 
-		bool enable_depth, 
+		bool enable_depth,
+		bool enable_geometry_shader,
 		SpecializationInfo* vertex_shader_specialization,
 		SpecializationInfo* fragment_shader_specialization,
 		VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);

@@ -57,7 +57,7 @@ RenderPass::RenderPass(VulkanContext& context, VkFormat color_format, VkImageLay
 	subpass_desc.colorAttachmentCount = 1;
 	subpass_desc.pColorAttachments = &attachment_ref;
 	subpass_desc.pResolveAttachments = nullptr;
-	subpass_desc.pDepthStencilAttachment = &depth_attachment_ref;
+	subpass_desc.pDepthStencilAttachment = use_depth ? &depth_attachment_ref : nullptr;
 	subpass_desc.preserveAttachmentCount = 0;
 	subpass_desc.pPreserveAttachments = nullptr;
 

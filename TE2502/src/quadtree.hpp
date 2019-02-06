@@ -34,6 +34,9 @@ public:
 	// Resets all terrain data
 	void clear_terrain();
 
+	// Create Vulkan pipelines
+	void create_pipelines(Window& window);
+
 private:
 	struct GenerationData
 	{
@@ -42,6 +45,13 @@ private:
 		glm::vec2 min;			// Min corner
 		glm::vec2 max;			// Max corner
 		uint32_t buffer_slot;	// Buffer slot
+	};
+
+	struct ErrorMetricData
+	{
+		glm::mat4 vp;
+		glm::vec4 camera_pos;
+		glm::vec2 screen_size;
 	};
 
 	// Move other into this
@@ -59,7 +69,11 @@ private:
 	// For a node at the given position, return its index into m_buffer
 	uint32_t get_offset(uint32_t node_x, uint32_t node_z);
 
+	// Set up error metric objects
+	void error_metric_setup(Window& window);
+
 	GenerationData m_push_data;
+	ErrorMetricData m_em_push_data;
 
 	VulkanContext* m_context;
 
@@ -78,6 +92,17 @@ private:
 	RenderPass m_render_pass;
 	PipelineLayout m_draw_pipeline_layout;
 	std::unique_ptr<Pipeline> m_draw_pipeline;
+
+	GPUMemory m_em_memory;
+	GPUImage m_em_image;
+	GPUImage m_em_depth_image;
+	ImageView m_em_image_view;
+	ImageView m_em_depth_image_view;
+	Framebuffer m_em_framebuffer;
+	GraphicsQueue m_em_queue;
+	PipelineLayout m_em_pipeline_layout;
+	RenderPass m_em_render_pass;
+	std::unique_ptr<Pipeline> m_em_pipeline;
 
 	// Max number of indices and vertices per node
 	VkDeviceSize m_max_indices;

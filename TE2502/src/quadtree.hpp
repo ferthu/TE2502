@@ -26,13 +26,24 @@ public:
 	Quadtree(Quadtree&& other);
 	Quadtree& operator=(Quadtree&& other);
 
-	Quadtree(VulkanContext& context, float total_side_length, uint32_t levels, uint32_t max_nodes, uint32_t max_node_indices, uint32_t max_node_vertices, Window& window);
+	Quadtree(
+		VulkanContext& context, 
+		float total_side_length, 
+		uint32_t levels, 
+		uint32_t max_nodes, 
+		uint32_t max_node_indices, 
+		uint32_t max_node_vertices, 
+		uint32_t max_node_new_points, 
+		Window& window);
 
 	// Performs frustum culling and draws/generates visible terrain
 	void draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera);
 
 	// Resets all terrain data
 	void clear_terrain();
+
+	// Re-triangulate the terrain using the new points that have been previously added
+	void triangulate();
 
 private:
 	struct GenerationData
@@ -42,6 +53,23 @@ private:
 		glm::vec2 min;			// Min corner
 		glm::vec2 max;			// Max corner
 		uint32_t buffer_slot;	// Buffer slot
+	};
+
+	struct TriangulationData
+	{
+		uint32_t node_index;
+	};
+	struct BufferNodeHeader
+	{
+		uint32_t vertex_count;
+		uint32_t new_points_count;
+		uint32_t pad2[2];
+	};
+	struct Triangle
+	{
+		glm::vec2 circumcircle;
+		float circumradius;
+		uint32_t pad;
 	};
 
 	// Move other into this
@@ -60,6 +88,7 @@ private:
 	uint32_t get_offset(uint32_t node_x, uint32_t node_z);
 
 	GenerationData m_push_data;
+	TriangulationData m_triangulation_push_data;
 
 	VulkanContext* m_context;
 
@@ -73,7 +102,9 @@ private:
 	DescriptorSetLayout m_generation_set_layout;
 	DescriptorSet m_descriptor_set;
 	PipelineLayout m_generation_pipeline_layout;
+	PipelineLayout m_triangulation_pipeline_layout;
 	std::unique_ptr<Pipeline> m_generation_pipeline;
+	std::unique_ptr<Pipeline> m_triangulation_pipeline;
 
 	RenderPass m_render_pass;
 	PipelineLayout m_draw_pipeline_layout;
@@ -82,6 +113,7 @@ private:
 	// Max number of indices and vertices per node
 	uint32_t m_max_indices;
 	uint32_t m_max_vertices;
+	uint32_t m_max_node_new_points;
 
 	// Max number of active nodes
 	uint32_t m_max_nodes;
@@ -112,7 +144,7 @@ private:
 	uint32_t* m_draw_nodes;
 
 	// Number of bytes in buffer per node
-	uint32_t m_node_memory_size;
+	VkDeviceSize m_node_memory_size;
 
 	const uint32_t INVALID = ~0u;
 };

@@ -18,8 +18,22 @@ Quadtree& Quadtree::operator=(Quadtree&& other)
 	return *this;
 }
 
-Quadtree::Quadtree(VulkanContext& context, float total_side_length, uint32_t levels, uint32_t max_nodes, uint32_t max_node_indices, uint32_t max_node_vertices, Window& window)
-	: m_context(&context), m_total_side_length(total_side_length), m_levels(levels), m_max_nodes(max_nodes), m_max_indices(max_node_indices), m_max_vertices(max_node_vertices)
+Quadtree::Quadtree(
+	VulkanContext& context,
+	float total_side_length,
+	uint32_t levels,
+	uint32_t max_nodes,
+	uint32_t max_node_indices,
+	uint32_t max_node_vertices,
+	uint32_t max_node_new_points,
+Window& window)
+	: m_context(&context),
+		m_total_side_length(total_side_length),
+		m_levels(levels),
+		m_max_nodes(max_nodes),
+		m_max_indices(max_node_indices),
+		m_max_vertices(max_node_vertices),
+		m_max_node_new_points(max_node_new_points)
 {
 	assert(levels > 0);
 
@@ -38,8 +52,16 @@ Quadtree::Quadtree(VulkanContext& context, float total_side_length, uint32_t lev
 
 	m_terrain_queue = context.create_graphics_queue();
 
-	m_node_memory_size = sizeof(VkDrawIndexedIndirectCommand) + max_node_indices * sizeof(uint32_t) + max_node_vertices * sizeof(glm::vec4);
-	m_memory = context.allocate_device_memory(m_node_memory_size * max_nodes + 500);
+	m_node_memory_size = 
+		sizeof(VkDrawIndexedIndirectCommand) + 
+		sizeof(BufferNodeHeader) + 
+		max_node_indices * sizeof(uint32_t) + // Indices
+		max_node_vertices * sizeof(glm::vec4) + // Vertices
+		max_node_indices / 3 * sizeof(Triangle) + // Circumcentre and circumradius
+		max_node_new_points * sizeof(glm::vec4); // New points
+
+	m_memory = context.allocate_device_memory(m_node_memory_size * max_nodes + 1000);
+	
 	m_buffer = GPUBuffer(context, m_node_memory_size * max_nodes, 
 		VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | 
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | 
@@ -61,13 +83,32 @@ Quadtree::Quadtree(VulkanContext& context, float total_side_length, uint32_t lev
 
 	m_generation_pipeline = context.create_compute_pipeline("terrain_generate", m_generation_pipeline_layout);
 
-	m_render_pass = RenderPass(context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false, true, false, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	m_render_pass = RenderPass(
+			context, 
+			VK_FORMAT_B8G8R8A8_UNORM, 
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 
+			false, 
+			true, 
+			false, 
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 	m_draw_pipeline_layout = PipelineLayout(context);
 	m_draw_pipeline_layout.create(&push);
 	VertexAttributes va(context);
 	va.add_buffer();
 	va.add_attribute(4);
 	m_draw_pipeline = context.create_graphics_pipeline("terrain_draw", window.get_size(), m_draw_pipeline_layout, va, m_render_pass, true);
+
+
+	///// TRIANGULATION
+	m_triangulation_pipeline_layout = PipelineLayout(context);
+	m_triangulation_pipeline_layout.add_descriptor_set_layout(m_generation_set_layout);
+	push.offset = 0;
+	push.size = sizeof(TriangulationData);
+	push.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	m_triangulation_pipeline_layout.create(&push);
+	m_triangulation_pipeline = context.create_compute_pipeline("triangulate", m_triangulation_pipeline_layout);
 }
 
 void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera)
@@ -82,7 +123,7 @@ void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& fram
 		{half_length, half_length} }, 0, 0, 0);
 
 	// Begin recording
-	m_terrain_queue.start_recording();
+	m_terrain_queue.start_recording(); 
 
 	m_push_data.vp = camera.get_vp();
 	m_push_data.camera_pos = glm::vec4(camera.get_pos(), 1.0f);
@@ -125,16 +166,16 @@ void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& fram
 	// Render nonupdated terrain
 	for (uint32_t i = 0; i < m_num_draw_nodes; i++)
 	{
-		m_terrain_queue.cmd_bind_index_buffer(m_buffer.get_buffer(), m_draw_nodes[i] * m_node_memory_size + sizeof(VkDrawIndexedIndirectCommand));
-		m_terrain_queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), m_draw_nodes[i] * m_node_memory_size + m_max_indices * sizeof(uint32_t) + sizeof(VkDrawIndexedIndirectCommand));
+		m_terrain_queue.cmd_bind_index_buffer(m_buffer.get_buffer(), m_draw_nodes[i] * m_node_memory_size + sizeof(VkDrawIndexedIndirectCommand) + sizeof(BufferNodeHeader));
+		m_terrain_queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), m_draw_nodes[i] * m_node_memory_size + m_max_indices * sizeof(uint32_t) + sizeof(VkDrawIndexedIndirectCommand) + sizeof(BufferNodeHeader));
 		m_terrain_queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), m_draw_nodes[i] * m_node_memory_size);
 	}
 
 	// Render newly generated terrain
 	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
 	{
-		m_terrain_queue.cmd_bind_index_buffer(m_buffer.get_buffer(), m_generate_nodes[i].index * m_node_memory_size + sizeof(VkDrawIndexedIndirectCommand));
-		m_terrain_queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), m_generate_nodes[i].index * m_node_memory_size + m_max_indices * sizeof(uint32_t) + sizeof(VkDrawIndexedIndirectCommand));
+		m_terrain_queue.cmd_bind_index_buffer(m_buffer.get_buffer(), m_generate_nodes[i].index * m_node_memory_size + sizeof(VkDrawIndexedIndirectCommand) + sizeof(BufferNodeHeader));
+		m_terrain_queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), m_generate_nodes[i].index * m_node_memory_size + m_max_indices * sizeof(uint32_t) + sizeof(VkDrawIndexedIndirectCommand) + sizeof(BufferNodeHeader));
 		m_terrain_queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), m_generate_nodes[i].index * m_node_memory_size);
 	}
 
@@ -153,6 +194,34 @@ void Quadtree::clear_terrain()
 	memset(m_buffer_index_filled, 0, m_max_nodes * sizeof(bool));
 }
 
+void Quadtree::triangulate()
+{
+	// Begin recording
+	m_terrain_queue.start_recording();
+
+	m_terrain_queue.cmd_bind_compute_pipeline(m_triangulation_pipeline->m_pipeline);
+	m_descriptor_set.clear();
+	m_descriptor_set.add_storage_buffer(m_buffer);
+	m_descriptor_set.bind();
+	m_terrain_queue.cmd_bind_descriptor_set_compute(m_triangulation_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
+
+	for (int i = 0; i < m_num_draw_nodes; ++i)
+	{
+		m_triangulation_push_data.node_index = m_draw_nodes[i];
+		m_terrain_queue.cmd_push_constants(
+				m_triangulation_pipeline_layout.get_pipeline_layout(), 
+				VK_SHADER_STAGE_COMPUTE_BIT, 
+				sizeof(TriangulationData), 
+				&m_triangulation_push_data);
+		m_terrain_queue.cmd_dispatch(1, 1, 1);
+	}
+
+	// End recording
+	m_terrain_queue.end_recording();
+	m_terrain_queue.submit();
+	m_terrain_queue.wait();
+}
+
 void Quadtree::move_from(Quadtree&& other)
 {
 	destroy();
@@ -162,6 +231,7 @@ void Quadtree::move_from(Quadtree&& other)
 
 	m_max_indices = other.m_max_indices;
 	m_max_vertices = other.m_max_vertices;
+	m_max_node_new_points = other.m_max_node_new_points;
 
 	m_max_nodes = other.m_max_nodes;
 
@@ -180,7 +250,9 @@ void Quadtree::move_from(Quadtree&& other)
 	m_generation_set_layout = std::move(other.m_generation_set_layout);
 	m_descriptor_set = std::move(other.m_descriptor_set);
 	m_generation_pipeline_layout = std::move(other.m_generation_pipeline_layout);
+	m_triangulation_pipeline_layout = std::move(other.m_triangulation_pipeline_layout);
 	m_generation_pipeline = std::move(other.m_generation_pipeline);
+	m_triangulation_pipeline = std::move(other.m_triangulation_pipeline);
 
 	m_draw_pipeline_layout = std::move(other.m_draw_pipeline_layout);
 	m_draw_pipeline = std::move(other.m_draw_pipeline);

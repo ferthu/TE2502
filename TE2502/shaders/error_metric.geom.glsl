@@ -3,7 +3,8 @@
 layout(triangles) in;
 
 layout(triangle_strip, max_vertices = 3) out;
-layout(location = 0) out vec3 color;
+layout(location = 0) out float out_area;
+layout(location = 1) out vec3 world_pos;
 
 layout(push_constant) uniform frame_data_t
 {
@@ -41,11 +42,8 @@ void main() {
 	{
 		gl_Position = frame_data.camera_vp * gl_in[i].gl_Position;
 
-		color = vec3(area / 800.0, 0.0, 0.0);
-
-		// Gamma correct
-		color = pow(color, (1.0 / 2.2).xxx);
-		
+		out_area = area;
+		world_pos = gl_in[i].gl_Position.xyz;
 		EmitVertex();
 	}
 

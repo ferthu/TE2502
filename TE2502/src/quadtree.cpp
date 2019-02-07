@@ -154,7 +154,7 @@ void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& fram
 	m_em_push_data.camera_pos = glm::vec4(camera.get_pos(), 1.0f);
 	m_em_push_data.screen_size = glm::vec2(framebuffer.get_width(), framebuffer.get_width());
 
-	m_em_queue.cmd_push_constants(m_em_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_GEOMETRY_BIT, sizeof(ErrorMetricData), &m_em_push_data);
+	m_em_queue.cmd_push_constants(m_em_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(ErrorMetricData), &m_em_push_data);
 
 	m_em_queue.cmd_bind_graphics_pipeline(m_em_pipeline->m_pipeline);
 	//m_em_queue.cmd_begin_render_pass(m_em_render_pass, m_em_framebuffer);
@@ -378,7 +378,7 @@ void Quadtree::error_metric_setup(Window& window)
 	VkPushConstantRange push;
 	push.offset = 0;
 	push.size = sizeof(ErrorMetricData);
-	push.stageFlags = VK_SHADER_STAGE_GEOMETRY_BIT;
+	push.stageFlags = VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	m_em_pipeline_layout.create(&push);
 
 	// Transfer image layouts

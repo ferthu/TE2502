@@ -15,7 +15,7 @@
 #include <string>
 #include <glm/gtc/matrix_transform.hpp>
 
-//#define RAY_MARCH_WINDOW
+#define RAY_MARCH_WINDOW
 
 void error_callback(int error, const char* description)
 {

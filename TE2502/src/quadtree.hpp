@@ -45,7 +45,9 @@ public:
 	void create_pipelines(Window& window);
 
 	// Re-triangulate the terrain using the new points that have been previously added
-	void triangulate();
+	void triangulate(glm::vec3 pos);
+
+	GPUBuffer& get_buffer();
 
 private:
 	struct GenerationData
@@ -66,10 +68,13 @@ private:
 
 	struct TriangulationData
 	{
+		glm::vec3 pos;
 		uint32_t node_index;
 	};
 	struct BufferNodeHeader
 	{
+		glm::vec2 min;
+		glm::vec2 max;
 		uint32_t vertex_count;
 		uint32_t new_points_count;
 		uint32_t pad2[2];

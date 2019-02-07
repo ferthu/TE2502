@@ -246,7 +246,7 @@ void Quadtree::create_pipelines(Window& window)
 	m_triangulation_pipeline = m_context->create_compute_pipeline("triangulate", m_triangulation_pipeline_layout, nullptr);
 }
 
-void Quadtree::triangulate()
+void Quadtree::triangulate(glm::vec3 pos)
 {
 	// Begin recording
 	m_terrain_queue.start_recording();
@@ -259,6 +259,7 @@ void Quadtree::triangulate()
 
 	for (int i = 0; i < m_num_draw_nodes; ++i)
 	{
+		m_triangulation_push_data.pos = pos;
 		m_triangulation_push_data.node_index = m_draw_nodes[i];
 		m_terrain_queue.cmd_push_constants(
 				m_triangulation_pipeline_layout.get_pipeline_layout(), 
@@ -272,6 +273,11 @@ void Quadtree::triangulate()
 	m_terrain_queue.end_recording();
 	m_terrain_queue.submit();
 	m_terrain_queue.wait();
+}
+
+GPUBuffer& Quadtree::get_buffer()
+{
+	return m_buffer;
 }
 
 void Quadtree::move_from(Quadtree&& other)

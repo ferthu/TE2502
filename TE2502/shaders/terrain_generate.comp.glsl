@@ -25,6 +25,8 @@ struct terrain_data_t
 	int  vertex_offset;
 	uint first_instance;
 
+	vec2 min;
+	vec2 max;
 	uint vertex_count;
 	uint new_points_count;
 	uint pad[2];
@@ -173,13 +175,26 @@ void main(void)
 		terrain_buffer.data[frame_data.buffer_slot].vertex_offset = 0;
 		terrain_buffer.data[frame_data.buffer_slot].first_instance = 0;
 
-		terrain_buffer.data[frame_data.buffer_slot].vertex_count = GRID_SIDE * GRID_SIDE;
-		terrain_buffer.data[frame_data.buffer_slot].new_points_count = 1;
+		terrain_buffer.data[frame_data.buffer_slot].min = frame_data.min;
+		terrain_buffer.data[frame_data.buffer_slot].max = frame_data.max;
 
-		terrain_buffer.data[frame_data.buffer_slot].new_points[0] = vec4(-60, -100, -90, 1);
+		terrain_buffer.data[frame_data.buffer_slot].vertex_count = GRID_SIDE * GRID_SIDE;
+
+		uint i = gl_GlobalInvocationID.x;
+		float x = frame_data.min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * (frame_data.max.x - frame_data.min.x);
+		float z = frame_data.min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * (frame_data.max.y - frame_data.min.y);
+
+		if (x < 0 && z < 0)
+		{
+			terrain_buffer.data[frame_data.buffer_slot].new_points_count = 3;
+
+			terrain_buffer.data[frame_data.buffer_slot].new_points[0] = vec4(-10, -100, -90, 1);
+			terrain_buffer.data[frame_data.buffer_slot].new_points[1] = vec4(-200, -100, -100, 1);
+			terrain_buffer.data[frame_data.buffer_slot].new_points[2] = vec4(-80, -100, -100, 1);
+		}
 	}
 
-	// Positionsuint i = gl_GlobalInvocationID.x; 
+	// Positions
 	uint i = gl_GlobalInvocationID.x;
 	while (i < GRID_SIDE * GRID_SIDE)
 	{
@@ -190,16 +205,6 @@ void main(void)
 
 		i += GROUP_SIZE;
 	}
-
-	//for (uint i = 0; i < GRID_SIDE * GRID_SIDE; ++i)
-	//{
-	//	uint base_index = gl_GlobalInvocationID.x + i * GROUP_SIZE;
-
-	//	float x = frame_data.min.x + ((base_index % GRID_SIDE) / float(GRID_SIDE - 1)) * (frame_data.max.x - frame_data.min.x);
-	//	float z = frame_data.min.y + float(base_index / GRID_SIDE) / float(GRID_SIDE - 1) * (frame_data.max.y - frame_data.min.y);
-
-	//	terrain_buffer.data[frame_data.buffer_slot].positions[base_index] = vec4(x, -Terrain(vec2(x, z)) - 0.5, z, 1.0);
-	//}
 
 	barrier();
 	memoryBarrierBuffer();
@@ -238,62 +243,4 @@ void main(void)
 
 		i += GROUP_SIZE;
 	}
-
-
-	//for (uint i = 0; i < GRID_SIDE * GRID_SIDE / GROUP_SIZE + 1; ++i)
-	//{
-	//	uint base_index = gl_GlobalInvocationID.x + i * GROUP_SIZE;
-
-	//	// Indices
-	//	terrain_buffer.data[frame_data.buffer_slot].indices[base_index * 6] = base_index;
-	//	terrain_buffer.data[frame_data.buffer_slot].indices[base_index * 6 + 1] = base_index + GRID_SIDE + 1;
-	//	terrain_buffer.data[frame_data.buffer_slot].indices[base_index * 6 + 2] = base_index + 1;
-
-	//	terrain_buffer.data[frame_data.buffer_slot].indices[base_index * 6 + 3] = base_index;
-	//	terrain_buffer.data[frame_data.buffer_slot].indices[base_index * 6 + 4] = base_index + GRID_SIDE;
-	//	terrain_buffer.data[frame_data.buffer_slot].indices[base_index * 6 + 5] = base_index + GRID_SIDE + 1;
-
-		// Circumcentres
-		//vec2 P1 = terrain_buffer.data[frame_data.buffer_slot].positions[base_index].xz;
-		//vec2 Q1 = terrain_buffer.data[frame_data.buffer_slot].positions[base_index + GRID_SIDE + 1].xz;
-		//vec2 R1 = terrain_buffer.data[frame_data.buffer_slot].positions[base_index + 1].xz;
-		//terrain_buffer.data[frame_data.buffer_slot].triangles[base_index * 2].circumcentre = find_circum_center(P1, Q1, R1);
-
-		//vec2 P2 = terrain_buffer.data[frame_data.buffer_slot].positions[base_index].xz;
-		//vec2 Q2 = terrain_buffer.data[frame_data.buffer_slot].positions[base_index + GRID_SIDE].xz;
-		//vec2 R2 = terrain_buffer.data[frame_data.buffer_slot].positions[base_index + GRID_SIDE + 1].xz;
-		//terrain_buffer.data[frame_data.buffer_slot].triangles[base_index * 2 + 1].circumcentre = find_circum_center(P2, Q2, R2);
-
-		//// Circumradii
-		//terrain_buffer.data[frame_data.buffer_slot].triangles[base_index * 2].circumradius = find_circum_radius_squared(P1, Q1, R1);
-		//terrain_buffer.data[frame_data.buffer_slot].triangles[base_index * 2 + 1].circumradius = find_circum_radius_squared(P2, Q2, R2);
-	//}
-
-	//barrier();
-	//memoryBarrierBuffer();
-
-	//for (uint i = 0; i < GRID_SIDE * GRID_SIDE / GROUP_SIZE + 1; i++)
-	//{
-	//	uint base_index = gl_GlobalInvocationID.x + i * GROUP_SIZE;
-	//	if (base_index < GRID_SIDE * GRID_SIDE)
-	//	{
-	//		if (base_index < GRID_SIDE * GRID_SIDE - GRID_SIDE && base_index % GRID_SIDE != GRID_SIDE - 1)
-	//		{
-	//			// Circumcentres
-	//			vec2 P1 = terrain_buffer.data[frame_data.buffer_slot].positions[base_index].xz;
-	//			vec2 Q1 = terrain_buffer.data[frame_data.buffer_slot].positions[base_index + GRID_SIDE + 1].xz;
-	//			vec2 R1 = terrain_buffer.data[frame_data.buffer_slot].positions[base_index + 1].xz;
-	//			terrain_buffer.data[frame_data.buffer_slot].triangles[base_index * 2].circumcentre = find_circum_center(P1, Q1, R1);
-
-	//			vec2 P2 = terrain_buffer.data[frame_data.buffer_slot].positions[base_index].xz;
-	//			vec2 Q2 = terrain_buffer.data[frame_data.buffer_slot].positions[base_index + GRID_SIDE].xz;
-	//			vec2 R2 = terrain_buffer.data[frame_data.buffer_slot].positions[base_index + GRID_SIDE + 1].xz;
-	//			terrain_buffer.data[frame_data.buffer_slot].triangles[base_index * 2 + 1].circumcentre = find_circum_center(P2, Q2, R2);
-
-	//			// Circumradii
-	//			terrain_buffer.data[frame_data.buffer_slot].triangles[base_index * 2].circumradius = find_circum_radius_squared(P1, Q1, R1);
-	//			terrain_buffer.data[frame_data.buffer_slot].triangles[base_index * 2 + 1].circumradius = find_circum_radius_squared(P2, Q2, R2);
-	//		}
-	//	}
-	//}
 }

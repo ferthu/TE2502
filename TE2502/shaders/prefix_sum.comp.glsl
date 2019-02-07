@@ -3,11 +3,22 @@
 #define WORK_GROUP_SIZE 1024
 layout(local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
-//// INPUT
+const uint num_indices = TERRAIN_GENERATE_NUM_INDICES;
+const uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
+const uint num_nodes = TERRAIN_GENERATE_NUM_NODES;
+const uint num_new_points = TRIANGULATE_MAX_NEW_POINTS;
+
+// INPUT
 layout(set = 0, binding = 1) buffer point_counts_t
 {
 	uint counts[];
 } point_counts;
+
+// INPUT/OUPUT
+layout(set = 0, binding = 2) buffer output_data_t
+{
+	vec4 points[];
+} output_data;
 
 layout(push_constant) uniform frame_data_t
 {
@@ -18,16 +29,39 @@ layout(push_constant) uniform frame_data_t
 	uint power2_dir_count;
 } frame_data;
 
+// OUTPUT
 
-// INPUT/OUPUT
-layout(set = 0, binding = 2) buffer output_data_t
+struct Triangle
 {
-	uint vertex_count;
+	vec2 circumcentre;
+	float circumradius;
+	uint pad;
+};
+
+struct terrain_data_t
+{
+	uint index_count;
 	uint instance_count;
-	uint first_vertex;
+	uint first_index;
+	int  vertex_offset;
 	uint first_instance;
-	vec4 points[];
-} output_data;
+
+	vec2 min;
+	vec2 max;
+	uint vertex_count;
+	uint new_points_count;
+	uint pad[2];
+
+	uint indices[num_indices];
+	vec4 positions[num_vertices];
+	Triangle triangles[num_indices / 3];
+	vec4 new_points[num_new_points];
+};
+
+layout(set = 0, binding = 3) buffer terrain_buffer_t
+{
+	terrain_data_t data[num_nodes];
+} terrain_buffer;
 
 
 
@@ -52,57 +86,58 @@ void main(void)
 
 	int offset = 1;
 
-	//uint ai = thid;
-	//uint bi = thid + (n / 2);
-	//uint bankOffsetA = CONFLICT_FREE_OFFSET(ai);
-	//uint bankOffsetB = CONFLICT_FREE_OFFSET(bi);
-	//temp[ai + bankOffsetA] = point_counts.counts[ai];
-	//temp[bi + bankOffsetB] = point_counts.counts[bi];
+	{
+		//uint ai = thid;
+		//uint bi = thid + (n / 2);
+		//uint bankOffsetA = CONFLICT_FREE_OFFSET(ai);
+		//uint bankOffsetB = CONFLICT_FREE_OFFSET(bi);
+		//temp[ai + bankOffsetA] = point_counts.counts[ai];
+		//temp[bi + bankOffsetB] = point_counts.counts[bi];
 
-	//for (int d = n >> 1; d > 0; d >>= 1)  // Build sum in place up the tree
-	//{
-	//	memoryBarrierShared(); 
-	//	barrier();
+		//for (int d = n >> 1; d > 0; d >>= 1)  // Build sum in place up the tree
+		//{
+		//	memoryBarrierShared(); 
+		//	barrier();
 
-	//	if (thid < d)
-	//	{
-	//		uint ai = offset * (2 * thid + 1) - 1;
-	//		uint bi = offset * (2 * thid + 2) - 1;
-	//		ai += CONFLICT_FREE_OFFSET(ai);
-	//		bi += CONFLICT_FREE_OFFSET(bi);
+		//	if (thid < d)
+		//	{
+		//		uint ai = offset * (2 * thid + 1) - 1;
+		//		uint bi = offset * (2 * thid + 2) - 1;
+		//		ai += CONFLICT_FREE_OFFSET(ai);
+		//		bi += CONFLICT_FREE_OFFSET(bi);
 
-	//		temp[bi] += temp[ai];
-	//	}
-	//	offset *= 2;
-	//}
+		//		temp[bi] += temp[ai];
+		//	}
+		//	offset *= 2;
+		//}
 
-	//if (thid == 0) { temp[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = 0; }
+		//if (thid == 0) { temp[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = 0; }
 
-	//for (int d = 1; d < n; d *= 2)  // Traverse down tree & build scan
-	//{
-	//	offset >>= 1;
-	//	memoryBarrierShared();
-	//	barrier();
-	//	if (thid < d)
-	//	{
-	//		uint ai = offset * (2 * thid + 1) - 1;
-	//		uint bi = offset * (2 * thid + 2) - 1;
-	//		ai += CONFLICT_FREE_OFFSET(ai);
-	//		bi += CONFLICT_FREE_OFFSET(bi);
+		//for (int d = 1; d < n; d *= 2)  // Traverse down tree & build scan
+		//{
+		//	offset >>= 1;
+		//	memoryBarrierShared();
+		//	barrier();
+		//	if (thid < d)
+		//	{
+		//		uint ai = offset * (2 * thid + 1) - 1;
+		//		uint bi = offset * (2 * thid + 2) - 1;
+		//		ai += CONFLICT_FREE_OFFSET(ai);
+		//		bi += CONFLICT_FREE_OFFSET(bi);
 
-	//		uint t = temp[ai];
-	//		temp[ai] = temp[bi];
-	//		temp[bi] += t;
-	//	}
-	//}
+		//		uint t = temp[ai];
+		//		temp[ai] = temp[bi];
+		//		temp[bi] += t;
+		//	}
+		//}
 
-	//memoryBarrierShared();
-	//barrier();
+		//memoryBarrierShared();
+		//barrier();
 
-	//point_counts.counts[ai] = temp[ai + bankOffsetA]; // Optimize!!!
-	//point_counts.counts[bi] = temp[bi + bankOffsetB]; // Optimize!!!
+		//point_counts.counts[ai] = temp[ai + bankOffsetA]; // Optimize!!!
+		//point_counts.counts[bi] = temp[bi + bankOffsetB]; // Optimize!!!
 
-
+	}
 
 	// Load input into shared memory
 	temp[thid] = point_counts.counts[thid]; 
@@ -154,11 +189,6 @@ void main(void)
 	{
 		total += temp[n - 1];
 		temp[n] = total;
-
-		output_data.vertex_count = total;
-		output_data.instance_count = 1;
-		output_data.first_vertex = 0;
-		output_data.first_instance = 0;
 	}
 
 	barrier();
@@ -189,5 +219,24 @@ void main(void)
 	for (uint i = 0; i < local_point_count; ++i)
 	{
 		output_data.points[temp[thid * 2] + i] = local_points[i];
+	}
+
+	// Add points to correct node
+	uint i = thid;
+	while (i < total)
+	{
+		vec4 pos = output_data.points[i];
+		for (uint n = 0; n < num_nodes; ++n)
+		{
+			vec2 min = terrain_buffer.data[n].min;
+			vec2 max = terrain_buffer.data[n].max;
+			if (pos.x > min.x && pos.x < max.x && pos.z > min.y && pos.z < max.y)
+			{
+				uint index = atomicAdd(terrain_buffer.data[n].new_points_count, 1);  // TODO: Optimize away atomicAdd?
+				terrain_buffer.data[n].new_points[index] = pos;
+			}
+		}
+
+		i += WORK_GROUP_SIZE;
 	}
 }

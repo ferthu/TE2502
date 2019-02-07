@@ -3,7 +3,7 @@
 #define WORK_GROUP_SIZE 32
 layout(local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
-//// INPUT
+// INPUT
 layout(set = 0, binding = 0) buffer input_data_t
 {
 	vec4 dirs[];
@@ -27,10 +27,6 @@ layout(set = 0, binding = 1) buffer point_counts_t
 
 layout(set = 0, binding = 2) buffer output_data_t
 {
-	uint vertex_count;
-	uint instance_count;
-	uint first_vertex;
-	uint first_instance;
 	vec4 points[];
 } output_data;
 

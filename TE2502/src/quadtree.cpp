@@ -152,13 +152,14 @@ void Quadtree::draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& fram
 	m_em_queue.start_recording();
 	m_em_push_data.vp = camera.get_vp();
 	m_em_push_data.camera_pos = glm::vec4(camera.get_pos(), 1.0f);
-	m_em_push_data.screen_size = glm::vec2(framebuffer.get_width(), framebuffer.get_width());
+	m_em_push_data.screen_size = glm::vec2(m_em_framebuffer.get_width(), m_em_framebuffer.get_width());
+	//m_em_push_data.screen_size = glm::vec2(framebuffer.get_width(), framebuffer.get_width());
 
 	m_em_queue.cmd_push_constants(m_em_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(ErrorMetricData), &m_em_push_data);
 
 	m_em_queue.cmd_bind_graphics_pipeline(m_em_pipeline->m_pipeline);
-	//m_em_queue.cmd_begin_render_pass(m_em_render_pass, m_em_framebuffer);
-	m_em_queue.cmd_begin_render_pass(m_em_render_pass, framebuffer);
+	m_em_queue.cmd_begin_render_pass(m_em_render_pass, m_em_framebuffer);
+	//m_em_queue.cmd_begin_render_pass(m_em_render_pass, framebuffer);
 
 	// Render nonupdated terrain
 	for (uint32_t i = 0; i < m_num_draw_nodes; i++)

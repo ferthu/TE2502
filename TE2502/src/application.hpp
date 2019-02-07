@@ -15,6 +15,7 @@
 #include "graphics/render_pass.hpp"
 #include "graphics/debug_drawer.hpp"
 #include "quadtree.hpp"
+#include "tfile.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -50,6 +51,9 @@ private:
 
 	// Draw imgui
 	void imgui_draw(Framebuffer& framebuffer, VkSemaphore imgui_draw_complete_semaphore);
+
+	// Create Vulkan pipelines
+	void create_pipelines();
 
 	struct RayMarchFrameData
 	{
@@ -156,5 +160,7 @@ private:
 	bool m_ray_march_new_frame = true;
 
 	bool m_quit = false;
+
+	TFile m_tfile;
 };
 

@@ -342,3 +342,5 @@ TE2502/imgui\.ini
 *.ini
 
 *.cap
+
+TE2502/shaders/spirv-dis\.exe

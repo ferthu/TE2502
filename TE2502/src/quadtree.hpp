@@ -25,15 +25,14 @@ public:
 
 	Quadtree(Quadtree&& other);
 	Quadtree& operator=(Quadtree&& other);
-
 	Quadtree(
 		VulkanContext& context, 
 		float total_side_length, 
 		uint32_t levels, 
-		uint32_t max_nodes, 
-		uint32_t max_node_indices, 
-		uint32_t max_node_vertices, 
-		uint32_t max_node_new_points, 
+		VkDeviceSize max_nodes, 
+		VkDeviceSize max_node_indices, 
+		VkDeviceSize max_node_vertices, 
+		VkDeviceSize max_node_new_points, 
 		Window& window);
 
 	// Performs frustum culling and draws/generates visible terrain
@@ -41,6 +40,9 @@ public:
 
 	// Resets all terrain data
 	void clear_terrain();
+
+	// Create Vulkan pipelines
+	void create_pipelines(Window& window);
 
 	// Re-triangulate the terrain using the new points that have been previously added
 	void triangulate();
@@ -53,6 +55,13 @@ private:
 		glm::vec2 min;			// Min corner
 		glm::vec2 max;			// Max corner
 		uint32_t buffer_slot;	// Buffer slot
+	};
+
+	struct ErrorMetricData
+	{
+		glm::mat4 vp;
+		glm::vec4 camera_pos;
+		glm::vec2 screen_size;
 	};
 
 	struct TriangulationData
@@ -87,7 +96,11 @@ private:
 	// For a node at the given position, return its index into m_buffer
 	uint32_t get_offset(uint32_t node_x, uint32_t node_z);
 
+	// Set up error metric objects
+	void error_metric_setup(Window& window);
+
 	GenerationData m_push_data;
+	ErrorMetricData m_em_push_data;
 	TriangulationData m_triangulation_push_data;
 
 	VulkanContext* m_context;
@@ -110,13 +123,24 @@ private:
 	PipelineLayout m_draw_pipeline_layout;
 	std::unique_ptr<Pipeline> m_draw_pipeline;
 
+	GPUMemory m_em_memory;
+	GPUImage m_em_image;
+	GPUImage m_em_depth_image;
+	ImageView m_em_image_view;
+	ImageView m_em_depth_image_view;
+	Framebuffer m_em_framebuffer;
+	GraphicsQueue m_em_queue;
+	PipelineLayout m_em_pipeline_layout;
+	RenderPass m_em_render_pass;
+	std::unique_ptr<Pipeline> m_em_pipeline;
+
 	// Max number of indices and vertices per node
-	uint32_t m_max_indices;
-	uint32_t m_max_vertices;
-	uint32_t m_max_node_new_points;
+	VkDeviceSize m_max_indices;
+	VkDeviceSize m_max_vertices;
+	VkDeviceSize m_max_node_new_points;
 
 	// Max number of active nodes
-	uint32_t m_max_nodes;
+	VkDeviceSize m_max_nodes;
 
 	// Size and number of levels in quadtree
 	float m_total_side_length;

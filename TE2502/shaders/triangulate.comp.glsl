@@ -4,6 +4,11 @@
 
 layout(local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
+const uint num_indices = TERRAIN_GENERATE_NUM_INDICES;
+const uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
+const uint num_nodes = TERRAIN_GENERATE_NUM_NODES;
+const uint num_new_points = TRIANGULATE_MAX_NEW_POINTS;
+
 layout(push_constant) uniform frame_data_t
 {
 	uint node_index;
@@ -28,15 +33,15 @@ struct terrain_data_t
 	uint new_points_count;
 	uint pad[2];
 
-	uint indices[99995];
-	vec4 positions[10000];
-	Triangle triangles[33331];
-	vec4 new_points[11000];
+	uint indices[num_indices];
+	vec4 positions[num_vertices];
+	Triangle triangles[num_indices / 3];
+	vec4 new_points[num_new_points];
 };
 
 layout(set = 0, binding = 0) buffer terrain_buffer_t
 {
-	terrain_data_t data[100];
+	terrain_data_t data[num_nodes];
 } terrain_buffer;
 
 

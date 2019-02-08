@@ -162,5 +162,7 @@ private:
 	bool m_quit = false;
 
 	TFile m_tfile;
+
+	std::mutex m_present_lock;
 };
 

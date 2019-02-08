@@ -15,7 +15,7 @@
 #include <string>
 #include <glm/gtc/matrix_transform.hpp>
 
-//#define RAY_MARCH_WINDOW
+#define RAY_MARCH_WINDOW
 
 void error_callback(int error, const char* description)
 {
@@ -141,7 +141,7 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 	m_main_queue = m_vulkan_context.create_graphics_queue();
 
 	// Dirs
-	const int t = 2;
+	const int t = 20;
 	for (int y = 0; y < t; ++y)
 	{
 		for (int x = 0; x < t; ++x)
@@ -570,11 +570,11 @@ void Application::draw_main()
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
 
-		m_main_queue.cmd_bind_graphics_pipeline(m_point_gen_graphics_pipeline->m_pipeline);
+		/*m_main_queue.cmd_bind_graphics_pipeline(m_point_gen_graphics_pipeline->m_pipeline);
 		m_main_queue.cmd_bind_vertex_buffer(m_point_gen_output_buffer.get_buffer(), 0);
-		m_main_queue.cmd_begin_render_pass(m_point_gen_render_pass, m_window_states.swapchain_framebuffers[index]);
+		m_main_queue.cmd_begin_render_pass(m_point_gen_render_pass, m_window_states.swapchain_framebuffers[index]);*/
 		//m_main_queue.cmd_draw_indirect(m_point_gen_output_buffer.get_buffer());
-		m_main_queue.cmd_end_render_pass();
+		/*m_main_queue.cmd_end_render_pass();
 		m_main_queue.cmd_image_barrier(
 			image,
 			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -592,7 +592,7 @@ void Application::draw_main()
 			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 			VK_IMAGE_ASPECT_DEPTH_BIT,
 			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
+			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);*/
 
 		m_quadtree.triangulate(m_main_queue, m_main_camera->get_pos());
 
@@ -679,7 +679,10 @@ void Application::draw_main()
 
 	imgui_draw(m_imgui_vulkan_state.swapchain_framebuffers[index], m_imgui_vulkan_state.done_drawing_semaphores[index]);
 
-	present(m_window, m_main_queue.get_queue(), index, m_imgui_vulkan_state.done_drawing_semaphores[index]);
+	{
+		std::scoped_lock lock(m_present_lock);
+		present(m_window, m_main_queue.get_queue(), index, m_imgui_vulkan_state.done_drawing_semaphores[index]);
+	}
 }
 
 void Application::draw_ray_march()
@@ -742,7 +745,10 @@ void Application::draw_ray_march()
 			m_ray_march_compute_queue.submit();
 			m_ray_march_compute_queue.wait();
 
-			present(m_ray_march_window, m_ray_march_compute_queue.get_queue(), index, VK_NULL_HANDLE);
+			{
+				std::scoped_lock lock(m_present_lock);
+				present(m_ray_march_window, m_ray_march_compute_queue.get_queue(), index, VK_NULL_HANDLE);
+			}
 		}
 
 		m_ray_march_done = true;

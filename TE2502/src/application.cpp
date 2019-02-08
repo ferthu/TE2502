@@ -141,7 +141,7 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 	m_main_queue = m_vulkan_context.create_graphics_queue();
 
 	// Dirs
-	const int t = 2;
+	const int t = 10;
 	for (int y = 0; y < t; ++y)
 	{
 		for (int x = 0; x < t; ++x)
@@ -537,7 +537,7 @@ void Application::draw_main()
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
 		// Dispatch point generation/gathering
-		const uint32_t group_size = 32;
+		const uint32_t group_size = 1024;
 		m_main_queue.cmd_dispatch(m_point_gen_power2_dirs_sent / group_size + 1, 1, 1);
 
 		m_main_queue.cmd_buffer_barrier(m_point_gen_point_counts_buffer.get_buffer(),

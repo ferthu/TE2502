@@ -80,7 +80,6 @@ private:
 
 	struct TriangulationData
 	{
-		glm::vec3 pos;
 		uint32_t node_index;
 	};
 	struct BufferNodeHeader

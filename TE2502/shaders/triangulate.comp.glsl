@@ -12,7 +12,6 @@ const uint quadtree_levels = QUADTREE_LEVELS;
 
 layout(push_constant) uniform frame_data_t
 {
-	vec3 pos;
 	uint node_index;
 } frame_data;
 
@@ -134,7 +133,7 @@ struct Edge
 };
 
 shared uint s_edge_count;
-shared Edge s_edges[20 * 3];
+shared Edge s_edges[200 * 3];
 
 #define INDICES_TO_STORE 40
 #define TRIANGLES_TO_STORE 20
@@ -309,9 +308,9 @@ void main(void)
 
 					terrain_buffer.data[frame_data.node_index].triangles[s_triangle_count].circumcentre = find_circum_center(P.xz, Q.xz, R.xz);
 					terrain_buffer.data[frame_data.node_index].triangles[s_triangle_count].circumradius = find_circum_radius_squared(P.xz, Q.xz, R.xz);
-					++s_triangle_count;
 
 					s_index_count += 3;
+					++s_triangle_count;
 				}
 			}
 
@@ -320,10 +319,10 @@ void main(void)
 
 			// Reset found edge count
 			s_edge_count = 0;
+
+			s_triangles_removed = 0;
 		}	
 		++vertex_count; 
-		
-		s_triangles_removed = 0;
 		
 		barrier();
 		memoryBarrierShared();

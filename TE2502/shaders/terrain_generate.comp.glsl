@@ -1,7 +1,7 @@
 #version 450 core
 
 #define GRID_SIDE TERRAIN_GENERATE_GRID_SIDE
-#define GROUP_SIZE 1024
+#define GROUP_SIZE 512
 
 layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
@@ -195,11 +195,22 @@ void main(void)
 
 		if (x < 0 && z < 0)
 		{
-			terrain_buffer.data[frame_data.buffer_slot].new_points_count = 3;
+			//terrain_buffer.data[frame_data.buffer_slot].new_points_count = 0;
 
-			terrain_buffer.data[frame_data.buffer_slot].new_points[0] = vec4(-10, -100, -90, 1);
-			terrain_buffer.data[frame_data.buffer_slot].new_points[1] = vec4(-200, -100, -100, 1);
-			terrain_buffer.data[frame_data.buffer_slot].new_points[2] = vec4(-80, -100, -100, 1);
+			//terrain_buffer.data[frame_data.buffer_slot].new_points[0] = vec4(-10, -100, -90, 1);
+			//terrain_buffer.data[frame_data.buffer_slot].new_points[1] = vec4(-200, -100, -100, 1);
+			//terrain_buffer.data[frame_data.buffer_slot].new_points[2] = vec4(-80, -100, -100, 1);
+
+			float c = 0.0;
+			for (uint a = 0; a < 20; ++a)
+			{
+				for (uint b = 0; b < 20; ++b)
+				{
+					terrain_buffer.data[frame_data.buffer_slot].new_points[a * 20 + b] = vec4(x + 5 + a * 5 + c, -100, z + 5 + b * 5 + c, 1.0);
+					c += 0.01;
+				}
+			}
+			terrain_buffer.data[frame_data.buffer_slot].new_points_count = 400;
 		}
 	}
 

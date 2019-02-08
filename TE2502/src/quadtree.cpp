@@ -302,7 +302,6 @@ void Quadtree::triangulate(GraphicsQueue& queue, glm::vec3 pos)
 
 	for (int i = 0; i < m_num_draw_nodes; ++i)
 	{
-		m_triangulation_push_data.pos = pos;
 		m_triangulation_push_data.node_index = m_draw_nodes[i];
 		queue.cmd_push_constants(
 				m_triangulation_pipeline_layout.get_pipeline_layout(), 

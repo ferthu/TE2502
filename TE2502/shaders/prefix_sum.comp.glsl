@@ -237,6 +237,10 @@ void main(void)
 		output_data.points[temp[thid * 2] + i] = local_points[i];
 	}
 
+	barrier();
+	memoryBarrierShared();
+	memoryBarrierBuffer();
+
 	// Add points to correct node
 	uint i = thid;
 	while (i < s_total)
@@ -246,7 +250,10 @@ void main(void)
 		{
 			vec2 min = terrain_buffer.data[n].min;
 			vec2 max = terrain_buffer.data[n].max;
-			if (pos.x > min.x && pos.x < max.x && pos.z > min.y && pos.z < max.y)
+			if (pos.x > min.x && 
+				pos.x < max.x && 
+				pos.z > min.y && 
+				pos.z < max.y)
 			{
 				uint index = atomicAdd(terrain_buffer.data[n].new_points_count, 1);  // TODO: Optimize away atomicAdd?
 				terrain_buffer.data[n].new_points[index] = pos;

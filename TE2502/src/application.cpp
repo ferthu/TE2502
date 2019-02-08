@@ -141,7 +141,7 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 	m_main_queue = m_vulkan_context.create_graphics_queue();
 
 	// Dirs
-	const int t = 1;
+	const int t = 2;
 	for (int y = 0; y < t; ++y)
 	{
 		for (int x = 0; x < t; ++x)
@@ -149,7 +149,7 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 			m_point_gen_dirs[m_point_gen_dirs_sent++] = glm::normalize(glm::vec4(x - t / 2.f, y - t / 2.f, t / 2.f, 0));
 		}
 	}
-	int p = 0;
+	int p = 1;
 	for (; static_cast<unsigned int>(powf(2, p)) < m_point_gen_dirs_sent; ++p) {}
 	m_point_gen_power2_dirs_sent = static_cast<unsigned int>(powf(2, p));
 	// !Point generation
@@ -489,6 +489,7 @@ void Application::draw_main()
 	if (ImGui::Button("Set"))
 	{
 		m_quadtree.draw_error_metric(m_main_queue, fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_main_camera, false);
+		m_main_queue.cmd_pipeline_barrier();
 
 		m_main_queue.cmd_image_barrier(
 			m_quadtree.get_em_image().get_image(),
@@ -572,7 +573,7 @@ void Application::draw_main()
 		m_main_queue.cmd_bind_graphics_pipeline(m_point_gen_graphics_pipeline->m_pipeline);
 		m_main_queue.cmd_bind_vertex_buffer(m_point_gen_output_buffer.get_buffer(), 0);
 		m_main_queue.cmd_begin_render_pass(m_point_gen_render_pass, m_window_states.swapchain_framebuffers[index]);
-		m_main_queue.cmd_draw_indirect(m_point_gen_output_buffer.get_buffer());
+		//m_main_queue.cmd_draw_indirect(m_point_gen_output_buffer.get_buffer());
 		m_main_queue.cmd_end_render_pass();
 		m_main_queue.cmd_image_barrier(
 			image,

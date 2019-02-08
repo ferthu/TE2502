@@ -77,6 +77,7 @@ layout(set = 0, binding = 3) buffer terrain_buffer_t
 
 #define POINTS_PER_DIR 5
 shared uint temp[WORK_GROUP_SIZE * 2 + 1]; 
+shared uint s_total;
 
 //#define NUM_BANKS 16
 //#define LOG_NUM_BANKS 4
@@ -155,9 +156,10 @@ void main(void)
 	barrier();
 	memoryBarrierShared();
 
-	uint total = 0;
 	if (thid == 0)
-		total = temp[n - 1];
+		s_total = temp[n - 1];
+	barrier();
+	memoryBarrierShared();
 
 	for (uint d = m >> 1; d > 0; d >>= 1) // Build sum in place up the tree
 	{
@@ -190,14 +192,17 @@ void main(void)
 	barrier();
 	memoryBarrierShared();
 
+	point_counts.counts[thid] = temp[thid];
+	point_counts.counts[m / 2 + thid] = temp[m / 2 + thid];
+
 	if (thid * 2 >= n)
 		return;
 
 	// Make sure the total is saved as well
 	if (thid == 0)
 	{
-		total += temp[n - 1];
-		temp[n] = total;
+		s_total += temp[n - 1];
+		temp[n] = s_total;
 	}
 
 	barrier();
@@ -209,10 +214,12 @@ void main(void)
 	uint local_point_count = 0;
 	vec4 local_points[2 * POINTS_PER_DIR];
 	uint count = temp[thid * 2 + 1] - temp[thid * 2 + 0];
+
 	for (uint i = 0; i < count; ++i)
 	{
 		local_points[i] = output_data.points[thid * POINTS_PER_DIR * 2 + i];  // Optimize global reads to get memory burst?
 	}
+
 	local_point_count = count;
 	count = temp[thid * 2 + 2] - temp[thid * 2 + 1];
 	for (uint i = 0; i < count; ++i)
@@ -232,7 +239,7 @@ void main(void)
 
 	// Add points to correct node
 	uint i = thid;
-	while (i < total)
+	while (i < s_total)
 	{
 		vec4 pos = output_data.points[i];
 		for (uint n = 0; n < num_nodes; ++n)

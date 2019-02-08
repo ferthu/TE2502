@@ -63,6 +63,40 @@ void GraphicsQueue::cmd_buffer_barrier(VkBuffer buffer, VkAccessFlags src_access
 	vkCmdPipelineBarrier(m_command_buffer, src_stage_mask, dst_stage_mask, 0, 0, nullptr, 1, &barrier, 0, nullptr);
 }
 
+void GraphicsQueue::cmd_clear_color(VkImage image, VkImageLayout current_layout, float r, float g, float b)
+{
+	VkImageSubresourceRange range;
+	range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	range.baseArrayLayer = 0;
+	range.layerCount = 1;
+	range.baseMipLevel = 0;
+	range.levelCount = 1;
+
+	VkClearColorValue col;
+	col.float32[0] = r;
+	col.float32[1] = g;
+	col.float32[2] = b;
+	col.float32[3] = 1.0f;
+
+	vkCmdClearColorImage(m_command_buffer, image, current_layout, &col, 1, &range);
+}
+
+void GraphicsQueue::cmd_clear_depth(VkImage image, VkImageLayout current_layout, float val)
+{
+	VkImageSubresourceRange range;
+	range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	range.baseArrayLayer = 0;
+	range.layerCount = 1;
+	range.baseMipLevel = 0;
+	range.levelCount = 1;
+
+	VkClearDepthStencilValue dep;
+	dep.depth = val;
+	dep.stencil = 0;
+
+	vkCmdClearDepthStencilImage(m_command_buffer, image, current_layout, &dep, 1, &range);
+}
+
 void GraphicsQueue::cmd_bind_graphics_pipeline(VkPipeline pipeline)
 {
 	vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);

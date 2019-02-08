@@ -38,6 +38,10 @@ public:
 		VkDeviceSize offset = 0, 
 		VkDeviceSize size = VK_WHOLE_SIZE);
 
+	void cmd_clear_color(VkImage image, VkImageLayout current_layout, float r, float g, float b);
+
+	void cmd_clear_depth(VkImage image, VkImageLayout current_layout, float val);
+
 	void cmd_bind_graphics_pipeline(VkPipeline pipeline);
 
 	void cmd_bind_vertex_buffer(VkBuffer buffer, VkDeviceSize offset);

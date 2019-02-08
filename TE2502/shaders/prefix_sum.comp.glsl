@@ -7,6 +7,7 @@ const uint num_indices = TERRAIN_GENERATE_NUM_INDICES;
 const uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
 const uint num_nodes = TERRAIN_GENERATE_NUM_NODES;
 const uint num_new_points = TRIANGULATE_MAX_NEW_POINTS;
+const uint quadtree_levels = QUADTREE_LEVELS;
 
 // INPUT
 layout(set = 0, binding = 1) buffer point_counts_t
@@ -46,11 +47,14 @@ struct terrain_data_t
 	int  vertex_offset;
 	uint first_instance;
 
-	vec2 min;
-	vec2 max;
+	// struct BufferNodeHeader {
 	uint vertex_count;
 	uint new_points_count;
-	uint pad[2];
+	uint pad;
+
+	vec2 min;
+	vec2 max;
+	// }
 
 	uint indices[num_indices];
 	vec4 positions[num_vertices];
@@ -60,6 +64,11 @@ struct terrain_data_t
 
 layout(set = 0, binding = 3) buffer terrain_buffer_t
 {
+	//uint quadtree_index_map[(1 << quadtree_levels) * (1 << quadtree_levels)];
+	uint quadtree_index_map[4];
+	vec2 quadtree_min;
+	vec2 quadtree_max;
+	uint pad[8];
 	terrain_data_t data[num_nodes];
 } terrain_buffer;
 

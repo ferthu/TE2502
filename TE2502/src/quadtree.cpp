@@ -57,10 +57,7 @@ Quadtree::Quadtree(
 
 	// Add space for an additional two vec2's to store the quadtree min and max
 	m_cpu_index_buffer_size = (1 << levels) * (1 << levels) * sizeof(uint32_t) + sizeof(glm::vec2) * 2;
-
-	// TODO: TEMP
-	m_cpu_index_buffer_size = 64;
-	/////////////
+	m_cpu_index_buffer_size += 64 - (m_cpu_index_buffer_size % 64);
 
 	m_memory = context.allocate_device_memory(m_cpu_index_buffer_size + m_node_memory_size * max_nodes + 1000);
 	
@@ -74,7 +71,7 @@ Quadtree::Quadtree(
 
 	m_cpu_index_buffer_memory = context.allocate_host_memory(m_cpu_index_buffer_size + 1000);
 	m_cpu_index_buffer = GPUBuffer(context, m_cpu_index_buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, m_cpu_index_buffer_memory);
-	VK_CHECK(vkMapMemory(context.get_device(), m_cpu_index_buffer.get_memory(), 0, m_cpu_index_buffer_size, 0, (void**) &m_node_index_to_buffer_index));
+	VK_CHECK(vkMapMemory(context.get_device(), m_cpu_index_buffer.get_memory(), 0, m_cpu_index_buffer_size, 0, (void**) &m_node_index_to_buffer_index), "Failed to map memory!");
 
 	// Point to the end of cpu index buffer
 	m_quadtree_minmax = (glm::vec2*) (((char*)m_node_index_to_buffer_index) + (1 << levels) * (1 << levels) * sizeof(uint32_t));
@@ -300,7 +297,7 @@ void Quadtree::triangulate(GraphicsQueue& queue, glm::vec3 pos)
 	//m_descriptor_set.bind();
 	queue.cmd_bind_descriptor_set_compute(m_triangulation_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
 
-	for (int i = 0; i < m_num_draw_nodes; ++i)
+	for (unsigned i = 0; i < m_num_draw_nodes; ++i)
 	{
 		m_triangulation_push_data.node_index = m_draw_nodes[i];
 		queue.cmd_push_constants(

@@ -31,12 +31,12 @@ struct terrain_data_t
 	uint first_instance;
 
 	// struct BufferNodeHeader {
-	uint vertex_count;
-	uint new_points_count;
-	uint pad;
+		uint vertex_count;
+		uint new_points_count;
+		uint pad;
 
-	vec2 min;
-	vec2 max;
+		vec2 min;
+		vec2 max;
 	// }
 
 	uint indices[num_indices];
@@ -45,13 +45,14 @@ struct terrain_data_t
 	vec4 new_points[num_new_points];
 };
 
+const uint num_quadtree_nodes = (1 << quadtree_levels) * (1 << quadtree_levels);
+const uint aligned_quadtree_index_num = (num_quadtree_nodes + 4) + (64 - ((num_quadtree_nodes + 4) % 64));
+
 layout(set = 0, binding = 0) buffer terrain_buffer_t
 {
-	//uint quadtree_index_map[(1 << quadtree_levels) * (1 << quadtree_levels)];
-	uint quadtree_index_map[4];
+	uint quadtree_index_map[aligned_quadtree_index_num - 4];
 	vec2 quadtree_min;
 	vec2 quadtree_max;
-	uint pad[8];
 	terrain_data_t data[num_nodes];
 } terrain_buffer;
 

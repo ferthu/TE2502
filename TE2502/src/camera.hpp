@@ -42,7 +42,7 @@ private:
 	const float m_fast_speed = 100.f;
 	const float m_fov = 90.f;
 	const float m_near = 0.1f;
-	const float m_far = 1500.f;
+	const float m_far = 1400.f;
 	const float m_mouse_sensitivity = 0.01f;
 
 	GLFWwindow* m_window;

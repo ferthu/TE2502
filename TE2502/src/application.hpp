@@ -111,6 +111,8 @@ private:
 	VulkanWindowStates m_ray_march_window_states;
 	VulkanWindowStates m_window_states;
 
+	GraphicsQueue m_main_queue;
+	
 	// Ray marching
 	DescriptorSetLayout m_ray_march_set_layout;
 	DescriptorSet m_ray_march_image_descriptor_set;
@@ -128,7 +130,6 @@ private:
 	std::unique_ptr<Pipeline> m_point_gen_compute_pipeline;
 	std::unique_ptr<Pipeline> m_point_gen_prefix_sum_pipeline;
 	std::unique_ptr<Pipeline> m_point_gen_graphics_pipeline;
-	GraphicsQueue m_point_gen_queue;
 	GPUMemory m_point_gen_cpu_memory;
 	GPUMemory m_point_gen_gpu_memory;
 	GPUBuffer m_point_gen_cpu_buffer;
@@ -146,7 +147,6 @@ private:
 	// Debug drawing
 	PipelineLayout m_debug_pipeline_layout;
 	std::unique_ptr<Pipeline> m_debug_pipeline;
-	GraphicsQueue m_debug_queue;
 	DebugDrawer m_debug_drawer;
 	RenderPass m_debug_render_pass;
 
@@ -162,5 +162,7 @@ private:
 	bool m_quit = false;
 
 	TFile m_tfile;
+
+	std::mutex m_present_lock;
 };
 

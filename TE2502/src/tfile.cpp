@@ -19,7 +19,7 @@ TFile::TFile(const std::string& settings_file, const std::string& shader_dir) : 
 		// Second value specifies alignment. The value of num will be increased to fit the alignment
 		uint32_t alignment = 1;
 		if (nums.size() >= 2 && nums[1] > 1)
-			alignment = nums[1];
+			alignment = static_cast<uint32_t>(nums[1]);
 
 		// If it exists, alignment offset is the third number in vector
 		// (num + alignment_offset) % alignment should be equal to 0

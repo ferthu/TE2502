@@ -25,17 +25,41 @@ public:
 
 	Quadtree(Quadtree&& other);
 	Quadtree& operator=(Quadtree&& other);
+	Quadtree(
+		VulkanContext& context, 
+		float total_side_length, 
+		uint32_t levels, 
+		VkDeviceSize max_nodes, 
+		VkDeviceSize max_node_indices, 
+		VkDeviceSize max_node_vertices, 
+		VkDeviceSize max_node_new_points, 
+		Window& window,
+		GraphicsQueue& queue);
 
-	Quadtree(VulkanContext& context, float total_side_length, uint32_t levels, VkDeviceSize max_nodes, VkDeviceSize max_node_indices, VkDeviceSize max_node_vertices, Window& window);
+
+	// Recursive intersection that gathers data on what needs to be generated or drawn
+	void intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd);
 
 	// Performs frustum culling and draws/generates visible terrain
-	void draw_terrain(Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera);
+	void draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera);
+
+	// Performs frustum culling and draws/generates visible terrain to error metric image
+	void draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool draw_to_screen);
 
 	// Resets all terrain data
 	void clear_terrain();
 
 	// Create Vulkan pipelines
 	void create_pipelines(Window& window);
+
+	// Re-triangulate the terrain using the new points that have been previously added
+	void triangulate(GraphicsQueue& queue, glm::vec3 pos);
+
+	GPUBuffer& get_buffer();
+
+	GPUImage& get_em_image();
+
+	GPUImage& get_em_depth_image();
 
 private:
 	struct GenerationData
@@ -54,13 +78,31 @@ private:
 		glm::vec2 screen_size;
 	};
 
+	struct TriangulationData
+	{
+		uint32_t node_index;
+	};
+	struct BufferNodeHeader
+	{
+		uint32_t vertex_count;
+		uint32_t new_points_count;
+		uint32_t pad;
+		glm::vec2 min;
+		glm::vec2 max;
+	};
+	struct Triangle
+	{
+		glm::vec2 circumcircle;
+		float circumradius;
+		uint32_t pad;
+	};
+
 	// Move other into this
 	void move_from(Quadtree&& other);
 
 	// Destroys object
 	void destroy();
 
-	// Recursive intersection
 	void intersect(Frustum& frustum, DebugDrawer& dd, AabbXZ aabb, uint32_t level, uint32_t x, uint32_t y);
 
 	// Finds a free chunk in m_buffer and returns it index, or INVALID if none was found
@@ -70,10 +112,20 @@ private:
 	uint32_t get_offset(uint32_t node_x, uint32_t node_z);
 
 	// Set up error metric objects
-	void error_metric_setup(Window& window);
+	void error_metric_setup(Window& window, GraphicsQueue& queue);
+
+	// Get offset for indices for index i in m_buffer
+	VkDeviceSize get_index_offset_of_node(uint32_t i);
+
+	// Get offset for indices for index i in m_buffer
+	VkDeviceSize get_vertex_offset_of_node(uint32_t i);
+
+	// Get offset for indices for index i in m_buffer
+	VkDeviceSize get_offset_of_node(uint32_t i);
 
 	GenerationData m_push_data;
 	ErrorMetricData m_em_push_data;
+	TriangulationData m_triangulation_push_data;
 
 	VulkanContext* m_context;
 
@@ -83,11 +135,13 @@ private:
 	// Contains terrain indices + vertices for quadtree nodes
 	GPUBuffer m_buffer;
 
-	GraphicsQueue m_terrain_queue;
+
 	DescriptorSetLayout m_generation_set_layout;
 	DescriptorSet m_descriptor_set;
 	PipelineLayout m_generation_pipeline_layout;
+	PipelineLayout m_triangulation_pipeline_layout;
 	std::unique_ptr<Pipeline> m_generation_pipeline;
+	std::unique_ptr<Pipeline> m_triangulation_pipeline;
 
 	RenderPass m_render_pass;
 	PipelineLayout m_draw_pipeline_layout;
@@ -99,7 +153,6 @@ private:
 	ImageView m_em_image_view;
 	ImageView m_em_depth_image_view;
 	Framebuffer m_em_framebuffer;
-	GraphicsQueue m_em_queue;
 	PipelineLayout m_em_pipeline_layout;
 	RenderPass m_em_render_pass;
 	std::unique_ptr<Pipeline> m_em_pipeline;
@@ -107,6 +160,7 @@ private:
 	// Max number of indices and vertices per node
 	VkDeviceSize m_max_indices;
 	VkDeviceSize m_max_vertices;
+	VkDeviceSize m_max_node_new_points;
 
 	// Max number of active nodes
 	VkDeviceSize m_max_nodes;
@@ -115,8 +169,15 @@ private:
 	float m_total_side_length;
 	uint32_t m_levels;
 
+
+	// CPU buffer for m_node_index_to_buffer_index
+	GPUBuffer m_cpu_index_buffer;
+
 	// For every possible node, store an index into m_buffer. The chunk of m_buffer pointed to contains mesh data for that node
 	uint32_t* m_node_index_to_buffer_index;
+	GPUMemory m_cpu_index_buffer_memory;
+	VkDeviceSize m_cpu_index_buffer_size;
+	glm::vec2* m_quadtree_minmax;
 
 	// For chunk i of m_buffer, m_buffer_index_filled[i] is true if that chunk is used by a node
 	bool* m_buffer_index_filled;

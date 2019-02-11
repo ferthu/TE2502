@@ -15,7 +15,7 @@
 #include <string>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define RAY_MARCH_WINDOW
+//#define RAY_MARCH_WINDOW
 
 void error_callback(int error, const char* description)
 {
@@ -80,6 +80,7 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
 	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
 	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
 	m_point_gen_buffer_set_layout_compute.create();
 
 	m_point_gen_buffer_set_compute = DescriptorSet(m_vulkan_context, m_point_gen_buffer_set_layout_compute);
@@ -117,8 +118,8 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 
 
 
-	m_point_gen_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, 
-		true, true, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	m_point_gen_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false, 
+		true, false, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 
 
@@ -133,14 +134,14 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 	m_point_gen_cpu_buffer = GPUBuffer(m_vulkan_context, dirs, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, m_point_gen_cpu_memory);
 	m_point_gen_input_buffer = GPUBuffer(m_vulkan_context, dirs, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, m_point_gen_gpu_memory);
 	m_point_gen_point_counts_buffer = GPUBuffer(m_vulkan_context, point_counts, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, m_point_gen_gpu_memory);
-	m_point_gen_output_buffer = GPUBuffer(m_vulkan_context, points_found + sizeof(VkDrawIndirectCommand), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_point_gen_gpu_memory);
+	m_point_gen_output_buffer = GPUBuffer(m_vulkan_context, points_found, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_point_gen_gpu_memory);
 
 	vkMapMemory(m_vulkan_context.get_device(), m_point_gen_cpu_buffer.get_memory(), m_point_gen_cpu_buffer.get_offset(), m_point_gen_cpu_buffer.get_size(), 0, (void**)&m_point_gen_dirs);
 
-	m_point_gen_queue = m_vulkan_context.create_graphics_queue();
+	m_main_queue = m_vulkan_context.create_graphics_queue();
 
 	// Dirs
-	const int t = 30;
+	const int t = 3;
 	for (int y = 0; y < t; ++y)
 	{
 		for (int x = 0; x < t; ++x)
@@ -148,14 +149,11 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 			m_point_gen_dirs[m_point_gen_dirs_sent++] = glm::normalize(glm::vec4(x - t / 2.f, y - t / 2.f, t / 2.f, 0));
 		}
 	}
-	//m_point_gen_dirs_sent = 98;
-	int p = 0;
-	for (; powf(2, p) < m_point_gen_dirs_sent; ++p)
-	{ }
-	m_point_gen_power2_dirs_sent = (unsigned int)(powf(2, p));
+	int p = 1;
+	for (; static_cast<unsigned int>(powf(2, p)) < m_point_gen_dirs_sent; ++p) {}
+	m_point_gen_power2_dirs_sent = static_cast<unsigned int>(powf(2, p));
 	// !Point generation
 
-	//glfwSetKeyCallback(m_ray_march_window->get_glfw_window(), key_callback);
 	glfwSetKeyCallback(m_window->get_glfw_window(), key_callback);
 
 	imgui_setup();
@@ -208,10 +206,12 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 	}
 
 	// Set up terrain generation/drawing
-	uint32_t num_indices = m_tfile.get_u32("TERRAIN_GENERATE_NUM_INDICES");
-	uint32_t num_vertices = m_tfile.get_u32("TERRAIN_GENERATE_NUM_VERTICES");
-	uint32_t num_nodes = m_tfile.get_u32("TERRAIN_GENERATE_NUM_NODES");
-	m_quadtree = Quadtree(m_vulkan_context, 5000.0f, 3, num_nodes, num_indices, num_vertices, *m_window);
+	VkDeviceSize num_indices = m_tfile.get_u64("TERRAIN_GENERATE_NUM_INDICES");
+	VkDeviceSize num_vertices = m_tfile.get_u64("TERRAIN_GENERATE_NUM_VERTICES");
+	VkDeviceSize num_nodes = m_tfile.get_u64("TERRAIN_GENERATE_NUM_NODES");
+	VkDeviceSize num_new_points = m_tfile.get_u64("TRIANGULATE_MAX_NEW_POINTS");
+	uint32_t num_levels = m_tfile.get_u32("QUADTREE_LEVELS");
+	m_quadtree = Quadtree(m_vulkan_context, 500.0f, num_levels, num_nodes, num_indices, num_vertices, num_new_points, *m_window, m_main_queue);
 
 	// Set up debug drawing
 	m_debug_pipeline_layout = PipelineLayout(m_vulkan_context);
@@ -225,9 +225,15 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 		m_debug_pipeline_layout.create(&push_range);
 	}
 
-	m_debug_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, false, true, false, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	m_debug_render_pass = RenderPass(
+		m_vulkan_context, 
+		VK_FORMAT_B8G8R8A8_UNORM, 
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		false, true, false, 
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-	m_debug_queue = m_vulkan_context.create_graphics_queue();
 	m_debug_drawer = DebugDrawer(m_vulkan_context, 11000);
 
 	create_pipelines();
@@ -388,7 +394,6 @@ void Application::update(const float dt)
 	}
 }
 
-
 void Application::draw()
 {
 #ifdef RAY_MARCH_WINDOW
@@ -417,105 +422,200 @@ void Application::draw_main()
 	const uint32_t index = m_window->get_next_image();
 	VkImage image = m_window->get_swapchain_image(index);
 
+	ImGui::Begin("LOL XD");
+
 	// RENDER-------------------
 
+	// generate base node terrain if needed
+	// render terrain mesh
+	// if something
+	//		render error metric image
+	//		send rays to gather points
+	//		prefix sum, distribute points to correct nodes
+	//		triangulate
+	// imgui
+	// present
+
+	m_main_queue.start_recording();
+
+	// Transfer images to layouts for rendering targets
+	m_main_queue.cmd_image_barrier(
+		image,
+		VK_ACCESS_MEMORY_READ_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+	m_main_queue.cmd_image_barrier(
+		m_window_states.depth_images[index].get_image(),
+		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_ASPECT_DEPTH_BIT,
+		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
+
+
+	// Perform terrain generation/drawing
+	Frustum fr = m_main_camera->get_frustum();
+	m_quadtree.intersect(m_main_queue, fr, m_debug_drawer);
+	m_quadtree.draw_terrain(m_main_queue, fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_current_camera);
+
+	m_main_queue.cmd_image_barrier(
+		image,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	m_main_queue.cmd_image_barrier(
+		m_window_states.depth_images[index].get_image(),
+		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_ASPECT_DEPTH_BIT,
+		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
+
 	// Fritjof stuff
+	//if (ImGui::Button("Set"))
 	{
+		m_quadtree.draw_error_metric(m_main_queue, fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_main_camera, false);
+		m_main_queue.cmd_pipeline_barrier();
+
+		m_main_queue.cmd_image_barrier(
+			m_quadtree.get_em_image().get_image(),
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		m_main_queue.cmd_image_barrier(
+			m_quadtree.get_em_depth_image().get_image(),
+			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_ASPECT_DEPTH_BIT,
+			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
+
 		m_point_gen_buffer_set_compute.clear();
 		m_point_gen_buffer_set_compute.add_storage_buffer(m_point_gen_input_buffer);
 		m_point_gen_buffer_set_compute.add_storage_buffer(m_point_gen_point_counts_buffer);
 		m_point_gen_buffer_set_compute.add_storage_buffer(m_point_gen_output_buffer);
+		m_point_gen_buffer_set_compute.add_storage_buffer(m_quadtree.get_buffer());
 		m_point_gen_buffer_set_compute.bind();
 
-		m_point_gen_queue.start_recording();
 
 		// Bind pipeline
-		m_point_gen_queue.cmd_bind_compute_pipeline(m_point_gen_compute_pipeline->m_pipeline);
+		m_main_queue.cmd_bind_compute_pipeline(m_point_gen_compute_pipeline->m_pipeline);
 
 		// Bind descriptor set
-		m_point_gen_queue.cmd_bind_descriptor_set_compute(m_point_gen_compute_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_point_gen_buffer_set_compute.get_descriptor_set());
+		m_main_queue.cmd_bind_descriptor_set_compute(m_point_gen_compute_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_point_gen_buffer_set_compute.get_descriptor_set());
 
 		// Push frame data
-		m_point_gen_queue.cmd_push_constants(m_point_gen_pipeline_layout_compute.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT, sizeof(PointGenerationFrameData), &m_point_gen_frame_data);
+		m_main_queue.cmd_push_constants(m_point_gen_pipeline_layout_compute.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT, sizeof(PointGenerationFrameData), &m_point_gen_frame_data);
 
-		m_point_gen_queue.cmd_copy_buffer(m_point_gen_cpu_buffer.get_buffer(), m_point_gen_input_buffer.get_buffer(), m_point_gen_dirs_sent * sizeof(glm::vec4));
+		m_main_queue.cmd_copy_buffer(m_point_gen_cpu_buffer.get_buffer(), m_point_gen_input_buffer.get_buffer(), m_point_gen_dirs_sent * sizeof(glm::vec4));
 
 		// Memory barrier for GPU buffer
-		m_point_gen_queue.cmd_buffer_barrier(m_point_gen_input_buffer.get_buffer(),
+		m_main_queue.cmd_buffer_barrier(m_point_gen_input_buffer.get_buffer(),
 			VK_ACCESS_TRANSFER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
 		// Dispatch point generation/gathering
-		const uint32_t group_size = 32;
-		m_point_gen_queue.cmd_dispatch(m_point_gen_power2_dirs_sent / group_size + 1, 1, 1);
+		const uint32_t group_size = 1024;
+		m_main_queue.cmd_dispatch(m_point_gen_power2_dirs_sent / group_size + 1, 1, 1);
 
-		m_point_gen_queue.cmd_buffer_barrier(m_point_gen_point_counts_buffer.get_buffer(),
+		m_main_queue.cmd_buffer_barrier(m_point_gen_point_counts_buffer.get_buffer(),
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
-		m_point_gen_queue.cmd_buffer_barrier(m_point_gen_output_buffer.get_buffer(),
+		m_main_queue.cmd_buffer_barrier(m_point_gen_output_buffer.get_buffer(),
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
-		m_point_gen_queue.cmd_bind_compute_pipeline(m_point_gen_prefix_sum_pipeline->m_pipeline);
+		m_main_queue.cmd_bind_compute_pipeline(m_point_gen_prefix_sum_pipeline->m_pipeline);
 
 		// Dispatch prefix sum
-		m_point_gen_queue.cmd_dispatch(1, 1, 1);
+		m_main_queue.cmd_dispatch(1, 1, 1);
 
-		m_point_gen_queue.cmd_image_barrier(
-			image,
-			VK_ACCESS_MEMORY_READ_BIT,
-			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		// Memory barrier for GPU buffer
+		m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
+			VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
-		m_point_gen_queue.cmd_image_barrier(
-			m_window_states.depth_images[index].get_image(),
-			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
-			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_ASPECT_DEPTH_BIT,
-			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
-
-		m_point_gen_queue.cmd_buffer_barrier(m_point_gen_output_buffer.get_buffer(),
+		m_main_queue.cmd_buffer_barrier(m_point_gen_output_buffer.get_buffer(),
 			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT |	VK_ACCESS_INDEX_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT |	VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
+			VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
 
-		m_point_gen_queue.cmd_bind_graphics_pipeline(m_point_gen_graphics_pipeline->m_pipeline);
-		m_point_gen_queue.cmd_bind_vertex_buffer(m_point_gen_output_buffer.get_buffer(), sizeof(VkDrawIndirectCommand));
-		m_point_gen_queue.cmd_begin_render_pass(m_point_gen_render_pass, m_window_states.swapchain_framebuffers[index]);
-		m_point_gen_queue.cmd_draw_indirect(m_point_gen_output_buffer.get_buffer());
-		m_point_gen_queue.cmd_end_render_pass();
+		/*m_main_queue.cmd_bind_graphics_pipeline(m_point_gen_graphics_pipeline->m_pipeline);
+		m_main_queue.cmd_bind_vertex_buffer(m_point_gen_output_buffer.get_buffer(), 0);
+		m_main_queue.cmd_begin_render_pass(m_point_gen_render_pass, m_window_states.swapchain_framebuffers[index]);*/
+		//m_main_queue.cmd_draw_indirect(m_point_gen_output_buffer.get_buffer());
+		/*m_main_queue.cmd_end_render_pass();
+		m_main_queue.cmd_image_barrier(
+			image,
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		m_main_queue.cmd_image_barrier(
+			m_window_states.depth_images[index].get_image(),
+			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_ASPECT_DEPTH_BIT,
+			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);*/
 
-		m_point_gen_queue.end_recording();
-		m_point_gen_queue.submit();
-		m_point_gen_queue.wait();
+		m_quadtree.triangulate(m_main_queue, m_main_camera->get_pos());
+
+		m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
+			VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+			VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
 
 		// end of RENDER------------------
 	}
-
-	// Perform terrain generation/drawing
-	Frustum fr = m_main_camera->get_frustum();
-	m_quadtree.draw_terrain(fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_current_camera);
+	ImGui::End();
 
 	// Do debug drawing
 	{
 		m_debug_drawer.draw_line({ 0,0,0 }, { 1, 0, 0 }, { 1, 0, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 1, 0 }, { 0, 1, 0 });
 		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 0, 1 }, { 0, 0, 1 });
+
+		//glm::vec3 c1 = { -125,0,-125 };
+		//m_debug_drawer.draw_line(c1, c1 + glm::vec3{ 0, 0, 176 }, { 0, 0, 1 });
+		//m_debug_drawer.draw_line(c1, c1 + glm::vec3{ 0, 0, -176 }, { 0, 0, 1 });
+		//m_debug_drawer.draw_line(c1, c1 + glm::vec3{ 176, 0, 0 }, { 0, 0, 1 });
+		//m_debug_drawer.draw_line(c1, c1 + glm::vec3{ -176, 0, 0 }, { 0, 0, 1 });
 
 		if (m_current_camera != m_main_camera)
 		{
@@ -539,37 +639,49 @@ void Application::draw_main()
 			//m_debug_drawer.draw_plane(frustum.m_far, far_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
 		}
 
-		m_debug_queue.start_recording();
-
 		// Copy lines specified on CPU to GPU buffer
-		m_debug_queue.cmd_copy_buffer(m_debug_drawer.get_cpu_buffer().get_buffer(),
+		m_main_queue.cmd_copy_buffer(m_debug_drawer.get_cpu_buffer().get_buffer(),
 			m_debug_drawer.get_gpu_buffer().get_buffer(),
 			m_debug_drawer.get_active_buffer_size());
 	
 		// Memory barrier for GPU buffer
-		m_debug_queue.cmd_buffer_barrier(m_debug_drawer.get_gpu_buffer().get_buffer(),
+		m_main_queue.cmd_buffer_barrier(m_debug_drawer.get_gpu_buffer().get_buffer(),
 			VK_ACCESS_TRANSFER_WRITE_BIT,
 			VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
 
-		m_debug_queue.cmd_begin_render_pass(m_debug_render_pass, m_window_states.swapchain_framebuffers[index]);
+		m_main_queue.cmd_begin_render_pass(m_debug_render_pass, m_window_states.swapchain_framebuffers[index]);
 
-		m_debug_queue.cmd_bind_graphics_pipeline(m_debug_pipeline->m_pipeline);
-		m_debug_queue.cmd_bind_vertex_buffer(m_debug_drawer.get_gpu_buffer().get_buffer(), 0);
-		m_debug_queue.cmd_push_constants(m_debug_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT, sizeof(DebugDrawingFrameData), &m_debug_draw_frame_data);
-		m_debug_queue.cmd_draw(m_debug_drawer.get_num_lines() * 2);
+		m_main_queue.cmd_bind_graphics_pipeline(m_debug_pipeline->m_pipeline);
+		m_main_queue.cmd_bind_vertex_buffer(m_debug_drawer.get_gpu_buffer().get_buffer(), 0);
+		m_main_queue.cmd_push_constants(m_debug_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT, sizeof(DebugDrawingFrameData), &m_debug_draw_frame_data);
+		m_main_queue.cmd_draw(m_debug_drawer.get_num_lines() * 2);
 
-		m_debug_queue.cmd_end_render_pass();
+		m_main_queue.cmd_end_render_pass();
 
-		m_debug_queue.end_recording();
-		m_debug_queue.submit();
-		m_debug_queue.wait();
+		m_main_queue.cmd_image_barrier(
+			image,
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 	}
+
+
+	m_main_queue.end_recording();
+	m_main_queue.submit();
+	m_main_queue.wait();
 
 	imgui_draw(m_imgui_vulkan_state.swapchain_framebuffers[index], m_imgui_vulkan_state.done_drawing_semaphores[index]);
 
-	present(m_window, m_point_gen_queue.get_queue(), index, m_imgui_vulkan_state.done_drawing_semaphores[index]);
+	{
+		std::scoped_lock lock(m_present_lock);
+		present(m_window, m_main_queue.get_queue(), index, m_imgui_vulkan_state.done_drawing_semaphores[index]);
+	}
 }
 
 void Application::draw_ray_march()
@@ -632,7 +744,10 @@ void Application::draw_ray_march()
 			m_ray_march_compute_queue.submit();
 			m_ray_march_compute_queue.wait();
 
-			present(m_ray_march_window, m_ray_march_compute_queue.get_queue(), index, VK_NULL_HANDLE);
+			{
+				std::scoped_lock lock(m_present_lock);
+				present(m_ray_march_window, m_ray_march_compute_queue.get_queue(), index, VK_NULL_HANDLE);
+			}
 		}
 
 		m_ray_march_done = true;
@@ -693,7 +808,7 @@ void Application::imgui_setup()
         attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        attachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
         VkAttachmentReference color_attachment = {};
         color_attachment.attachment = 0;

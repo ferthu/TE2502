@@ -141,14 +141,16 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 	m_main_queue = m_vulkan_context.create_graphics_queue();
 
 	// Dirs
-	const int t = 3;
+	const float max = 10;
+	const int t = 10;
 	for (int y = 0; y < t; ++y)
 	{
 		for (int x = 0; x < t; ++x)
 		{
-			m_point_gen_dirs[m_point_gen_dirs_sent++] = glm::normalize(glm::vec4(x - t / 2.f, y - t / 2.f, t / 2.f, 0));
+			m_point_gen_dirs[m_point_gen_dirs_sent++] = glm::normalize(glm::vec4(x - t / 2.f + t / max, y - t / 2.f, t / 2.f, 0));
 		}
 	}
+	//m_point_gen_dirs_sent = 0;
 	int p = 1;
 	for (; static_cast<unsigned int>(powf(2, p)) < m_point_gen_dirs_sent; ++p) {}
 	m_point_gen_power2_dirs_sent = static_cast<unsigned int>(powf(2, p));
@@ -422,7 +424,7 @@ void Application::draw_main()
 	const uint32_t index = m_window->get_next_image();
 	VkImage image = m_window->get_swapchain_image(index);
 
-	ImGui::Begin("LOL XD");
+	ImGui::Begin("Triangulate");
 
 	// RENDER-------------------
 
@@ -485,7 +487,7 @@ void Application::draw_main()
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
 
 	// Fritjof stuff
-	//if (ImGui::Button("Set"))
+	if (ImGui::Button("Set"))
 	{
 		m_quadtree.draw_error_metric(m_main_queue, fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_main_camera, false);
 		m_main_queue.cmd_pipeline_barrier();

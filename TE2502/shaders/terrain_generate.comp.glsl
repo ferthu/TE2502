@@ -185,34 +185,11 @@ void main(void)
 		terrain_buffer.data[frame_data.buffer_slot].vertex_offset = 0;
 		terrain_buffer.data[frame_data.buffer_slot].first_instance = 0;
 
+		terrain_buffer.data[frame_data.buffer_slot].vertex_count = GRID_SIDE * GRID_SIDE;
+		terrain_buffer.data[frame_data.buffer_slot].new_points_count = 0;
+
 		terrain_buffer.data[frame_data.buffer_slot].min = frame_data.min;
 		terrain_buffer.data[frame_data.buffer_slot].max = frame_data.max;
-
-		terrain_buffer.data[frame_data.buffer_slot].vertex_count = GRID_SIDE * GRID_SIDE;
-
-		uint i = gl_GlobalInvocationID.x;
-		float x = frame_data.min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * (frame_data.max.x - frame_data.min.x);
-		float z = frame_data.min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * (frame_data.max.y - frame_data.min.y);
-
-		if (x < 0 && z < 0)
-		{
-			//terrain_buffer.data[frame_data.buffer_slot].new_points_count = 0;
-
-			//terrain_buffer.data[frame_data.buffer_slot].new_points[0] = vec4(-10, -100, -90, 1);
-			//terrain_buffer.data[frame_data.buffer_slot].new_points[1] = vec4(-200, -100, -100, 1);
-			//terrain_buffer.data[frame_data.buffer_slot].new_points[2] = vec4(-80, -100, -100, 1);
-
-			float c = 0.0;
-			for (uint a = 0; a < 20; ++a)
-			{
-				for (uint b = 0; b < 20; ++b)
-				{
-					terrain_buffer.data[frame_data.buffer_slot].new_points[a * 20 + b] = vec4(x + 5 + a * 5 + c, -100, z + 5 + b * 5 + c, 1.0);
-					c += 0.01;
-				}
-			}
-			terrain_buffer.data[frame_data.buffer_slot].new_points_count = 400;
-		}
 	}
 
 	// Positions

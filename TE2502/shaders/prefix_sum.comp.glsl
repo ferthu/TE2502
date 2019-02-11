@@ -65,7 +65,7 @@ struct terrain_data_t
 const uint num_quadtree_nodes = (1 << quadtree_levels) * (1 << quadtree_levels);
 const uint aligned_quadtree_index_num = (num_quadtree_nodes + 4) + (16 - ((num_quadtree_nodes + 4) % 16));
 
-layout(set = 0, binding = 3) buffer terrain_buffer_t
+coherent layout(set = 0, binding = 3) buffer terrain_buffer_t
 {
 	uint quadtree_index_map[aligned_quadtree_index_num - 4];
 	vec2 quadtree_min;
@@ -86,7 +86,7 @@ shared uint s_total;
 
 void main(void)
 {
-	uint thid = gl_GlobalInvocationID.x;
+	const uint thid = gl_GlobalInvocationID.x;
 	uint n = frame_data.dir_count;
 	uint m = frame_data.power2_dir_count;
 
@@ -243,24 +243,28 @@ void main(void)
 	memoryBarrierBuffer();
 
 	// Add points to correct node
-	uint i = thid;
-	while (i < s_total)
+	if (thid == 0)
 	{
-		vec4 pos = output_data.points[i];
-		for (uint n = 0; n < num_nodes; ++n)
+		uint i = thid;
+		while (i < s_total)
 		{
-			vec2 min = terrain_buffer.data[n].min;
-			vec2 max = terrain_buffer.data[n].max;
-			if (pos.x > min.x && 
-				pos.x < max.x && 
-				pos.z > min.y && 
-				pos.z < max.y)
+			vec4 pos = output_data.points[i];
+			for (uint n = 0; n < num_nodes; ++n)
 			{
-				uint index = atomicAdd(terrain_buffer.data[n].new_points_count, 1);  // TODO: Optimize away atomicAdd?
-				terrain_buffer.data[n].new_points[index] = pos;
+				vec2 min = terrain_buffer.data[n].min;
+				vec2 max = terrain_buffer.data[n].max;
+				if (pos.x > min.x &&
+					pos.x < max.x &&
+					pos.z > min.y &&
+					pos.z < max.y)
+				{
+					uint index = atomicAdd(terrain_buffer.data[n].new_points_count, 1);  // TODO: Optimize away atomicAdd?
+					terrain_buffer.data[n].new_points[index] = pos;
+					break;
+				}
 			}
-		}
 
-		i += WORK_GROUP_SIZE;
+			i += 1;
+		}
 	}
 }

@@ -15,7 +15,7 @@
 #include <string>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define RAY_MARCH_WINDOW
+//#define RAY_MARCH_WINDOW
 
 void error_callback(int error, const char* description)
 {
@@ -141,7 +141,7 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 	m_main_queue = m_vulkan_context.create_graphics_queue();
 
 	// Dirs
-	const int t = 20;
+	const int t = 3;
 	for (int y = 0; y < t; ++y)
 	{
 		for (int x = 0; x < t; ++x)
@@ -484,9 +484,8 @@ void Application::draw_main()
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
 
-
 	// Fritjof stuff
-	if (ImGui::Button("Set"))
+	//if (ImGui::Button("Set"))
 	{
 		m_quadtree.draw_error_metric(m_main_queue, fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_main_camera, false);
 		m_main_queue.cmd_pipeline_barrier();

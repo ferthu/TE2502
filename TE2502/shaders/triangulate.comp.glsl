@@ -46,7 +46,7 @@ struct terrain_data_t
 };
 
 const uint num_quadtree_nodes = (1 << quadtree_levels) * (1 << quadtree_levels);
-const uint aligned_quadtree_index_num = (num_quadtree_nodes + 4) + (64 - ((num_quadtree_nodes + 4) % 64));
+const uint aligned_quadtree_index_num = (num_quadtree_nodes + 4) + (16 - ((num_quadtree_nodes + 4) % 16));
 
 layout(set = 0, binding = 0) buffer terrain_buffer_t
 {

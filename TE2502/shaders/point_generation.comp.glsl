@@ -31,10 +31,10 @@ layout(set = 0, binding = 2) buffer output_data_t
 } output_data;
 
 
+//// TERRAIN
 
 vec2 add = vec2(1.0, 0.0);
 #define HASHSCALE1 .1031
-#define HASHSCALE3 vec3(.1031, .1030, .0973)
 
 // This peturbs the fractal positions for each iteration down...
 // Helps make nice twisted landscapes...
@@ -47,13 +47,6 @@ float hash12(vec2 p)
 	p3 += dot(p3, p3.yzx + 19.19);
 	return fract((p3.x + p3.y) * p3.z);
 }
-vec2 hash22(vec2 p)
-{
-	vec3 p3 = fract(vec3(p.xyx) * HASHSCALE3);
-	p3 += dot(p3, p3.yzx + 19.19);
-	return fract((p3.xx + p3.yz)*p3.zy);
-
-}
 
 float noise(in vec2 x)
 {
@@ -63,17 +56,6 @@ float noise(in vec2 x)
 
 	float res = mix(mix(hash12(p), hash12(p + add.xy), f.x),
 		mix(hash12(p + add.yx), hash12(p + add.xx), f.x), f.y);
-	return res;
-}
-
-vec2 noise2(in vec2 x)
-{
-	vec2 p = floor(x);
-	vec2 f = fract(x);
-	f = f * f*(3.0 - 2.0*f);
-	float n = p.x + p.y * 57.0;
-	vec2 res = mix(mix(hash22(p), hash22(p + add.xy), f.x),
-		mix(hash22(p + add.yx), hash22(p + add.xx), f.x), f.y);
 	return res;
 }
 
@@ -111,38 +93,6 @@ float height_to_surface(in vec3 p)
 }
 
 //--------------------------------------------------------------------------
-// High def version only used for grabbing normal information.
-float terrain2(in vec2 p)
-{
-	// There's some real magic numbers in here! 
-	// The noise calls add large mountain ranges for more variation over distances...
-	vec2 pos = p * 0.05;
-	float w = (noise(pos*.25)*0.75 + .15);
-	w = 66.0 * w * w;
-	vec2 dxy = vec2(0.0, 0.0);
-	float f = .0;
-	for (int i = 0; i < 5; i++)
-	{
-		f += w * noise(pos);
-		w = -w * 0.4;	//...Flip negative and positive for varition	   
-		pos = rotate2D * pos;
-	}
-	float ff = noise(pos*.002);
-	f += pow(abs(ff), 5.0)*275. - 5.0;
-
-
-	// That's the last of the low resolution, now go down further for the Normal data...
-	for (int i = 0; i < 6; i++)
-	{
-		f += w * noise(pos);
-		w = -w * 0.4;
-		pos = rotate2D * pos;
-	}
-
-	return f;
-}
-
-//--------------------------------------------------------------------------
 float binary_subdivision(in vec3 rO, in vec3 rD, in vec2 t, in int divisions)
 {
 	// Home in on the surface by dividing by two and split...
@@ -157,6 +107,7 @@ float binary_subdivision(in vec3 rO, in vec3 rD, in vec2 t, in int divisions)
 	return halfway_t;
 }
 
+//////////
 
 
 #define POINTS_PER_DIR 5

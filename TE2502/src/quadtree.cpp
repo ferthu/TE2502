@@ -137,7 +137,7 @@ void Quadtree::intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd
 
 	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
 	{
-		m_push_data.buffer_slot = m_generate_nodes[i].index;
+		m_push_data.node_index = m_generate_nodes[i].index;
 		m_push_data.min = m_generate_nodes[i].min;
 		m_push_data.max = m_generate_nodes[i].max;
 

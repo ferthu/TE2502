@@ -77,7 +77,7 @@ coherent layout(set = 0, binding = 3) buffer terrain_buffer_t
 
 
 #define POINTS_PER_DIR 5
-shared uint temp[WORK_GROUP_SIZE * 2 + 1]; 
+shared uint s_count[WORK_GROUP_SIZE * 2 + 1]; 
 shared uint s_total;
 
 //#define NUM_BANKS 16
@@ -87,8 +87,8 @@ shared uint s_total;
 void main(void)
 {
 	const uint thid = gl_GlobalInvocationID.x;
-	uint n = frame_data.dir_count;
-	uint m = frame_data.power2_dir_count;
+	const uint n = frame_data.dir_count;
+	const uint m = frame_data.power2_dir_count;
 
 	if (thid * 2 >= m)
 		return;
@@ -102,8 +102,8 @@ void main(void)
 		//uint bi = thid + (n / 2);
 		//uint bankOffsetA = CONFLICT_FREE_OFFSET(ai);
 		//uint bankOffsetB = CONFLICT_FREE_OFFSET(bi);
-		//temp[ai + bankOffsetA] = point_counts.counts[ai];
-		//temp[bi + bankOffsetB] = point_counts.counts[bi];
+		//s_count[ai + bankOffsetA] = point_counts.counts[ai];
+		//s_count[bi + bankOffsetB] = point_counts.counts[bi];
 
 		//for (int d = n >> 1; d > 0; d >>= 1)  // Build sum in place up the tree
 		//{
@@ -117,12 +117,12 @@ void main(void)
 		//		ai += CONFLICT_FREE_OFFSET(ai);
 		//		bi += CONFLICT_FREE_OFFSET(bi);
 
-		//		temp[bi] += temp[ai];
+		//		s_count[bi] += s_count[ai];
 		//	}
 		//	offset *= 2;
 		//}
 
-		//if (thid == 0) { temp[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = 0; }
+		//if (thid == 0) { s_count[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = 0; }
 
 		//for (int d = 1; d < n; d *= 2)  // Traverse down tree & build scan
 		//{
@@ -136,29 +136,29 @@ void main(void)
 		//		ai += CONFLICT_FREE_OFFSET(ai);
 		//		bi += CONFLICT_FREE_OFFSET(bi);
 
-		//		uint t = temp[ai];
-		//		temp[ai] = temp[bi];
-		//		temp[bi] += t;
+		//		uint t = s_count[ai];
+		//		s_count[ai] = s_count[bi];
+		//		s_count[bi] += t;
 		//	}
 		//}
 
 		//memoryBarrierShared();
 		//barrier();
 
-		//point_counts.counts[ai] = temp[ai + bankOffsetA]; // Optimize!!!
-		//point_counts.counts[bi] = temp[bi + bankOffsetB]; // Optimize!!!
+		//point_counts.counts[ai] = s_count[ai + bankOffsetA]; // Optimize!!!
+		//point_counts.counts[bi] = s_count[bi + bankOffsetB]; // Optimize!!!
 
 	}
 
 	// Load input into shared memory
-	temp[thid] = point_counts.counts[thid]; 
-	temp[m / 2 + thid] = point_counts.counts[m / 2 + thid];
+	s_count[thid] = point_counts.counts[thid]; 
+	s_count[m / 2 + thid] = point_counts.counts[m / 2 + thid];
 
 	barrier();
 	memoryBarrierShared();
 
 	if (thid == 0)
-		s_total = temp[n - 1];
+		s_total = s_count[n - 1];
 	barrier();
 	memoryBarrierShared();
 
@@ -170,11 +170,11 @@ void main(void)
 		{
 			uint ai = offset * (2 * thid + 1) - 1;
 			uint bi = offset * (2 * thid + 2) - 1;
-			temp[bi] += temp[ai];
+			s_count[bi] += s_count[ai];
 		}
 		offset *= 2;
 	}
-	if (thid == 0) { temp[m - 1] = 0; } // Clear the last element
+	if (thid == 0) { s_count[m - 1] = 0; } // Clear the last element
 	for (int d = 1; d < m; d *= 2) // Traverse down tree & build scan
 	{
 		offset >>= 1;
@@ -185,16 +185,13 @@ void main(void)
 			uint ai = offset * (2 * thid + 1) - 1;
 			uint bi = offset * (2 * thid + 2) - 1;
 
-			uint t = temp[ai];
-			temp[ai] = temp[bi];
-			temp[bi] += t;
+			uint t = s_count[ai];
+			s_count[ai] = s_count[bi];
+			s_count[bi] += t;
 		}
 	}
 	barrier();
 	memoryBarrierShared();
-
-	point_counts.counts[thid] = temp[thid];
-	point_counts.counts[m / 2 + thid] = temp[m / 2 + thid];
 
 	if (thid * 2 >= n)
 		return;
@@ -202,8 +199,8 @@ void main(void)
 	// Make sure the total is saved as well
 	if (thid == 0)
 	{
-		s_total += temp[n - 1];
-		temp[n] = s_total;
+		s_total += s_count[n - 1];
+		s_count[n] = s_total;
 	}
 
 	barrier();
@@ -214,7 +211,7 @@ void main(void)
 	// Save some points locally
 	uint local_point_count = 0;
 	vec4 local_points[2 * POINTS_PER_DIR];
-	uint count = temp[thid * 2 + 1] - temp[thid * 2 + 0];
+	uint count = s_count[thid * 2 + 1] - s_count[thid * 2 + 0];
 
 	for (uint i = 0; i < count; ++i)
 	{
@@ -222,7 +219,7 @@ void main(void)
 	}
 
 	local_point_count = count;
-	count = temp[thid * 2 + 2] - temp[thid * 2 + 1];
+	count = s_count[thid * 2 + 2] - s_count[thid * 2 + 1];
 	for (uint i = 0; i < count; ++i)
 	{
 		local_points[local_point_count + i] = output_data.points[thid * POINTS_PER_DIR * 2 + POINTS_PER_DIR + i];
@@ -235,7 +232,7 @@ void main(void)
 	// Write points to output storage buffer
 	for (uint i = 0; i < local_point_count; ++i)
 	{
-		output_data.points[temp[thid * 2] + i] = local_points[i];
+		output_data.points[s_count[thid * 2] + i] = local_points[i];
 	}
 
 	barrier();
@@ -249,17 +246,17 @@ void main(void)
 		while (i < s_total)
 		{
 			vec4 pos = output_data.points[i];
-			for (uint n = 0; n < num_nodes; ++n)
+			for (uint a = 0; a < num_nodes; ++a)
 			{
-				vec2 min = terrain_buffer.data[n].min;
-				vec2 max = terrain_buffer.data[n].max;
+				vec2 min = terrain_buffer.data[a].min;
+				vec2 max = terrain_buffer.data[a].max;
 				if (pos.x > min.x &&
 					pos.x < max.x &&
 					pos.z > min.y &&
 					pos.z < max.y)
 				{
-					uint index = atomicAdd(terrain_buffer.data[n].new_points_count, 1);  // TODO: Optimize away atomicAdd?
-					terrain_buffer.data[n].new_points[index] = pos;
+					uint index = atomicAdd(terrain_buffer.data[a].new_points_count, 1);  // TODO: Optimize away atomicAdd?
+					terrain_buffer.data[a].new_points[index] = pos;
 					break;
 				}
 			}

@@ -8,6 +8,8 @@ layout(push_constant) uniform frame_data_t
 	mat4 camera_vp;
 	vec4 camera_pos;
 	vec2 screen_size;
+	float area_multiplier;
+	float curvature_multiplier;
 } frame_data;
 
 layout(location = 0) out vec4 out_color;
@@ -134,7 +136,7 @@ void main()
 
 	/////////////////////////////////////////
 
-	out_color = vec4(area / 1100.0, pow(abs(curvature) / 100.0, 1.3), 0.0, 1.0);
+	out_color = vec4(area / 1100.0, pow(abs(curvature * frame_data.curvature_multiplier), 1.3), 0.0, 1.0);
 
 	out_color = pow(out_color, vec4((1.0 / 2.2).xxx, 1.0));
 }

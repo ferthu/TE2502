@@ -7,7 +7,6 @@ layout(set = 0, binding = 0, rgba8) uniform image2D error_metric_image;
 
 layout(push_constant) uniform frame_data_t
 {
-	mat4 camera_vp;
 	mat4 ray_march_view;
 	vec4 position;
 	vec2 screen_size;
@@ -15,6 +14,7 @@ layout(push_constant) uniform frame_data_t
 	vec2 sample_offset;
 	uint dir_count;
 	uint power2_dir_count;
+	float em_threshold;
 } frame_data;
 
 
@@ -171,49 +171,56 @@ void main(void)
 		return;
 	}
 
+	uint points_found = 0;
+
 	vec2 sample_point = vec2(
 		(float(gl_GlobalInvocationID.x % frame_data.sample_counts.x) + frame_data.sample_offset.x) / float(frame_data.sample_counts.x),
 		(float(gl_GlobalInvocationID.x / frame_data.sample_counts.x) + frame_data.sample_offset.y) / float(frame_data.sample_counts.y));
 
-	const float deg_to_rad = 3.1415 / 180.0;
-	const float fov = 90.0;	// In degrees
-	float px = (2 * sample_point.x - 1) * tan(fov / 2.0 * deg_to_rad);
-	float py = (2 * sample_point.y - 1) * tan(fov / 2.0 * deg_to_rad) * frame_data.screen_size.y / frame_data.screen_size.x;
-	vec3 ray_dir = vec3(px, py, 1);
-	ray_dir = (frame_data.ray_march_view * vec4(normalize(ray_dir), 0.0)).xyz;
+	vec4 em_sample = imageLoad(error_metric_image, ivec2(sample_point * frame_data.screen_size));
 
-	vec3 origin = frame_data.position.xyz;
-
-	uint points_found = 0;
-
-	float distance = 0.01;
-	float old_distance = 0.0;
-	float delta = 0.0;
-	vec2 distances;
-	float my_sign = 1.0;
-
-	for (int j = 0; j < 350; j++)
+	// If sampled pixel's value is above threshold, fire a ray in its direction
+	if (em_sample.x * em_sample.y > frame_data.em_threshold)
 	{
-		if (points_found == POINTS_PER_DIR || distance > 1000.0)
-			break;
-		vec3 p = origin + distance * ray_dir;
-		float h = height_to_surface(p);
-		// Check if close to surface
-		if (sign(h - 0.5) != my_sign)
-		{
-			distances = vec2(old_distance, distance);
-			float exact_distance = binary_subdivision(origin, ray_dir, distances, 12);
-			vec3 surface_point = origin + exact_distance * ray_dir;
-			output_data.points[thid * POINTS_PER_DIR + points_found] = vec4(surface_point, 1);
-			++points_found;
-			distance += delta * 2;
-			my_sign *= -1;
-		}
+		const float deg_to_rad = 3.1415 / 180.0;
+		const float fov = 90.0;	// In degrees
+		float px = (2 * sample_point.x - 1) * tan(fov / 2.0 * deg_to_rad);
+		float py = (2 * sample_point.y - 1) * tan(fov / 2.0 * deg_to_rad) * frame_data.screen_size.y / frame_data.screen_size.x;
+		vec3 ray_dir = vec3(px, py, 1);
+		ray_dir = (frame_data.ray_march_view * vec4(normalize(ray_dir), 0.0)).xyz;
 
-		// Step forward
-		delta = max(0.1, 0.2*h*my_sign) + (distance*0.0025);
-		old_distance = distance;
-		distance += delta;
+		vec3 origin = frame_data.position.xyz;
+
+
+		float distance = 0.01;
+		float old_distance = 0.0;
+		float delta = 0.0;
+		vec2 distances;
+		float my_sign = 1.0;
+
+		for (int j = 0; j < 350; j++)
+		{
+			if (points_found == POINTS_PER_DIR || distance > 1000.0)
+				break;
+			vec3 p = origin + distance * ray_dir;
+			float h = height_to_surface(p);
+			// Check if close to surface
+			if (sign(h - 0.5) != my_sign)
+			{
+				distances = vec2(old_distance, distance);
+				float exact_distance = binary_subdivision(origin, ray_dir, distances, 12);
+				vec3 surface_point = origin + exact_distance * ray_dir;
+				output_data.points[thid * POINTS_PER_DIR + points_found] = vec4(surface_point, 1);
+				++points_found;
+				distance += delta * 2;
+				my_sign *= -1;
+			}
+
+			// Step forward
+			delta = max(0.1, 0.2*h*my_sign) + (distance*0.0025);
+			old_distance = distance;
+			distance += delta;
+		}
 	}
 
 	point_counts.counts[thid] = points_found;

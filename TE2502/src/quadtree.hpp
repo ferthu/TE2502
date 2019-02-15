@@ -44,7 +44,7 @@ public:
 	void draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool wireframe);
 
 	// Performs frustum culling and draws/generates visible terrain to error metric image
-	void draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool draw_to_screen);
+	void draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool draw_to_screen, float area_multiplier, float curvature_multiplier, bool wireframe);
 
 	// Resets all terrain data
 	void clear_terrain();
@@ -64,6 +64,8 @@ public:
 
 	GPUImage& get_em_depth_image();
 
+	RenderPass& get_render_pass();
+
 private:
 	struct GenerationData
 	{
@@ -79,6 +81,8 @@ private:
 		glm::mat4 vp;
 		glm::vec4 camera_pos;
 		glm::vec2 screen_size;
+		float area_multiplier;
+		float curvature_multiplier;
 	};
 
 	struct TriangulationData
@@ -160,6 +164,7 @@ private:
 	PipelineLayout m_em_pipeline_layout;
 	RenderPass m_em_render_pass;
 	std::unique_ptr<Pipeline> m_em_pipeline;
+	std::unique_ptr<Pipeline> m_em_wireframe_pipeline;
 
 	// Max number of indices and vertices per node
 	VkDeviceSize m_max_indices;

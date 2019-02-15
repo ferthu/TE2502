@@ -119,10 +119,8 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 	}
 
 
-
 	m_point_gen_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false, 
 		true, false, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
 
 
 	const unsigned int max_rays_per_frame = 10000;
@@ -146,6 +144,14 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 
 	imgui_setup();
 
+
+	// Set up terrain generation/drawing
+	VkDeviceSize num_indices = m_tfile.get_u64("TERRAIN_GENERATE_NUM_INDICES");
+	VkDeviceSize num_vertices = m_tfile.get_u64("TERRAIN_GENERATE_NUM_VERTICES");
+	VkDeviceSize num_nodes = m_tfile.get_u64("TERRAIN_GENERATE_NUM_NODES");
+	VkDeviceSize num_new_points = m_tfile.get_u64("TRIANGULATE_MAX_NEW_POINTS");
+	uint32_t num_levels = m_tfile.get_u32("QUADTREE_LEVELS");
+	m_quadtree = Quadtree(m_vulkan_context, 500.0f, num_levels, num_nodes, num_indices, num_vertices, num_new_points, *m_window, m_main_queue);
 #ifdef RAY_MARCH_WINDOW
 	m_ray_march_window_states.swapchain_framebuffers.resize(m_ray_march_window->get_swapchain_size());
 	for (uint32_t i = 0; i < m_ray_march_window->get_swapchain_size(); i++)
@@ -175,7 +181,7 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 		m_window_states.swapchain_framebuffers[i] = Framebuffer(m_vulkan_context);
 		m_window_states.swapchain_framebuffers[i].add_attachment(m_window->get_swapchain_image_view(i));
 		m_window_states.swapchain_framebuffers[i].add_attachment(m_window_states.depth_image_views[i]);
-		m_window_states.swapchain_framebuffers[i].create(m_point_gen_render_pass.get_render_pass(), m_window->get_size().x, m_window->get_size().y);
+		m_window_states.swapchain_framebuffers[i].create(m_quadtree.get_render_pass().get_render_pass(), m_window->get_size().x, m_window->get_size().y);
 
 		m_imgui_vulkan_state.swapchain_framebuffers[i] = Framebuffer(m_vulkan_context);
 		m_imgui_vulkan_state.swapchain_framebuffers[i].add_attachment(m_window->get_swapchain_image_view(i));
@@ -192,14 +198,6 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 		VK_CHECK(vkCreateSemaphore(m_vulkan_context.get_device(), &create_info, m_vulkan_context.get_allocation_callbacks(), 
 			&m_imgui_vulkan_state.done_drawing_semaphores[i]), "Semaphore creation failed!")
 	}
-
-	// Set up terrain generation/drawing
-	VkDeviceSize num_indices = m_tfile.get_u64("TERRAIN_GENERATE_NUM_INDICES");
-	VkDeviceSize num_vertices = m_tfile.get_u64("TERRAIN_GENERATE_NUM_VERTICES");
-	VkDeviceSize num_nodes = m_tfile.get_u64("TERRAIN_GENERATE_NUM_NODES");
-	VkDeviceSize num_new_points = m_tfile.get_u64("TRIANGULATE_MAX_NEW_POINTS");
-	uint32_t num_levels = m_tfile.get_u32("QUADTREE_LEVELS");
-	m_quadtree = Quadtree(m_vulkan_context, 500.0f, num_levels, num_nodes, num_indices, num_vertices, num_new_points, *m_window, m_main_queue);
 
 	// Set up debug drawing
 	m_debug_pipeline_layout = PipelineLayout(m_vulkan_context);
@@ -347,7 +345,6 @@ void Application::update(const float dt)
 	while (m_em_offset_y > 1.0f)
 		m_em_offset_y -= 1.0f;
 
-	m_point_gen_frame_data.vp = m_current_camera->get_vp();
 	m_point_gen_frame_data.ray_march_view = m_main_camera->get_ray_march_view();
 	m_point_gen_frame_data.position = glm::vec4(m_main_camera->get_pos(), 0);
 
@@ -357,6 +354,7 @@ void Application::update(const float dt)
 	m_point_gen_frame_data.screen_size = m_window->get_size();
 	m_point_gen_frame_data.sample_offset = glm::vec2(m_em_offset_x, m_em_offset_y);
 	m_point_gen_frame_data.sample_counts = m_em_num_samples;
+	m_point_gen_frame_data.em_threshold = m_em_threshold;
 
 #ifdef RAY_MARCH_WINDOW
 	m_ray_march_frame_data.view = m_current_camera->get_ray_march_view();
@@ -385,6 +383,9 @@ void Application::update(const float dt)
 		ImGui::Text(text.c_str());
 		ImGui::Checkbox("Draw Ray Marched View", &m_draw_ray_march);
 		ImGui::Checkbox("Wireframe", &m_draw_wireframe);
+		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.01f, 0.0001f, 0.001f);
+		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.001f, 0.0001f, 0.05f);
+		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.0001f, 0.5f);
 		if (ImGui::Button("Clear Terrain"))
 		{
 			m_quadtree.clear_terrain();
@@ -421,19 +422,8 @@ void Application::draw_main()
 	const uint32_t index = m_window->get_next_image();
 	VkImage image = m_window->get_swapchain_image(index);
 
-	ImGui::Begin("Triangulate");
 
 	// RENDER-------------------
-
-	// generate base node terrain if needed
-	// render terrain mesh
-	// if something
-	//		render error metric image
-	//		send rays to gather points
-	//		prefix sum, distribute points to correct nodes
-	//		triangulate
-	// imgui
-	// present
 
 	m_main_queue.start_recording();
 
@@ -483,13 +473,21 @@ void Application::draw_main()
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
 
-	static bool do_it = true;
-	// Fritjof stuff
-	if (ImGui::Button("Set") || do_it)
-	{
-		do_it = false;
+	ImGui::Begin("Triangulate");
 
-		m_quadtree.draw_error_metric(m_main_queue, fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_main_camera, false);
+	// Fritjof stuff
+	//if (ImGui::Button("Set") || do_it)
+	{
+		m_quadtree.draw_error_metric(
+			m_main_queue,
+			fr,
+			m_debug_drawer,
+			m_window_states.swapchain_framebuffers[index],
+			*m_main_camera,
+			true,
+			m_em_area_multiplier,
+			m_em_curvature_multiplier,
+			!m_draw_wireframe);
 
 		m_main_queue.cmd_image_barrier(
 			m_quadtree.get_em_depth_image().get_image(),

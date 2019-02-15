@@ -63,7 +63,6 @@ private:
 	};
 	struct PointGenerationFrameData
 	{
-		glm::mat4 vp;
 		glm::mat4 ray_march_view;
 		glm::vec4 position;
 		glm::vec2 screen_size;
@@ -71,6 +70,7 @@ private:
 		glm::vec2 sample_offset;
 		unsigned int dir_count;
 		unsigned int power2_dir_count;
+		float em_threshold;
 	};
 	struct DebugDrawingFrameData
 	{
@@ -125,19 +125,19 @@ private:
 
 	// Point generation
 	DescriptorSetLayout m_point_gen_buffer_set_layout_compute;
-	DescriptorSetLayout m_point_gen_buffer_set_layout_graphics;
 	DescriptorSet m_point_gen_buffer_set_compute;
-	DescriptorSet m_point_gen_buffer_set_graphics;
 	PipelineLayout m_point_gen_pipeline_layout_compute;
-	PipelineLayout m_point_gen_pipeline_layout_graphics;
 	std::unique_ptr<Pipeline> m_point_gen_compute_pipeline;
 	std::unique_ptr<Pipeline> m_point_gen_prefix_sum_pipeline;
+	DescriptorSetLayout m_point_gen_buffer_set_layout_graphics;
+	PipelineLayout m_point_gen_pipeline_layout_graphics;
+	DescriptorSet m_point_gen_buffer_set_graphics;
 	std::unique_ptr<Pipeline> m_point_gen_graphics_pipeline;
+	RenderPass m_point_gen_render_pass;
 	GPUMemory m_point_gen_gpu_memory;
 	GPUBuffer m_point_gen_input_buffer;
 	GPUBuffer m_point_gen_point_counts_buffer;
 	GPUBuffer m_point_gen_output_buffer;
-	RenderPass m_point_gen_render_pass;
 	unsigned int m_point_gen_dirs_sent;
 	unsigned int m_point_gen_power2_dirs_sent;
 
@@ -147,6 +147,11 @@ private:
 	// Sample offset [0, 1] of samples taken from error metric image
 	float m_em_offset_x = 0.0f;
 	float m_em_offset_y = 0.0f;
+
+	// Error metric parameters
+	float m_em_area_multiplier = 0.01f;
+	float m_em_curvature_multiplier = 0.01f;
+	float m_em_threshold = 0.5f;
 
 	// Group size of error metric dispatch
 	uint32_t m_em_group_size = 0;

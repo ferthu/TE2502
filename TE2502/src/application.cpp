@@ -136,7 +136,7 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 
 	m_main_queue = m_vulkan_context.create_graphics_queue();
 
-	int p = 1;
+	int p = 2;
 	for (; static_cast<unsigned int>(powf(2, p)) < m_em_num_samples.x * m_em_num_samples.y; ++p) {}
 	m_point_gen_power2_dirs_sent = static_cast<unsigned int>(powf(2, p));
 

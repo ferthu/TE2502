@@ -161,7 +161,7 @@ void main(void)
 	if (thid == 0)
 	{
 		s_edge_count = 0;
-	  s_index_count = terrain_buffer.data[frame_data.node_index].index_count;
+		s_index_count = terrain_buffer.data[frame_data.node_index].index_count;
 		s_triangle_count = s_index_count / 3;
 		s_triangles_removed = 0;
 	}
@@ -171,9 +171,9 @@ void main(void)
 	uint vertex_count = terrain_buffer.data[frame_data.node_index].vertex_count;
 
 	uint new_points_count = terrain_buffer.data[frame_data.node_index].new_points_count;
-	for (uint n = 0; n < new_points_count; ++n)
+	for (uint n = 0; n < new_points_count && s_index_count + 60 < num_indices; ++n)
 	{
-		vec4 current_point =terrain_buffer.data[frame_data.node_index].new_points[n];
+		vec4 current_point = terrain_buffer.data[frame_data.node_index].new_points[n];
 
 		// Load last few indices from buffer to shared memory
 		uint i = thid;

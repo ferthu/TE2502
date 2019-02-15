@@ -627,7 +627,8 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 	bool enable_geometry_shader,
 	SpecializationInfo* vertex_shader_specialization,
 	SpecializationInfo* fragment_shader_specialization,
-	VkPrimitiveTopology topology)
+	VkPrimitiveTopology topology,
+	VkPolygonMode polygon_mode)
 {
 	auto vert_shader_code = read_file("shaders/compiled/" + shader_name + ".vert.glsl.spv");
 	auto frag_shader_code = read_file("shaders/compiled/" + shader_name + ".frag.glsl.spv");
@@ -705,7 +706,7 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizer.depthClampEnable = VK_FALSE;
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
-	rasterizer.polygonMode = VK_POLYGON_MODE_LINE;
+	rasterizer.polygonMode = polygon_mode;
 	rasterizer.lineWidth = 1.0f;
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;

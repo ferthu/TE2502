@@ -66,6 +66,9 @@ private:
 		glm::mat4 vp;
 		glm::mat4 ray_march_view;
 		glm::vec4 position;
+		glm::vec2 screen_size;
+		glm::uvec2 sample_counts;
+		glm::vec2 sample_offset;
 		unsigned int dir_count;
 		unsigned int power2_dir_count;
 	};
@@ -130,16 +133,23 @@ private:
 	std::unique_ptr<Pipeline> m_point_gen_compute_pipeline;
 	std::unique_ptr<Pipeline> m_point_gen_prefix_sum_pipeline;
 	std::unique_ptr<Pipeline> m_point_gen_graphics_pipeline;
-	GPUMemory m_point_gen_cpu_memory;
 	GPUMemory m_point_gen_gpu_memory;
-	GPUBuffer m_point_gen_cpu_buffer;
 	GPUBuffer m_point_gen_input_buffer;
 	GPUBuffer m_point_gen_point_counts_buffer;
 	GPUBuffer m_point_gen_output_buffer;
 	RenderPass m_point_gen_render_pass;
-	glm::vec4* m_point_gen_dirs;
 	unsigned int m_point_gen_dirs_sent;
 	unsigned int m_point_gen_power2_dirs_sent;
+
+	// Number of samples taken from the error metric image for the x and y directions
+	glm::uvec2 m_em_num_samples{ 3, 3 };
+
+	// Sample offset [0, 1] of samples taken from error metric image
+	float m_em_offset_x = 0.0f;
+	float m_em_offset_y = 0.0f;
+
+	// Group size of error metric dispatch
+	uint32_t m_em_group_size = 0;
 
 	// Terrain generation/drawing
 	Quadtree m_quadtree;
@@ -152,6 +162,7 @@ private:
 
 	bool m_show_imgui = true;
 	bool m_draw_ray_march = true;
+	bool m_draw_wireframe = false;
 
 	std::mutex m_mutex;
 	std::condition_variable m_cv;

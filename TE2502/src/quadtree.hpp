@@ -41,7 +41,7 @@ public:
 	void intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd);
 
 	// Performs frustum culling and draws/generates visible terrain
-	void draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera);
+	void draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool wireframe);
 
 	// Performs frustum culling and draws/generates visible terrain to error metric image
 	void draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool draw_to_screen);
@@ -54,6 +54,9 @@ public:
 
 	// Re-triangulate the terrain using the new points that have been previously added
 	void triangulate(GraphicsQueue& queue, glm::vec3 pos);
+
+	// Return the image view of the error metric image
+	ImageView& get_em_image_view();
 
 	GPUBuffer& get_buffer();
 
@@ -146,6 +149,7 @@ private:
 	RenderPass m_render_pass;
 	PipelineLayout m_draw_pipeline_layout;
 	std::unique_ptr<Pipeline> m_draw_pipeline;
+	std::unique_ptr<Pipeline> m_draw_wireframe_pipeline;
 
 	GPUMemory m_em_memory;
 	GPUImage m_em_image;

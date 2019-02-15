@@ -1,9 +1,9 @@
 #version 450 core
 
 #define GRID_SIDE TERRAIN_GENERATE_GRID_SIDE
-#define GROUP_SIZE 512
+#define WORK_GROUP_SIZE 1024
 
-layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
 const uint num_indices = TERRAIN_GENERATE_NUM_INDICES;
 const uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
@@ -58,48 +58,51 @@ layout(push_constant) uniform frame_data_t
 	vec4 camera_pos;
 	vec2 min;
 	vec2 max;
-	uint buffer_slot;
+	uint node_index;
 } frame_data;
 
 
 ///// TERRAIN
 
-#define HASHSCALE1 .1031
-const mat2 rotate2D = mat2(1.3623, 1.7531, -1.7131, 1.4623);
 vec2 add = vec2(1.0, 0.0);
+#define HASHSCALE1 .1031
 
-float Hash12(vec2 p)
+// This peturbs the fractal positions for each iteration down...
+// Helps make nice twisted landscapes...
+const mat2 rotate2D = mat2(1.3623, 1.7531, -1.7131, 1.4623);
+
+float hash12(vec2 p)
 {
 	vec3 p3 = fract(vec3(p.xyx) * HASHSCALE1);
 	p3 += dot(p3, p3.yzx + 19.19);
 	return fract((p3.x + p3.y) * p3.z);
 }
 
-float Noise(in vec2 x)
+float noise(in vec2 x)
 {
 	vec2 p = floor(x);
 	vec2 f = fract(x);
 	f = f * f*(3.0 - 2.0*f);
 
-	float res = mix(mix(Hash12(p), Hash12(p + add.xy), f.x),
-		mix(Hash12(p + add.yx), Hash12(p + add.xx), f.x), f.y);
+	float res = mix(mix(hash12(p), hash12(p + add.xy), f.x),
+		mix(hash12(p + add.yx), hash12(p + add.xx), f.x), f.y);
 	return res;
 }
 
-float Terrain(in vec2 p)
+float terrain(in vec2 p)
 {
 	vec2 pos = p * 0.05;
-	float w = (Noise(pos*.25)*0.75 + .15);
+	float w = (noise(pos*.25)*0.75 + .15);
 	w = 66.0 * w * w;
 	vec2 dxy = vec2(0.0, 0.0);
 	float f = .0;
 	for (int i = 0; i < 5; i++)
 	{
-		f += w * Noise(pos);
+		f += w * noise(pos);
 		w = -w * 0.4;
 		pos = rotate2D * pos;
 	}
-	float ff = Noise(pos*.002);
+	float ff = noise(pos*.002);
 
 	f += pow(abs(ff), 5.0)*275. - 5.0;
 	return f;
@@ -177,19 +180,21 @@ float find_circum_radius_squared(vec2 P, vec2 Q, vec2 R)
 
 void main(void)
 {
+	const uint node_index = frame_data.node_index;
+
 	if (gl_GlobalInvocationID.x == 0)
 	{
-		terrain_buffer.data[frame_data.buffer_slot].index_count = 6 * (GRID_SIDE - 1) * (GRID_SIDE - 1);
-		terrain_buffer.data[frame_data.buffer_slot].instance_count = 1;
-		terrain_buffer.data[frame_data.buffer_slot].first_index = 0;
-		terrain_buffer.data[frame_data.buffer_slot].vertex_offset = 0;
-		terrain_buffer.data[frame_data.buffer_slot].first_instance = 0;
+		terrain_buffer.data[node_index].index_count = 6 * (GRID_SIDE - 1) * (GRID_SIDE - 1);
+		terrain_buffer.data[node_index].instance_count = 1;
+		terrain_buffer.data[node_index].first_index = 0;
+		terrain_buffer.data[node_index].vertex_offset = 0;
+		terrain_buffer.data[node_index].first_instance = 0;
 
-		terrain_buffer.data[frame_data.buffer_slot].vertex_count = GRID_SIDE * GRID_SIDE;
-		terrain_buffer.data[frame_data.buffer_slot].new_points_count = 0;
+		terrain_buffer.data[node_index].vertex_count = GRID_SIDE * GRID_SIDE;
+		terrain_buffer.data[node_index].new_points_count = 0;
 
-		terrain_buffer.data[frame_data.buffer_slot].min = frame_data.min;
-		terrain_buffer.data[frame_data.buffer_slot].max = frame_data.max;
+		terrain_buffer.data[node_index].min = frame_data.min;
+		terrain_buffer.data[node_index].max = frame_data.max;
 	}
 
 	// Positions
@@ -199,9 +204,9 @@ void main(void)
 		float x = frame_data.min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * (frame_data.max.x - frame_data.min.x);
 		float z = frame_data.min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * (frame_data.max.y - frame_data.min.y);
 
-		terrain_buffer.data[frame_data.buffer_slot].positions[i] = vec4(x, -Terrain(vec2(x, z)) - 0.5, z, 1.0);
+		terrain_buffer.data[node_index].positions[i] = vec4(x, -terrain(vec2(x, z)) - 0.5, z, 1.0);
 
-		i += GROUP_SIZE;
+		i += WORK_GROUP_SIZE;
 	}
 
 	barrier();
@@ -216,29 +221,31 @@ void main(void)
 		uint index = y * GRID_SIDE + x;
 
 		// Indices
-		terrain_buffer.data[frame_data.buffer_slot].indices[i * 6] = index;
-		terrain_buffer.data[frame_data.buffer_slot].indices[i * 6 + 1] = index + GRID_SIDE + 1;
-		terrain_buffer.data[frame_data.buffer_slot].indices[i * 6 + 2] = index + 1;
+		uint offset = i * 6;
+		terrain_buffer.data[node_index].indices[offset] = index;
+		terrain_buffer.data[node_index].indices[offset + 1] = index + GRID_SIDE + 1;
+		terrain_buffer.data[node_index].indices[offset + 2] = index + 1;
 
-		terrain_buffer.data[frame_data.buffer_slot].indices[i * 6 + 3] = index;
-		terrain_buffer.data[frame_data.buffer_slot].indices[i * 6 + 4] = index + GRID_SIDE;
-		terrain_buffer.data[frame_data.buffer_slot].indices[i * 6 + 5] = index + GRID_SIDE + 1;
+		terrain_buffer.data[node_index].indices[offset + 3] = index;
+		terrain_buffer.data[node_index].indices[offset + 4] = index + GRID_SIDE;
+		terrain_buffer.data[node_index].indices[offset + 5] = index + GRID_SIDE + 1;
 
 		// Circumcentres
-		vec2 P1 = terrain_buffer.data[frame_data.buffer_slot].positions[index].xz;
-		vec2 Q1 = terrain_buffer.data[frame_data.buffer_slot].positions[index + GRID_SIDE + 1].xz;
-		vec2 R1 = terrain_buffer.data[frame_data.buffer_slot].positions[index + 1].xz;
-		terrain_buffer.data[frame_data.buffer_slot].triangles[i * 2].circumcentre = find_circum_center(P1, Q1, R1);
+		offset = i * 2;
+		vec2 P1 = terrain_buffer.data[node_index].positions[index].xz;
+		vec2 Q1 = terrain_buffer.data[node_index].positions[index + GRID_SIDE + 1].xz;
+		vec2 R1 = terrain_buffer.data[node_index].positions[index + 1].xz;
+		terrain_buffer.data[node_index].triangles[offset].circumcentre = find_circum_center(P1, Q1, R1);
 
-		vec2 P2 = terrain_buffer.data[frame_data.buffer_slot].positions[index].xz;
-		vec2 Q2 = terrain_buffer.data[frame_data.buffer_slot].positions[index + GRID_SIDE].xz;
-		vec2 R2 = terrain_buffer.data[frame_data.buffer_slot].positions[index + GRID_SIDE + 1].xz;
-		terrain_buffer.data[frame_data.buffer_slot].triangles[i * 2 + 1].circumcentre = find_circum_center(P2, Q2, R2);
+		vec2 P2 = terrain_buffer.data[node_index].positions[index].xz;
+		vec2 Q2 = terrain_buffer.data[node_index].positions[index + GRID_SIDE].xz;
+		vec2 R2 = terrain_buffer.data[node_index].positions[index + GRID_SIDE + 1].xz;
+		terrain_buffer.data[node_index].triangles[offset + 1].circumcentre = find_circum_center(P2, Q2, R2);
 
 		// Circumradii
-		terrain_buffer.data[frame_data.buffer_slot].triangles[i * 2].circumradius = find_circum_radius_squared(P1, Q1, R1);
-		terrain_buffer.data[frame_data.buffer_slot].triangles[i * 2 + 1].circumradius = find_circum_radius_squared(P2, Q2, R2);
+		terrain_buffer.data[node_index].triangles[offset].circumradius = find_circum_radius_squared(P1, Q1, R1);
+		terrain_buffer.data[node_index].triangles[offset + 1].circumradius = find_circum_radius_squared(P2, Q2, R2);
 
-		i += GROUP_SIZE;
+		i += WORK_GROUP_SIZE;
 	}
 }

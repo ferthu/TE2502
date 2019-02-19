@@ -291,10 +291,6 @@ void Quadtree::create_pipelines(Window& window)
 void Quadtree::triangulate(GraphicsQueue& queue, glm::vec3 pos)
 {
 	queue.cmd_bind_compute_pipeline(m_triangulation_pipeline->m_pipeline);
-	////////////// Already bound
-	//m_descriptor_set.clear();
-	//m_descriptor_set.add_storage_buffer(m_buffer);
-	//m_descriptor_set.bind();
 	queue.cmd_bind_descriptor_set_compute(m_triangulation_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
 
 	for (unsigned i = 0; i < m_num_draw_nodes; ++i)

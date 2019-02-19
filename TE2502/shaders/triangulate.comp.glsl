@@ -1,6 +1,6 @@
 #version 450 core
 
-#define WORK_GROUP_SIZE 32
+#define WORK_GROUP_SIZE 1024
 
 layout(local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
@@ -48,7 +48,7 @@ struct terrain_data_t
 const uint num_quadtree_nodes = (1 << quadtree_levels) * (1 << quadtree_levels);
 const uint aligned_quadtree_index_num = (num_quadtree_nodes + 4) + (16 - ((num_quadtree_nodes + 4) % 16));
 
-layout(set = 0, binding = 0) buffer terrain_buffer_t
+coherent layout(set = 0, binding = 0) buffer terrain_buffer_t
 {
 	uint quadtree_index_map[aligned_quadtree_index_num - 4];
 	vec2 quadtree_min;
@@ -117,7 +117,7 @@ vec2 find_circum_center(vec2 P, vec2 Q, vec2 R)
 
 float find_circum_radius_squared(float a, float b, float c)
 {
-	return (a * b * c) / sqrt((a + b + c) * (b + c - a) * (c + a - b) * (a + b - c));
+	return (a * a * b * b * c * c) / ((a + b + c) * (b + c - a) * (c + a - b) * (a + b - c));
 }
 
 ///////////////////
@@ -147,6 +147,7 @@ shared uint s_triangle_count;
 shared uint s_vertex_count;
 
 #define INVALID 999999
+#define EPSILON 1 - 0.0001
 
 void main(void)
 {
@@ -204,7 +205,7 @@ void main(void)
 
 			float dx = current_point.x - circumcentre.x;
 			float dy = current_point.z - circumcentre.y;
-			if (sqrt(dx * dx + dy * dy) < circumradius)
+			if (dx * dx + dy * dy < circumradius)
 			{
 				// Add triangle edges to edge buffer
 				uint tr = atomicAdd(s_triangles_removed, 1);
@@ -229,10 +230,9 @@ void main(void)
 
 			i += WORK_GROUP_SIZE;
 		}
-		s_edge_count = s_triangles_removed * 3;
+		s_edge_count = s_triangles_removed * 3;  // TODO: Remove s_edge_count variable
 		barrier();
 		memoryBarrierShared();
-		memoryBarrierBuffer();
 
 		if (thid == 0)
 		{
@@ -293,8 +293,7 @@ void main(void)
 					float d2 = abs(dot(PR, RQ));
 					float d3 = abs(dot(RQ, PQ));
 
-					const float epsilon = 1 - 0.00001;
-					if (d1 > epsilon || d2 > epsilon || d3 > epsilon)
+					if (d1 > EPSILON || d2 > EPSILON || d3 > EPSILON)
 					{
 						all_valid = false;
 						break;
@@ -306,6 +305,7 @@ void main(void)
 					++s_triangle_count;
 				}
 			}
+			// Remove old triangles
 			if (all_valid)
 			{
 				// Remove triangles from triangle list
@@ -345,6 +345,7 @@ void main(void)
 				terrain_buffer.data[node_index].positions[s_vertex_count] = current_point;
 				++s_vertex_count;
 			}
+			// Exclude the new point and revert
 			else
 			{
 				s_index_count = old_index_count;

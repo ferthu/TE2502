@@ -125,12 +125,10 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 
 	const unsigned int max_rays_per_frame = 10000;
 	const unsigned int max_points_per_ray = 5;
-	VkDeviceSize dirs = sizeof(glm::vec4) * max_rays_per_frame;
 	VkDeviceSize point_counts = sizeof(uint32_t) * (max_rays_per_frame + 1);
 	VkDeviceSize points_found = sizeof(glm::vec4) * max_rays_per_frame * max_points_per_ray;
-	m_point_gen_gpu_memory = m_vulkan_context.allocate_device_memory(dirs + point_counts + points_found + 2000);
+	m_point_gen_gpu_memory = m_vulkan_context.allocate_device_memory(point_counts + points_found + 2000);
 
-	m_point_gen_input_buffer = GPUBuffer(m_vulkan_context, dirs, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, m_point_gen_gpu_memory);
 	m_point_gen_point_counts_buffer = GPUBuffer(m_vulkan_context, point_counts, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, m_point_gen_gpu_memory);
 	m_point_gen_output_buffer = GPUBuffer(m_vulkan_context, points_found, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_point_gen_gpu_memory);
 
@@ -383,7 +381,7 @@ void Application::update(const float dt)
 		ImGui::Text(text.c_str());
 		ImGui::Checkbox("Draw Ray Marched View", &m_draw_ray_march);
 		ImGui::Checkbox("Wireframe", &m_draw_wireframe);
-		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.01f, 0.0001f, 0.001f);
+		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.01f, 0.0001f, 0.1f);
 		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.001f, 0.0001f, 0.05f);
 		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.0001f, 0.5f);
 		if (ImGui::Button("Clear Terrain"))
@@ -476,7 +474,7 @@ void Application::draw_main()
 	ImGui::Begin("Triangulate");
 
 	// Fritjof stuff
-	//if (ImGui::Button("Set") || do_it)
+	//if (ImGui::Button("Set"))
 	{
 		m_quadtree.draw_error_metric(
 			m_main_queue,
@@ -484,7 +482,7 @@ void Application::draw_main()
 			m_debug_drawer,
 			m_window_states.swapchain_framebuffers[index],
 			*m_main_camera,
-			true,
+			false,
 			m_em_area_multiplier,
 			m_em_curvature_multiplier,
 			!m_draw_wireframe);

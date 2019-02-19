@@ -173,7 +173,7 @@ float find_circum_radius_squared(vec2 P, vec2 Q, vec2 R)
 	float b = distance(P, R);
 	float c = distance(R, Q);
 
-	return (a * a * b * b * c * c) / ((a + b + c) * (b + c - a) * (c + a - b) * (a + b - c));
+	return (a * b * c) / sqrt((a + b + c) * (b + c - a) * (c + a - b) * (a + b - c));
 }
 
 /////////////////
@@ -206,6 +206,20 @@ void main(void)
 
 		terrain_buffer.data[node_index].positions[i] = vec4(x, -terrain(vec2(x, z)) - 0.5, z, 1.0);
 
+
+		/*if (x < 0 && z < 0 && i == 0)
+		{
+			int max = 40;
+			terrain_buffer.data[node_index].new_points_count = max * max;
+
+			for (int a = 0; a < max; ++a)
+			{
+				for (int b = 0; b < max; ++b)
+				{
+					terrain_buffer.data[node_index].new_points[a * max + b] = vec4(-200 + a * 5, -100, -60 + b * 0.05, 1);
+				}
+			}
+		}*/
 		i += WORK_GROUP_SIZE;
 	}
 

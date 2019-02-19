@@ -142,7 +142,7 @@ private:
 	unsigned int m_point_gen_power2_dirs_sent;
 
 	// Number of samples taken from the error metric image for the x and y directions
-	glm::uvec2 m_em_num_samples{ 3, 3 };
+	glm::uvec2 m_em_num_samples{ 10, 10 };
 
 	// Sample offset [0, 1] of samples taken from error metric image
 	float m_em_offset_x = 0.0f;

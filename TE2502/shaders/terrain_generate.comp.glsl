@@ -207,19 +207,20 @@ void main(void)
 		terrain_buffer.data[node_index].positions[i] = vec4(x, -terrain(vec2(x, z)) - 0.5, z, 1.0);
 
 
-		if (x < 0 && z < 0 && i == 0)
-		{
-			int max = 10;
-			terrain_buffer.data[node_index].new_points_count = max * max;
+		//if (x < 0 && z < 0 && i == 0)
+		//{
+		//	int max = 10;
+		//	terrain_buffer.data[node_index].new_points_count = max * max;
 
-			for (int a = 0; a < max; ++a)
-			{
-				for (int b = 0; b < max; ++b)
-				{
-					terrain_buffer.data[node_index].new_points[a * max + b] = vec4(-200 + a * 4, -100, -60 + b * 4, 1);
-				}
-			}
-		}
+		//	for (int a = 0; a < max; ++a)
+		//	{
+		//		for (int b = 0; b < max; ++b)
+		//		{
+		//			terrain_buffer.data[node_index].new_points[a * max + b] = vec4(-200 + a * 4, -100, -60 + b * 0.5, 1);
+		//		}
+		//	}
+		//}
+
 		i += WORK_GROUP_SIZE;
 	}
 

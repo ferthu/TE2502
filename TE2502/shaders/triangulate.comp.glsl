@@ -356,7 +356,7 @@ void main(void)
 			s_edge_count = 0;
 
 			s_triangles_removed = 0;
-		}	
+		}
 		
 		barrier();
 		memoryBarrierShared();

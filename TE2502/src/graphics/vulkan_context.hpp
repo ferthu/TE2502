@@ -111,7 +111,8 @@ public:
 		bool enable_geometry_shader,
 		SpecializationInfo* vertex_shader_specialization,
 		SpecializationInfo* fragment_shader_specialization,
-		VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+		VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		VkPolygonMode polygon_mode = VK_POLYGON_MODE_FILL);
 
 	// Allocate a descriptor set from descriptor pool
 	VkDescriptorSet allocate_descriptor_set(DescriptorSetLayout& layout);

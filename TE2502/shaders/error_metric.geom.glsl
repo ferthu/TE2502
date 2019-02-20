@@ -11,6 +11,8 @@ layout(push_constant) uniform frame_data_t
 	mat4 camera_vp;
 	vec4 camera_pos;
 	vec2 screen_size;
+	float area_multiplier;
+	float curvature_multiplier;
 } frame_data;
 
 void main() {
@@ -42,7 +44,7 @@ void main() {
 	{
 		gl_Position = frame_data.camera_vp * gl_in[i].gl_Position;
 
-		out_area = area;
+		out_area = area * frame_data.area_multiplier;
 		world_pos = gl_in[i].gl_Position.xyz;
 		EmitVertex();
 	}

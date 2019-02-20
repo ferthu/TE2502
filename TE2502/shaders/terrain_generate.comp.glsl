@@ -173,7 +173,7 @@ float find_circum_radius_squared(vec2 P, vec2 Q, vec2 R)
 	float b = distance(P, R);
 	float c = distance(R, Q);
 
-	return (a * a * b * b * c * c) / ((a + b + c) * (b + c - a) * (c + a - b) * (a + b - c));
+	return (a * b * c) / sqrt((a + b + c) * (b + c - a) * (c + a - b) * (a + b - c));
 }
 
 /////////////////

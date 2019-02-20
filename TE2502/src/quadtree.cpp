@@ -173,13 +173,17 @@ void Quadtree::intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd
 	}
 }
 
-void Quadtree::draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera)
+void Quadtree::draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool wireframe)
 {
 	m_push_data.vp = camera.get_vp();
 	m_push_data.camera_pos = glm::vec4(camera.get_pos(), 1.0f);
 
 	// Start renderpass
-	queue.cmd_bind_graphics_pipeline(m_draw_pipeline->m_pipeline);
+	if (!wireframe)
+		queue.cmd_bind_graphics_pipeline(m_draw_pipeline->m_pipeline);
+	else
+		queue.cmd_bind_graphics_pipeline(m_draw_wireframe_pipeline->m_pipeline);
+
 	queue.cmd_begin_render_pass(m_render_pass, framebuffer);
 
 	queue.cmd_push_constants(m_draw_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(GenerationData), &m_push_data);
@@ -204,12 +208,23 @@ void Quadtree::draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer&
 	queue.cmd_end_render_pass();
 }
 
-void Quadtree::draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool draw_to_screen)
+void Quadtree::draw_error_metric(
+	GraphicsQueue& queue,
+	Frustum& frustum,
+	DebugDrawer& dd,
+	Framebuffer& framebuffer,
+	Camera& camera,
+	bool draw_to_screen,
+	float area_multiplier,
+	float curvature_multiplier,
+	bool wireframe)
 {
 	// Draw error metric image
 	m_em_push_data.vp = camera.get_vp();
 	m_em_push_data.camera_pos = glm::vec4(camera.get_pos(), 1.0f);
 	m_em_push_data.screen_size = glm::vec2(m_em_framebuffer.get_width(), m_em_framebuffer.get_width());
+	m_em_push_data.area_multiplier = area_multiplier;
+	m_em_push_data.curvature_multiplier = curvature_multiplier;
 
 	queue.cmd_push_constants(m_em_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(ErrorMetricData), &m_em_push_data);
 
@@ -242,7 +257,11 @@ void Quadtree::draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDr
 
 		queue.cmd_push_constants(m_em_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(ErrorMetricData), &m_em_push_data);
 
-		queue.cmd_bind_graphics_pipeline(m_em_pipeline->m_pipeline);
+		if (!wireframe)
+			queue.cmd_bind_graphics_pipeline(m_em_wireframe_pipeline->m_pipeline);
+		else
+			queue.cmd_bind_graphics_pipeline(m_em_pipeline->m_pipeline);
+
 		queue.cmd_begin_render_pass(m_em_render_pass, framebuffer);
 
 		// Render nonupdated terrain
@@ -276,12 +295,55 @@ void Quadtree::create_pipelines(Window& window)
 	VertexAttributes em_va(*m_context);
 	em_va.add_buffer();
 	em_va.add_attribute(4);
-	m_em_pipeline = m_context->create_graphics_pipeline("error_metric", window.get_size(), m_em_pipeline_layout, em_va, m_em_render_pass, true, true, nullptr, nullptr);
+	m_em_pipeline = m_context->create_graphics_pipeline(
+		"error_metric",
+		window.get_size(),
+		m_em_pipeline_layout,
+		em_va,
+		m_em_render_pass,
+		true,
+		true,
+		nullptr,
+		nullptr);
+	m_em_wireframe_pipeline = m_context->create_graphics_pipeline(
+		"error_metric",
+		window.get_size(),
+		m_em_pipeline_layout,
+		em_va,
+		m_em_render_pass,
+		true,
+		true,
+		nullptr,
+		nullptr,
+		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		VK_POLYGON_MODE_LINE);
 
 	VertexAttributes va(*m_context);
 	va.add_buffer();
 	va.add_attribute(4);
-	m_draw_pipeline = m_context->create_graphics_pipeline("terrain_draw", window.get_size(), m_draw_pipeline_layout, va, m_render_pass, true, false, nullptr, nullptr);
+	m_draw_pipeline = m_context->create_graphics_pipeline(
+		"terrain_draw",
+		window.get_size(),
+		m_draw_pipeline_layout,
+		va,
+		m_render_pass,
+		true,
+		false,
+		nullptr,
+		nullptr);
+
+	m_draw_wireframe_pipeline = m_context->create_graphics_pipeline(
+		"terrain_draw",
+		window.get_size(),
+		m_draw_pipeline_layout,
+		va,
+		m_render_pass,
+		true,
+		false,
+		nullptr,
+		nullptr,
+		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		VK_POLYGON_MODE_LINE);
 
 	m_generation_pipeline = m_context->create_compute_pipeline("terrain_generate", m_generation_pipeline_layout, nullptr);
 
@@ -305,6 +367,11 @@ void Quadtree::triangulate(GraphicsQueue& queue, glm::vec3 pos)
 	}
 }
 
+ImageView& Quadtree::get_em_image_view()
+{
+	return m_em_image_view;
+}
+
 GPUBuffer& Quadtree::get_buffer()
 {
 	return m_buffer;
@@ -318,6 +385,11 @@ GPUImage& Quadtree::get_em_image()
 GPUImage& Quadtree::get_em_depth_image()
 {
 	return m_em_depth_image;
+}
+
+RenderPass& Quadtree::get_render_pass()
+{
+	return m_render_pass;
 }
 
 void Quadtree::move_from(Quadtree&& other)
@@ -365,6 +437,7 @@ void Quadtree::move_from(Quadtree&& other)
 	m_em_pipeline_layout = std::move(other.m_em_pipeline_layout);
 	m_em_render_pass = std::move(other.m_em_render_pass);
 	m_em_pipeline = std::move(other.m_em_pipeline);
+	m_em_wireframe_pipeline = std::move(other.m_em_wireframe_pipeline);
 
 	m_triangulation_pipeline_layout = std::move(other.m_triangulation_pipeline_layout);
 	m_triangulation_pipeline = std::move(other.m_triangulation_pipeline);

@@ -23,11 +23,14 @@ layout(set = 0, binding = 2) buffer output_data_t
 
 layout(push_constant) uniform frame_data_t
 {
-	mat4 camera_vp;
 	mat4 ray_march_view;
 	vec4 position;
+	vec2 screen_size;
+	uvec2 sample_counts;
+	vec2 sample_offset;
 	uint dir_count;
 	uint power2_dir_count;
+	float em_threshold;
 } frame_data;
 
 // OUTPUT

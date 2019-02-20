@@ -137,7 +137,7 @@ void Quadtree::intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd
 
 	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
 	{
-		m_push_data.buffer_slot = m_generate_nodes[i].index;
+		m_push_data.node_index = m_generate_nodes[i].index;
 		m_push_data.min = m_generate_nodes[i].min;
 		m_push_data.max = m_generate_nodes[i].max;
 
@@ -291,10 +291,6 @@ void Quadtree::create_pipelines(Window& window)
 void Quadtree::triangulate(GraphicsQueue& queue, glm::vec3 pos)
 {
 	queue.cmd_bind_compute_pipeline(m_triangulation_pipeline->m_pipeline);
-	////////////// Already bound
-	//m_descriptor_set.clear();
-	//m_descriptor_set.add_storage_buffer(m_buffer);
-	//m_descriptor_set.bind();
 	queue.cmd_bind_descriptor_set_compute(m_triangulation_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
 
 	for (unsigned i = 0; i < m_num_draw_nodes; ++i)

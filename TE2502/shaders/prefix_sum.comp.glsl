@@ -10,27 +10,18 @@ const uint num_new_points = TRIANGULATE_MAX_NEW_POINTS;
 const uint quadtree_levels = QUADTREE_LEVELS;
 
 // INPUT
-layout(set = 0, binding = 1) buffer point_counts_t
+layout(set = 0, binding = 0) buffer point_counts_t
 {
 	uint counts[];
 } point_counts;
 
-// INPUT/OUPUT
-layout(set = 0, binding = 2) buffer output_data_t
-{
-	vec4 points[];
-} output_data;
-
 layout(push_constant) uniform frame_data_t
 {
-	mat4 ray_march_view;
-	vec4 position;
+	mat4 view;
+	vec4 camera_position;
 	vec2 screen_size;
-	uvec2 sample_counts;
-	vec2 sample_offset;
-	uint dir_count;
-	uint power2_dir_count;
-	float em_threshold;
+	float threshold;
+	uint32_t node_index;
 } frame_data;
 
 // OUTPUT
@@ -68,7 +59,7 @@ struct terrain_data_t
 const uint num_quadtree_nodes = (1 << quadtree_levels) * (1 << quadtree_levels);
 const uint aligned_quadtree_index_num = (num_quadtree_nodes + 4) + (16 - ((num_quadtree_nodes + 4) % 16));
 
-coherent layout(set = 0, binding = 3) buffer terrain_buffer_t
+coherent layout(set = 0, binding = 1) buffer terrain_buffer_t
 {
 	uint quadtree_index_map[aligned_quadtree_index_num - 4];
 	vec2 quadtree_min;

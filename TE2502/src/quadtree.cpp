@@ -226,13 +226,15 @@ void Quadtree::draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer&
 	queue.cmd_end_render_pass();
 }
 
-void Quadtree::process_triangles(GraphicsQueue& queue, Camera& camera, Window& window, float em_threshold)
+void Quadtree::process_triangles(GraphicsQueue& queue, Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier)
 {
-	m_triangle_processing_frame_data.view = camera.get_view();
+	m_triangle_processing_frame_data.vp = camera.get_vp();
 	m_triangle_processing_frame_data.camera_position = glm::vec4(camera.get_pos(), 0);
 
 	m_triangle_processing_frame_data.screen_size = window.get_size();
 	m_triangle_processing_frame_data.em_threshold = em_threshold;
+	m_triangle_processing_frame_data.area_multiplier = area_multiplier;
+	m_triangle_processing_frame_data.curvature_multiplier = curvature_multiplier;
 
 	m_triangle_processing_set.clear();
 	m_triangle_processing_set.add_storage_buffer(get_buffer());

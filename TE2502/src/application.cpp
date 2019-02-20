@@ -398,7 +398,7 @@ void Application::draw_main()
 	// Fritjof stuff
 	if (ImGui::Button("Set"))
 	{
-		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold);
+		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold, m_em_area_multiplier, m_em_curvature_multiplier);
 
 		m_quadtree.triangulate(m_main_queue, m_main_camera->get_pos());
 

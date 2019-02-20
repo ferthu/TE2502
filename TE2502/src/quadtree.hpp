@@ -43,7 +43,7 @@ public:
 	void draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool wireframe);
 
 	// Adds new vertices to terrain buffer when needed
-	void process_triangles(GraphicsQueue& queue, Camera& camera, Window& window, float em_threshold);
+	void process_triangles(GraphicsQueue& queue, Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);
 
 	// Performs frustum culling and draws/generates visible terrain to error metric image
 	void draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool draw_to_screen, float area_multiplier, float curvature_multiplier, bool wireframe);
@@ -91,10 +91,12 @@ private:
 
 	struct TriangleProcessingFrameData
 	{
-		glm::mat4 view;
+		glm::mat4 vp;
 		glm::vec4 camera_position;
 		glm::vec2 screen_size;
 		float em_threshold;
+		float area_multiplier;
+		float curvature_multiplier;
 		uint32_t node_index;
 	};
 

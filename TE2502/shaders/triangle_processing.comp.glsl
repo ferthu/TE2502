@@ -6,10 +6,12 @@ layout(local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 // INPUT
 layout(push_constant) uniform frame_data_t
 {
-	mat4 view;
+	mat4 vp;
 	vec4 camera_position;
 	vec2 screen_size;
 	float threshold;
+	float area_multiplier;
+	float curvature_multiplier;
 	uint node_index;
 } frame_data;
 
@@ -129,6 +131,65 @@ float binary_subdivision(in vec3 rO, in vec3 rD, in vec2 t, in int divisions)
 
 //////////
 
+// Returns true if p is valid NDC
+bool clip(in vec4 p)
+{
+	return (abs(p.x) <= p.w &&
+			abs(p.y) <= p.w &&
+			abs(p.z) <= p.w);
+}
+
+float curvature(in vec3 p)
+{
+	const float pi = 3.1415;
+
+	float camera_distance = distance(p, frame_data.camera_position.xyz);
+
+	float sample_step = 5.5 + pow(camera_distance * 0.5, 0.6);
+	const float gaussian_width = 1.0;
+	const int filter_radius = 2;	// Side length of grid is filter_radius * 2 + 1
+	const int filter_side = filter_radius * 2 + 1;
+	float log_filter[filter_side * filter_side];
+
+	/////////////////////////////////////////
+	float sum = 0.0;
+
+	for (int x = -filter_radius; x <= filter_radius; x++)
+	{
+		for (int y = -filter_radius; y <= filter_radius; y++)
+		{
+			// https://homepages.inf.ed.ac.uk/rbf/HIPR2/log.htm
+			float t = -((x * x + y * y) / (2.0 * gaussian_width * gaussian_width));
+			float log = -(1 / (pi * pow(gaussian_width, 4.0))) * (1.0 + t) * exp(t);
+
+			log_filter[(y + filter_radius) * filter_side + (x + filter_radius)] = log;
+			sum += log;
+		}
+	}
+
+	// Normalize filter
+	float correction = 1.0 / sum;
+	for (uint i = 0; i < filter_side * filter_side; i++)
+	{
+		log_filter[i] *= correction;
+	}
+
+	float curvature = 0.0;
+
+	for (int x = -filter_radius; x <= filter_radius; x++)
+	{
+		for (int y = -filter_radius; y <= filter_radius; y++)
+		{
+			curvature += terrain(p.xz + vec2(sample_step * x, sample_step * y)) * log_filter[(y + filter_radius) * filter_side + (x + filter_radius)];
+		}
+	}
+
+	// Normalize for height
+	curvature -= terrain(p.xz);
+
+	return curvature;
+}
+
 const uint max_new_points = TRIANGULATE_MAX_NEW_POINTS / WORK_GROUP_SIZE;
 vec2 new_points[max_new_points];
 uint new_point_count = 0;
@@ -137,5 +198,45 @@ shared uint s_total;
 
 void main(void)
 {
-	
+	const uint thid = gl_GlobalInvocationID.x;
+	const uint node_index = frame_data.node_index;
+	const uint index_count = terrain_buffer.data[node_index].index_count;
+
+	// For every triangle
+	for (uint i = thid * 3; i + 2 < index_count && new_point_count < max_new_points; i += WORK_GROUP_SIZE)
+	{
+		// Get vertices
+		vec4 v0 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i    ]];
+		vec4 v1 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i + 1]];
+		vec4 v2 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i + 2]];
+
+		// Get clipspace coordinates
+		vec4 c0 = frame_data.vp * v0;
+		vec4 c1 = frame_data.vp * v1;
+		vec4 c2 = frame_data.vp * v2;
+
+		// Check if any vertex is visible (shitty clipping)
+		if (!(clip(c0) && clip(c1) && clip(c2)))
+		{
+			// Calculate screen space area
+
+			// a, b, c is triangle side lengths
+			float a = distance(c0.xy, c1.xy);
+			float b = distance(c0.xy, c2.xy);
+			float c = distance(c1.xy, c2.xy);
+
+			// s is semiperimeter
+			float s = (a + b + c) * 0.5;
+
+			float area = /*sqrt*/(s * (s - a) * (s - b) * (s - c));
+
+			vec3 mid = (v0.xyz + v1.xyz + v2.xyz) / 3.0;
+			float curv = curvature(mid);
+
+			if (frame_data.threshold < curv * frame_data.curvature_multiplier * area * frame_data.area_multiplier)
+			{
+				new_points[new_point_count++] = mid.xz;
+			}
+		}
+	}
 }

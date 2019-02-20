@@ -10,7 +10,7 @@ layout(push_constant) uniform frame_data_t
 	vec4 camera_position;
 	vec2 screen_size;
 	float threshold;
-	uint32_t node_index;
+	uint node_index;
 } frame_data;
 
 const uint num_indices = TERRAIN_GENERATE_NUM_INDICES;

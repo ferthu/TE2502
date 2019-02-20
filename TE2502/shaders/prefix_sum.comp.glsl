@@ -21,7 +21,7 @@ layout(push_constant) uniform frame_data_t
 	vec4 camera_position;
 	vec2 screen_size;
 	float threshold;
-	uint32_t node_index;
+	uint node_index;
 } frame_data;
 
 // OUTPUT
@@ -80,182 +80,182 @@ shared uint s_total;
 
 void main(void)
 {
-	const uint thid = gl_GlobalInvocationID.x;
-	const uint n = frame_data.dir_count;
-	const uint m = frame_data.power2_dir_count;
+	//const uint thid = gl_GlobalInvocationID.x;
+	//const uint n = frame_data.dir_count;
+	//const uint m = frame_data.power2_dir_count;
 
-	if (thid * 2 >= m)
-		return;
+	//if (thid * 2 >= m)
+	//	return;
 
-	//// PREFIX SUM
+	////// PREFIX SUM
 
-	int offset = 1;
+	//int offset = 1;
 
-	{
-		//uint ai = thid;
-		//uint bi = thid + (n / 2);
-		//uint bankOffsetA = CONFLICT_FREE_OFFSET(ai);
-		//uint bankOffsetB = CONFLICT_FREE_OFFSET(bi);
-		//s_count[ai + bankOffsetA] = point_counts.counts[ai];
-		//s_count[bi + bankOffsetB] = point_counts.counts[bi];
+	//{
+	//	//uint ai = thid;
+	//	//uint bi = thid + (n / 2);
+	//	//uint bankOffsetA = CONFLICT_FREE_OFFSET(ai);
+	//	//uint bankOffsetB = CONFLICT_FREE_OFFSET(bi);
+	//	//s_count[ai + bankOffsetA] = point_counts.counts[ai];
+	//	//s_count[bi + bankOffsetB] = point_counts.counts[bi];
 
-		//for (int d = n >> 1; d > 0; d >>= 1)  // Build sum in place up the tree
-		//{
-		//	memoryBarrierShared(); 
-		//	barrier();
+	//	//for (int d = n >> 1; d > 0; d >>= 1)  // Build sum in place up the tree
+	//	//{
+	//	//	memoryBarrierShared(); 
+	//	//	barrier();
 
-		//	if (thid < d)
-		//	{
-		//		uint ai = offset * (2 * thid + 1) - 1;
-		//		uint bi = offset * (2 * thid + 2) - 1;
-		//		ai += CONFLICT_FREE_OFFSET(ai);
-		//		bi += CONFLICT_FREE_OFFSET(bi);
+	//	//	if (thid < d)
+	//	//	{
+	//	//		uint ai = offset * (2 * thid + 1) - 1;
+	//	//		uint bi = offset * (2 * thid + 2) - 1;
+	//	//		ai += CONFLICT_FREE_OFFSET(ai);
+	//	//		bi += CONFLICT_FREE_OFFSET(bi);
 
-		//		s_count[bi] += s_count[ai];
-		//	}
-		//	offset *= 2;
-		//}
+	//	//		s_count[bi] += s_count[ai];
+	//	//	}
+	//	//	offset *= 2;
+	//	//}
 
-		//if (thid == 0) { s_count[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = 0; }
+	//	//if (thid == 0) { s_count[n - 1 + CONFLICT_FREE_OFFSET(n - 1)] = 0; }
 
-		//for (int d = 1; d < n; d *= 2)  // Traverse down tree & build scan
-		//{
-		//	offset >>= 1;
-		//	memoryBarrierShared();
-		//	barrier();
-		//	if (thid < d)
-		//	{
-		//		uint ai = offset * (2 * thid + 1) - 1;
-		//		uint bi = offset * (2 * thid + 2) - 1;
-		//		ai += CONFLICT_FREE_OFFSET(ai);
-		//		bi += CONFLICT_FREE_OFFSET(bi);
+	//	//for (int d = 1; d < n; d *= 2)  // Traverse down tree & build scan
+	//	//{
+	//	//	offset >>= 1;
+	//	//	memoryBarrierShared();
+	//	//	barrier();
+	//	//	if (thid < d)
+	//	//	{
+	//	//		uint ai = offset * (2 * thid + 1) - 1;
+	//	//		uint bi = offset * (2 * thid + 2) - 1;
+	//	//		ai += CONFLICT_FREE_OFFSET(ai);
+	//	//		bi += CONFLICT_FREE_OFFSET(bi);
 
-		//		uint t = s_count[ai];
-		//		s_count[ai] = s_count[bi];
-		//		s_count[bi] += t;
-		//	}
-		//}
+	//	//		uint t = s_count[ai];
+	//	//		s_count[ai] = s_count[bi];
+	//	//		s_count[bi] += t;
+	//	//	}
+	//	//}
 
-		//memoryBarrierShared();
-		//barrier();
+	//	//memoryBarrierShared();
+	//	//barrier();
 
-		//point_counts.counts[ai] = s_count[ai + bankOffsetA]; // Optimize!!!
-		//point_counts.counts[bi] = s_count[bi + bankOffsetB]; // Optimize!!!
+	//	//point_counts.counts[ai] = s_count[ai + bankOffsetA]; // Optimize!!!
+	//	//point_counts.counts[bi] = s_count[bi + bankOffsetB]; // Optimize!!!
 
-	}
+	//}
 
-	// Load input into shared memory
-	s_count[thid] = point_counts.counts[thid]; 
-	s_count[m / 2 + thid] = point_counts.counts[m / 2 + thid];
+	//// Load input into shared memory
+	//s_count[thid] = point_counts.counts[thid]; 
+	//s_count[m / 2 + thid] = point_counts.counts[m / 2 + thid];
 
-	barrier();
-	memoryBarrierShared();
+	//barrier();
+	//memoryBarrierShared();
 
-	if (thid == 0)
-		s_total = s_count[n - 1];
-	barrier();
-	memoryBarrierShared();
+	//if (thid == 0)
+	//	s_total = s_count[n - 1];
+	//barrier();
+	//memoryBarrierShared();
 
-	for (uint d = m >> 1; d > 0; d >>= 1) // Build sum in place up the tree
-	{
-		barrier();
-		memoryBarrierShared();
-		if (thid < d)
-		{
-			uint ai = offset * (2 * thid + 1) - 1;
-			uint bi = offset * (2 * thid + 2) - 1;
-			s_count[bi] += s_count[ai];
-		}
-		offset *= 2;
-	}
-	if (thid == 0) { s_count[m - 1] = 0; } // Clear the last element
-	for (int d = 1; d < m; d *= 2) // Traverse down tree & build scan
-	{
-		offset >>= 1;
-		barrier();
-		memoryBarrierShared();
-		if (thid < d)
-		{
-			uint ai = offset * (2 * thid + 1) - 1;
-			uint bi = offset * (2 * thid + 2) - 1;
+	//for (uint d = m >> 1; d > 0; d >>= 1) // Build sum in place up the tree
+	//{
+	//	barrier();
+	//	memoryBarrierShared();
+	//	if (thid < d)
+	//	{
+	//		uint ai = offset * (2 * thid + 1) - 1;
+	//		uint bi = offset * (2 * thid + 2) - 1;
+	//		s_count[bi] += s_count[ai];
+	//	}
+	//	offset *= 2;
+	//}
+	//if (thid == 0) { s_count[m - 1] = 0; } // Clear the last element
+	//for (int d = 1; d < m; d *= 2) // Traverse down tree & build scan
+	//{
+	//	offset >>= 1;
+	//	barrier();
+	//	memoryBarrierShared();
+	//	if (thid < d)
+	//	{
+	//		uint ai = offset * (2 * thid + 1) - 1;
+	//		uint bi = offset * (2 * thid + 2) - 1;
 
-			uint t = s_count[ai];
-			s_count[ai] = s_count[bi];
-			s_count[bi] += t;
-		}
-	}
-	barrier();
-	memoryBarrierShared();
+	//		uint t = s_count[ai];
+	//		s_count[ai] = s_count[bi];
+	//		s_count[bi] += t;
+	//	}
+	//}
+	//barrier();
+	//memoryBarrierShared();
 
-	if (thid * 2 >= n)
-		return;
+	//if (thid * 2 >= n)
+	//	return;
 
-	// Make sure the total is saved as well
-	if (thid == 0)
-	{
-		s_total += s_count[n - 1];
-		s_count[n] = s_total;
-	}
+	//// Make sure the total is saved as well
+	//if (thid == 0)
+	//{
+	//	s_total += s_count[n - 1];
+	//	s_count[n] = s_total;
+	//}
 
-	barrier();
-	memoryBarrierShared();
+	//barrier();
+	//memoryBarrierShared();
 
-	//// WRITE PACKED POINTS TO OUTPUT
+	////// WRITE PACKED POINTS TO OUTPUT
 
-	// Save some points locally
-	uint local_point_count = 0;
-	vec4 local_points[2 * POINTS_PER_DIR];
-	uint count = s_count[thid * 2 + 1] - s_count[thid * 2 + 0];
+	//// Save some points locally
+	//uint local_point_count = 0;
+	//vec4 local_points[2 * POINTS_PER_DIR];
+	//uint count = s_count[thid * 2 + 1] - s_count[thid * 2 + 0];
 
-	for (uint i = 0; i < count; ++i)
-	{
-		local_points[i] = output_data.points[thid * POINTS_PER_DIR * 2 + i];  // Optimize global reads to get memory burst?
-	}
+	//for (uint i = 0; i < count; ++i)
+	//{
+	//	local_points[i] = output_data.points[thid * POINTS_PER_DIR * 2 + i];  // Optimize global reads to get memory burst?
+	//}
 
-	local_point_count = count;
-	count = s_count[thid * 2 + 2] - s_count[thid * 2 + 1];
-	for (uint i = 0; i < count; ++i)
-	{
-		local_points[local_point_count + i] = output_data.points[thid * POINTS_PER_DIR * 2 + POINTS_PER_DIR + i];
-	}
-	local_point_count += count;
+	//local_point_count = count;
+	//count = s_count[thid * 2 + 2] - s_count[thid * 2 + 1];
+	//for (uint i = 0; i < count; ++i)
+	//{
+	//	local_points[local_point_count + i] = output_data.points[thid * POINTS_PER_DIR * 2 + POINTS_PER_DIR + i];
+	//}
+	//local_point_count += count;
 
-	barrier();
-	memoryBarrierShared();
+	//barrier();
+	//memoryBarrierShared();
 
-	// Write points to output storage buffer
-	for (uint i = 0; i < local_point_count; ++i)
-	{
-		output_data.points[s_count[thid * 2] + i] = local_points[i];
-	}
+	//// Write points to output storage buffer
+	//for (uint i = 0; i < local_point_count; ++i)
+	//{
+	//	output_data.points[s_count[thid * 2] + i] = local_points[i];
+	//}
 
-	barrier();
-	memoryBarrierShared();
-	memoryBarrierBuffer();
+	//barrier();
+	//memoryBarrierShared();
+	//memoryBarrierBuffer();
 
-	// Add points to correct node
-	if (thid == 0)
-	{
-		uint i = thid;
-		while (i < s_total)
-		{
-			vec4 pos = output_data.points[i];
-			for (uint a = 0; a < num_nodes; ++a)
-			{
-				vec2 min = terrain_buffer.data[a].min;
-				vec2 max = terrain_buffer.data[a].max;
-				if (pos.x > min.x &&
-					pos.x < max.x &&
-					pos.z > min.y &&
-					pos.z < max.y)
-				{
-					uint index = atomicAdd(terrain_buffer.data[a].new_points_count, 1);  // TODO: Optimize away atomicAdd?
-					terrain_buffer.data[a].new_points[index] = pos;
-					break;
-				}
-			}
+	//// Add points to correct node
+	//if (thid == 0)
+	//{
+	//	uint i = thid;
+	//	while (i < s_total)
+	//	{
+	//		vec4 pos = output_data.points[i];
+	//		for (uint a = 0; a < num_nodes; ++a)
+	//		{
+	//			vec2 min = terrain_buffer.data[a].min;
+	//			vec2 max = terrain_buffer.data[a].max;
+	//			if (pos.x > min.x &&
+	//				pos.x < max.x &&
+	//				pos.z > min.y &&
+	//				pos.z < max.y)
+	//			{
+	//				uint index = atomicAdd(terrain_buffer.data[a].new_points_count, 1);  // TODO: Optimize away atomicAdd?
+	//				terrain_buffer.data[a].new_points[index] = pos;
+	//				break;
+	//			}
+	//		}
 
-			i += 1;
-		}
-	}
+	//		i += 1;
+	//	}
+	//}
 }

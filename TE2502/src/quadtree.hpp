@@ -111,10 +111,8 @@ private:
 		uint32_t pad;
 		glm::vec2 min;
 		glm::vec2 max;
-		uint32_t top_count;
-		uint32_t bottom_count;
-		uint32_t left_count;
-		uint32_t right_count;
+		uint32_t proximity_count[4];
+		uint32_t border_level[4];
 	};
 	struct Triangle
 	{

@@ -55,7 +55,7 @@ struct terrain_data_t
 const uint num_quadtree_nodes = (1 << quadtree_levels) * (1 << quadtree_levels);
 const uint aligned_quadtree_index_num = (num_quadtree_nodes + 4) + (16 - ((num_quadtree_nodes + 4) % 16));
 
-layout(set = 0, binding = 0) buffer terrain_buffer_t
+coherent layout(set = 0, binding = 0) buffer terrain_buffer_t
 {
 	uint quadtree_index_map[aligned_quadtree_index_num - 4];
 	vec2 quadtree_min;
@@ -190,10 +190,9 @@ float curvature(in vec3 p)
 	return curvature;
 }
 
-const uint max_new_points = TRIANGULATE_MAX_NEW_POINTS / WORK_GROUP_SIZE;
+const uint max_new_points = TRIANGULATE_MAX_NEW_POINTS / WORK_GROUP_SIZE + 1;
 vec2 new_points[max_new_points];
-uint new_point_count = 0;
-shared uint s_counts[WORK_GROUP_SIZE / 2 + 2];
+shared uint s_counts[WORK_GROUP_SIZE];
 shared uint s_total;
 
 void main(void)
@@ -202,8 +201,10 @@ void main(void)
 	const uint node_index = frame_data.node_index;
 	const uint index_count = terrain_buffer.data[node_index].index_count;
 
+	uint new_point_count = 0;
+
 	// For every triangle
-	for (uint i = thid * 3; i + 2 < index_count && new_point_count < max_new_points; i += WORK_GROUP_SIZE)
+	for (uint i = thid * 3; i + 3 <= index_count && new_point_count < max_new_points; i += WORK_GROUP_SIZE * 3)
 	{
 		// Get vertices
 		vec4 v0 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i    ]];
@@ -233,10 +234,93 @@ void main(void)
 			vec3 mid = (v0.xyz + v1.xyz + v2.xyz) / 3.0;
 			float curv = curvature(mid);
 
-			if (frame_data.threshold < curv * frame_data.curvature_multiplier * area * frame_data.area_multiplier)
+			//if (frame_data.threshold < curv * frame_data.curvature_multiplier * area * frame_data.area_multiplier)
 			{
-				new_points[new_point_count++] = mid.xz;
+				new_points[new_point_count] = mid.xz;
+				++new_point_count;
 			}
 		}
+	}
+
+
+
+
+
+
+
+
+
+
+
+	////// PREFIX SUM
+
+	const uint n = WORK_GROUP_SIZE;
+	const uint m = WORK_GROUP_SIZE;  // TODO: Remove m
+	int offset = 1;
+
+	// Load into shared memory
+	s_counts[thid] = new_point_count;
+
+	barrier();
+	memoryBarrierShared();
+
+	if (thid == 0)
+		s_total = s_counts[n - 1];
+
+	barrier();
+	memoryBarrierShared();
+
+	for (uint d = m >> 1; d > 0; d >>= 1) // Build sum in place up the tree
+	{
+		barrier();
+		memoryBarrierShared();
+		if (thid < d)
+		{
+			uint ai = offset * (2 * thid + 1) - 1;
+			uint bi = offset * (2 * thid + 2) - 1;
+			s_counts[bi] += s_counts[ai];
+		}
+		offset *= 2;
+	}
+	if (thid == 0) { s_counts[m - 1] = 0; } // Clear the last element
+
+
+	for (int d = 1; d < m; d *= 2) // Traverse down tree & build scan
+	{
+		offset >>= 1;
+		barrier();
+		memoryBarrierShared();
+		if (thid < d)
+		{
+			uint ai = offset * (2 * thid + 1) - 1;
+			uint bi = offset * (2 * thid + 2) - 1;
+
+			uint t = s_counts[ai];
+			s_counts[ai] = s_counts[bi];
+			s_counts[bi] += t;
+		}
+	}
+	barrier();
+	memoryBarrierShared();
+
+	// Make sure the total is saved as well
+	if (thid == 0)
+	{
+		s_total += s_counts[n - 1];
+		terrain_buffer.data[node_index].new_points_count = s_total;
+	}
+
+	//terrain_buffer.data[node_index].new_points[thid] = vec4(s_counts[thid]);
+	//return;
+
+	//barrier();
+	//memoryBarrierShared();
+
+	// Write points to output storage buffer
+	const uint base_offset = s_counts[thid];
+	for (uint i = 0; i < new_point_count; ++i)
+	{
+		//output_data.points[base_offset + i] = new_points[i];
+		terrain_buffer.data[node_index].new_points[base_offset + i] = vec4(new_points[i].x, -terrain(new_points[i].xy), new_points[i].y, 1.0);
 	}
 }

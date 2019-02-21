@@ -115,7 +115,7 @@ private:
 	// Error metric parameters
 	float m_em_area_multiplier = 0.01f;
 	float m_em_curvature_multiplier = 0.01f;
-	float m_em_threshold = 0.5f;
+	float m_em_threshold = 0.8f;
 
 	// Group size of error metric dispatch
 	uint32_t m_em_group_size = 0;

@@ -205,7 +205,7 @@ void main(void)
 
 			float dx = current_point.x - circumcentre.x;
 			float dy = current_point.z - circumcentre.y;
-			if (sqrt(dx * dx + dy * dy) < circumradius)
+			if ((dx * dx + dy * dy) < circumradius)
 			{
 				// Add triangle edges to edge buffer
 				uint tr = atomicAdd(s_triangles_removed, 1);

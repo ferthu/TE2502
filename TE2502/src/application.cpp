@@ -307,9 +307,7 @@ void Application::update(const float dt)
 		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.001f, 0.0001f, 0.05f);
 		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.0001f, 0.5f);
 		if (ImGui::Button("Clear Terrain"))
-		{
 			m_quadtree.clear_terrain();
-		}
 		ImGui::End();
 	}
 }

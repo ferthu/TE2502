@@ -217,9 +217,13 @@ void main(void)
 		vec4 c2 = frame_data.vp * v2;
 
 		// Check if any vertex is visible (shitty clipping)
-		if (!(clip(c0) && clip(c1) && clip(c2)))
+		if (clip(c0) || clip(c1) || clip(c2))
 		{
 			// Calculate screen space area
+
+			c0 /= c0.w;
+			c1 /= c1.w;
+			c2 /= c2.w;
 
 			// a, b, c is triangle side lengths
 			float a = distance(c0.xy, c1.xy);

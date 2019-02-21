@@ -307,7 +307,7 @@ void Application::update(const float dt)
 		ImGui::Checkbox("Draw Ray Marched View", &m_draw_ray_march);
 		ImGui::Checkbox("Wireframe", &m_draw_wireframe);
 		ImGui::Checkbox("Refine", &m_triangulate);
-		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.01f, 0.0f, 3.0f);
+		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.0f, 0.0f, 3.0f);
 		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.01f, 0.0f, 3.0f);
 		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.1f, 10.0f);
 		if (ImGui::Button("Clear Terrain"))

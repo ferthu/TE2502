@@ -187,7 +187,7 @@ float curvature(in vec3 p)
 	// Normalize for height
 	curvature -= terrain(p.xz);
 
-	return curvature;
+	return abs(curvature);
 }
 
 const uint max_new_points = TRIANGULATE_MAX_NEW_POINTS / WORK_GROUP_SIZE + 1;
@@ -233,12 +233,12 @@ void main(void)
 			// s is semiperimeter
 			float s = (a + b + c) * 0.5;
 
-			float area = /*sqrt*/(s * (s - a) * (s - b) * (s - c));
+			float area = /*sqrt*/(s * (s - a) * (s - b) * (s - c)) * frame_data.area_multiplier;
 
 			vec3 mid = (v0.xyz + v1.xyz + v2.xyz) / 3.0;
-			float curv = curvature(mid);
+			float curv = curvature(mid) * frame_data.curvature_multiplier;
 
-			//if (frame_data.threshold < curv * frame_data.curvature_multiplier * area * frame_data.area_multiplier)
+			if (curv * area >= frame_data.threshold)
 			{
 				new_points[new_point_count] = mid.xz;
 				++new_point_count;

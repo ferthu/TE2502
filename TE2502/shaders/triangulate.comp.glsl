@@ -169,7 +169,7 @@ void main(void)
 	memoryBarrierShared();
 
 	const uint new_points_count = terrain_buffer.data[node_index].new_points_count;
-	for (uint n = 0; n < new_points_count && s_index_count + 60 < num_indices && s_vertex_count < num_vertices; ++n)
+	for (uint n = 0; n < new_points_count && s_index_count + 6000 < num_indices && s_vertex_count < num_vertices; ++n)
 	{
 		vec4 current_point = terrain_buffer.data[node_index].new_points[n];
 

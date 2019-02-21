@@ -77,66 +77,7 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 	// Point generation
 	m_em_group_size = m_tfile.get_u32("ERROR_METRIC_GROUP_SIZE");
 
-	// Compute
-	m_point_gen_buffer_set_layout_compute = DescriptorSetLayout(m_vulkan_context);
-	m_point_gen_buffer_set_layout_compute.add_storage_image(VK_SHADER_STAGE_COMPUTE_BIT);
-	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
-	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
-	m_point_gen_buffer_set_layout_compute.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
-	m_point_gen_buffer_set_layout_compute.create();
-
-	m_point_gen_buffer_set_compute = DescriptorSet(m_vulkan_context, m_point_gen_buffer_set_layout_compute);
-
-	m_point_gen_pipeline_layout_compute = PipelineLayout(m_vulkan_context);
-	m_point_gen_pipeline_layout_compute.add_descriptor_set_layout(m_point_gen_buffer_set_layout_compute);
-	{
-		// Set up push constant range for frame data
-		VkPushConstantRange push_range;
-		push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT;
-		push_range.offset = 0;
-		push_range.size = sizeof(PointGenerationFrameData);
-
-		m_point_gen_pipeline_layout_compute.create(&push_range);
-	}
-
-	// Graphics
-	m_point_gen_buffer_set_layout_graphics = DescriptorSetLayout(m_vulkan_context);
-	m_point_gen_buffer_set_layout_graphics.add_uniform_buffer(VK_SHADER_STAGE_VERTEX_BIT);
-	m_point_gen_buffer_set_layout_graphics.create();
-
-	m_point_gen_buffer_set_graphics = DescriptorSet(m_vulkan_context, m_point_gen_buffer_set_layout_graphics);
-
-	m_point_gen_pipeline_layout_graphics = PipelineLayout(m_vulkan_context);
-	m_point_gen_pipeline_layout_graphics.add_descriptor_set_layout(m_point_gen_buffer_set_layout_graphics);
-	{
-		// Set up push constant range for frame data
-		VkPushConstantRange push_range;
-		push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT;
-		push_range.offset = 0;
-		push_range.size = sizeof(PointGenerationFrameData);
-
-		m_point_gen_pipeline_layout_graphics.create(&push_range);
-	}
-
-
-	m_point_gen_render_pass = RenderPass(m_vulkan_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, false, 
-		true, false, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-
-	const unsigned int max_rays_per_frame = 10000;
-	const unsigned int max_points_per_ray = 5;
-	VkDeviceSize point_counts = sizeof(uint32_t) * (max_rays_per_frame + 1);
-	VkDeviceSize points_found = sizeof(glm::vec4) * max_rays_per_frame * max_points_per_ray;
-	m_point_gen_gpu_memory = m_vulkan_context.allocate_device_memory(point_counts + points_found + 2000);
-
-	m_point_gen_point_counts_buffer = GPUBuffer(m_vulkan_context, point_counts, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, m_point_gen_gpu_memory);
-	m_point_gen_output_buffer = GPUBuffer(m_vulkan_context, points_found, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_point_gen_gpu_memory);
-
 	m_main_queue = m_vulkan_context.create_graphics_queue();
-
-	int p = 2;
-	for (; static_cast<unsigned int>(powf(2, p)) < m_em_num_samples.x * m_em_num_samples.y; ++p) {}
-	m_point_gen_power2_dirs_sent = static_cast<unsigned int>(powf(2, p));
 
 	glfwSetKeyCallback(m_window->get_glfw_window(), key_callback);
 
@@ -310,6 +251,9 @@ void Application::run()
 		else if (f5_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F5) == GLFW_RELEASE)
 			f5_pressed = false;
 
+		// Refinement button
+		m_triangulate_button_held = glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_R) == GLFW_PRESS;
+
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame(!m_window->get_mouse_locked() && m_show_imgui);
 		ImGui_ImplGlfw_SetHandleCallbacks(!m_window->get_mouse_locked() && m_show_imgui);
@@ -334,25 +278,6 @@ void Application::run()
 void Application::update(const float dt)
 {
 	m_current_camera->update(dt, m_window->get_mouse_locked(), m_debug_drawer);
-
-	m_em_offset_x += dt * 3.0f;
-	while (m_em_offset_x > 1.0f)
-		m_em_offset_x -= 1.0f;
-
-	m_em_offset_y += dt * 11.0f;
-	while (m_em_offset_y > 1.0f)
-		m_em_offset_y -= 1.0f;
-
-	m_point_gen_frame_data.ray_march_view = m_main_camera->get_ray_march_view();
-	m_point_gen_frame_data.position = glm::vec4(m_main_camera->get_pos(), 0);
-
-	m_point_gen_dirs_sent = m_em_num_samples.x * m_em_num_samples.y;
-	m_point_gen_frame_data.dir_count = m_point_gen_dirs_sent; 
-	m_point_gen_frame_data.power2_dir_count = m_point_gen_power2_dirs_sent;
-	m_point_gen_frame_data.screen_size = m_window->get_size();
-	m_point_gen_frame_data.sample_offset = glm::vec2(m_em_offset_x, m_em_offset_y);
-	m_point_gen_frame_data.sample_counts = m_em_num_samples;
-	m_point_gen_frame_data.em_threshold = m_em_threshold;
 
 #ifdef RAY_MARCH_WINDOW
 	m_ray_march_frame_data.view = m_current_camera->get_ray_march_view();
@@ -381,13 +306,12 @@ void Application::update(const float dt)
 		ImGui::Text(text.c_str());
 		ImGui::Checkbox("Draw Ray Marched View", &m_draw_ray_march);
 		ImGui::Checkbox("Wireframe", &m_draw_wireframe);
-		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.00001f, 0.0001f, 0.02f);
-		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.001f, 0.0001f, 0.05f);
-		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.0001f, 0.5f);
+		ImGui::Checkbox("Refine", &m_triangulate);
+		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.01f, 0.0f, 3.0f);
+		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.01f, 0.0f, 3.0f);
+		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.1f, 10.0f);
 		if (ImGui::Button("Clear Terrain"))
-		{
 			m_quadtree.clear_terrain();
-		}
 		ImGui::End();
 	}
 }
@@ -474,100 +398,9 @@ void Application::draw_main()
 	ImGui::Begin("Triangulate");
 
 	// Fritjof stuff
-	if (ImGui::Button("Set"))
+	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held)
 	{
-		m_quadtree.draw_error_metric(
-			m_main_queue,
-			fr,
-			m_debug_drawer,
-			m_window_states.swapchain_framebuffers[index],
-			*m_main_camera,
-			false,
-			m_em_area_multiplier,
-			m_em_curvature_multiplier,
-			!m_draw_wireframe);
-
-		m_main_queue.cmd_image_barrier(
-			m_quadtree.get_em_depth_image().get_image(),
-			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
-			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
-			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_ASPECT_DEPTH_BIT,
-			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
-
-		m_point_gen_buffer_set_compute.clear();
-		m_point_gen_buffer_set_compute.add_storage_image(m_quadtree.get_em_image_view(), VK_IMAGE_LAYOUT_GENERAL);
-		m_point_gen_buffer_set_compute.add_storage_buffer(m_point_gen_point_counts_buffer);
-		m_point_gen_buffer_set_compute.add_storage_buffer(m_point_gen_output_buffer);
-		m_point_gen_buffer_set_compute.add_storage_buffer(m_quadtree.get_buffer());
-		m_point_gen_buffer_set_compute.bind();
-
-
-		// Bind pipeline
-		m_main_queue.cmd_bind_compute_pipeline(m_point_gen_compute_pipeline->m_pipeline);
-
-		// Bind descriptor set
-		m_main_queue.cmd_bind_descriptor_set_compute(m_point_gen_compute_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_point_gen_buffer_set_compute.get_descriptor_set());
-
-		// Push frame data
-		m_main_queue.cmd_push_constants(m_point_gen_pipeline_layout_compute.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT, sizeof(PointGenerationFrameData), &m_point_gen_frame_data);
-
-		// Memory barrier for error metric image
-		m_main_queue.cmd_image_barrier(
-			m_quadtree.get_em_image().get_image(),
-			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-
-		// Dispatch point generation/gathering
-		m_main_queue.cmd_dispatch(m_point_gen_power2_dirs_sent / m_em_group_size + 1, 1, 1);
-
-		// Memory barrier for error metric image
-		m_main_queue.cmd_image_barrier(
-			m_quadtree.get_em_image().get_image(),
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-		m_main_queue.cmd_buffer_barrier(m_point_gen_point_counts_buffer.get_buffer(),
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-
-		m_main_queue.cmd_buffer_barrier(m_point_gen_output_buffer.get_buffer(),
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-
-		m_main_queue.cmd_bind_compute_pipeline(m_point_gen_prefix_sum_pipeline->m_pipeline);
-
-		// Dispatch prefix sum
-		m_main_queue.cmd_dispatch(1, 1, 1);
-
-		// Memory barrier for GPU buffer
-		m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
-			VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-			VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-
-		m_main_queue.cmd_buffer_barrier(m_point_gen_output_buffer.get_buffer(),
-			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT |	VK_ACCESS_INDEX_READ_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
+		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold, m_em_area_multiplier, m_em_curvature_multiplier);
 
 		m_quadtree.triangulate(m_main_queue, m_main_camera->get_pos());
 
@@ -576,16 +409,14 @@ void Application::draw_main()
 			VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
-
-		// end of RENDER------------------
 	}
 	ImGui::End();
 
 	// Do debug drawing
 	{
-		m_debug_drawer.draw_line({ 0,0,0 }, { 1, 0, 0 }, { 1, 0, 0 });
-		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 1, 0 }, { 0, 1, 0 });
-		m_debug_drawer.draw_line({ 0,0,0 }, { 0, 0, 1 }, { 0, 0, 1 });
+		m_debug_drawer.draw_line({ 0, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 });
+		m_debug_drawer.draw_line({ 0, 0, 0 }, { 0, 1, 0 }, { 0, 1, 0 });
+		m_debug_drawer.draw_line({ 0, 0, 0 }, { 0, 0, 1 }, { 0, 0, 1 });
 
 		if (m_current_camera != m_main_camera)
 		{
@@ -951,32 +782,12 @@ void Application::create_pipelines()
 #ifdef RAY_MARCH_WINDOW
 	m_ray_march_compute_pipeline = m_vulkan_context.create_compute_pipeline("terrain", m_ray_march_pipeline_layout, nullptr);
 #endif
-	VertexAttributes vertex_attributes;
-	vertex_attributes.add_buffer();
-	vertex_attributes.add_attribute(4);
-	m_point_gen_graphics_pipeline = m_vulkan_context.create_graphics_pipeline(
-		"point_generation",
-		m_window->get_size(),
-		m_point_gen_pipeline_layout_graphics,
-		vertex_attributes,
-		m_point_gen_render_pass,
-		true,
-		false,
-		nullptr,
-		nullptr,
-		VK_PRIMITIVE_TOPOLOGY_POINT_LIST);
 
 	VertexAttributes debug_attributes;
 	debug_attributes.add_buffer();
 	debug_attributes.add_attribute(3);
 	debug_attributes.add_attribute(3);
 	m_debug_pipeline = m_vulkan_context.create_graphics_pipeline("debug", m_window->get_size(), m_debug_pipeline_layout, debug_attributes, m_debug_render_pass, true, false, nullptr, nullptr, VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
-
-
-	m_point_gen_compute_pipeline = m_vulkan_context.create_compute_pipeline("point_generation", m_point_gen_pipeline_layout_compute, nullptr);
-
-	// Prefix sum
-	m_point_gen_prefix_sum_pipeline = m_vulkan_context.create_compute_pipeline("prefix_sum", m_point_gen_pipeline_layout_compute, nullptr);
 
 	m_quadtree.create_pipelines(*m_window);
 }

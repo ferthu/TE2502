@@ -129,7 +129,6 @@ struct Edge
 	uint p2;
 };
 
-shared uint s_edge_count;
 shared Edge s_edges[200 * 3];
 
 #define INDICES_TO_STORE 150
@@ -157,12 +156,12 @@ void main(void)
 		return;
 
 	const uint thid = gl_GlobalInvocationID.x;
+	bool finish = false;
 
 	// Set shared variables
 	if (thid == 0)
 	{
-		s_edge_count = 0;
-	  s_index_count = terrain_buffer.data[node_index].index_count;
+		s_index_count = terrain_buffer.data[node_index].index_count;
 		s_triangle_count = s_index_count / 3;
 		s_triangles_removed = 0;
 		s_vertex_count = terrain_buffer.data[node_index].vertex_count;
@@ -171,33 +170,12 @@ void main(void)
 	memoryBarrierShared();
 
 	const uint new_points_count = terrain_buffer.data[node_index].new_points_count;
-	for (uint n = 0; n < new_points_count; ++n)
+	for (uint n = 0; n < new_points_count && s_vertex_count < num_vertices && !finish; ++n)
 	{
 		vec4 current_point = terrain_buffer.data[node_index].new_points[n];
 
-
-		// Load last few indices from buffer to shared memory
-		uint i = thid;
-		//while (i < INDICES_TO_STORE)  // TODO: Replace with if-statement instead of while-loop
-		//{
-		//	s_last_indices[i] = terrain_buffer.data[node_index].indices[s_index_count - INDICES_TO_STORE + i];
-		//	i += WORK_GROUP_SIZE;
-		//}
-
-		//// Load last few circumcircles from buffer to shared memory
-		//i = thid;
-		//while (i < TRIANGLES_TO_STORE)  // TODO: Replace with if-statement instead of while-loop
-		//{
-		//	s_last_circumcentres[i] = terrain_buffer.data[node_index].triangles[s_triangle_count - TRIANGLES_TO_STORE + i].circumcentre;
-		//	s_last_circumradii[i] = terrain_buffer.data[node_index].triangles[s_triangle_count - TRIANGLES_TO_STORE + i].circumradius;
-		//	i += WORK_GROUP_SIZE;
-		//}
-
-		//barrier();
-		//memoryBarrierShared();
-
 		// Check distance from circumcircles to new point
-		i = thid;
+		uint i = thid;
 		while (i < s_triangle_count)
 		{
 			vec2 circumcentre = terrain_buffer.data[node_index].triangles[i].circumcentre;
@@ -205,7 +183,7 @@ void main(void)
 
 			float dx = current_point.x - circumcentre.x;
 			float dy = current_point.z - circumcentre.y;
-			if (sqrt(dx * dx + dy * dy) < circumradius)
+			if (dx * dx + dy * dy < circumradius)
 			{
 				// Add triangle edges to edge buffer
 				uint tr = atomicAdd(s_triangles_removed, 1);
@@ -230,37 +208,48 @@ void main(void)
 
 			i += WORK_GROUP_SIZE;
 		}
-		s_edge_count = s_triangles_removed * 3;  // TODO: Remove s_edge_count variable
+		barrier();
+		memoryBarrierShared();
+
+		if (s_index_count + (s_triangles_removed + 2) * 3 >= num_indices)
+		{
+			finish = true;
+			break;
+		}
+
+		// Delete all doubly specified edges from edge buffer (this leaves the edges of the enclosing polygon only)
+		const uint edge_count = s_triangles_removed * 3;
+		i = thid;
+		while (i < edge_count)
+		{
+			bool found = false;
+			for (uint j = 0; j < edge_count; ++j)
+			{
+				if (i != j && 
+					s_edges[i].p1 == s_edges[j].p1 && 
+					s_edges[i].p2 == s_edges[j].p2)
+				{
+					// Mark as invalid
+					s_edges[j].p1 = INVALID;
+					found = true;
+				}
+			}
+			if (found)
+				s_edges[i].p1 = INVALID;
+			i += WORK_GROUP_SIZE;
+		}
+
 		barrier();
 		memoryBarrierShared();
 
 		if (thid == 0)
 		{
-			// Delete all doubly specified edges from edge buffer (this leaves the edges of the enclosing polygon only)
-			for (uint i = 0; i < s_edge_count; ++i)  // TODO: Optimize by splitting out to multiple threads
-			{
-				bool found = false;
-				for (uint j = 0; j < s_edge_count; ++j)
-				{
-					if (i != j && 
-						s_edges[i].p1 == s_edges[j].p1 && 
-						s_edges[i].p2 == s_edges[j].p2)
-					{
-						// Mark as invalid
-						s_edges[j].p1 = INVALID;
-						found = true;
-					}
-				}
-				if (found)
-					s_edges[i].p1 = INVALID;
-			}
-
 			uint old_index_count = s_index_count;
 			uint old_triangle_count = s_triangle_count;
 			bool all_valid = true;
 
 			// Add to the triangle list all triangles formed between the point and the edges of the enclosing polygon
-			for (uint i = 0; i < s_edge_count; ++i)
+			for (uint i = 0; i < edge_count; ++i)
 			{
 				if (s_edges[i].p1 != INVALID)
 				{
@@ -308,22 +297,6 @@ void main(void)
 			// Remove old triangles
 			if (all_valid)
 			{
-				// Remove triangles from triangle list
-				//uint last_valid_triangle = 0;
-				//for (int j = int(s_triangles_removed) - 1; j >= 0; --j)
-				//{
-				//	uint index = s_triangles_to_remove[j];
-				//	if (index < s_triangle_count - last_valid_triangle - 1)
-				//	{
-				//		terrain_buffer.data[node_index].indices[index * 3 + 0] = s_last_indices[last_valid_triangle * 3 + 0];
-				//		terrain_buffer.data[node_index].indices[index * 3 + 1] = s_last_indices[last_valid_triangle * 3 + 1];
-				//		terrain_buffer.data[node_index].indices[index * 3 + 2] = s_last_indices[last_valid_triangle * 3 + 2];
-				//		terrain_buffer.data[node_index].triangles[index].circumcentre = s_last_circumcentres[last_valid_triangle];
-				//		terrain_buffer.data[node_index].triangles[index].circumradius = s_last_circumradii[last_valid_triangle];
-				//	}
-				//	++last_valid_triangle;
-				//}
-
 				uint last_valid_triangle = s_triangle_count - 1;
 				for (int j = int(s_triangles_removed) - 1; j >= 0; --j)
 				{
@@ -351,9 +324,6 @@ void main(void)
 				s_index_count = old_index_count;
 				s_triangle_count = old_triangle_count;
 			}
-
-			// Reset found edge count
-			s_edge_count = 0;
 
 			s_triangles_removed = 0;
 		}

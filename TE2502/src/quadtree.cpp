@@ -112,6 +112,24 @@ Quadtree::Quadtree(
 	push.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	m_triangulation_pipeline_layout.create(&push);
 
+	// Terrain processing
+	m_triangle_processing_layout = DescriptorSetLayout(context);
+	m_triangle_processing_layout.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	m_triangle_processing_layout.create();
+
+	m_triangle_processing_set = DescriptorSet(context, m_triangle_processing_layout);
+
+	m_triangle_processing_pipeline_layout = PipelineLayout(context);
+	m_triangle_processing_pipeline_layout.add_descriptor_set_layout(m_triangle_processing_layout);
+	{
+		// Set up push constant range for frame data
+		VkPushConstantRange push_range;
+		push_range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT;
+		push_range.offset = 0;
+		push_range.size = sizeof(TriangleProcessingFrameData);
+
+		m_triangle_processing_pipeline_layout.create(&push_range);
+	}
 
 	error_metric_setup(window, queue);
 	create_pipelines(window);
@@ -206,6 +224,64 @@ void Quadtree::draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer&
 
 	// End renderpass
 	queue.cmd_end_render_pass();
+}
+
+void Quadtree::process_triangles(GraphicsQueue& queue, Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier)
+{
+	m_triangle_processing_frame_data.vp = camera.get_vp();
+	m_triangle_processing_frame_data.camera_position = glm::vec4(camera.get_pos(), 0);
+
+	m_triangle_processing_frame_data.screen_size = window.get_size();
+	m_triangle_processing_frame_data.em_threshold = em_threshold;
+	m_triangle_processing_frame_data.area_multiplier = area_multiplier;
+	m_triangle_processing_frame_data.curvature_multiplier = curvature_multiplier;
+
+	m_triangle_processing_set.clear();
+	m_triangle_processing_set.add_storage_buffer(get_buffer());
+	m_triangle_processing_set.bind();
+
+
+	// Bind pipeline
+	queue.cmd_bind_compute_pipeline(m_triangle_processing_compute_pipeline->m_pipeline);
+
+	// Bind descriptor set
+	queue.cmd_bind_descriptor_set_compute(m_triangle_processing_compute_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_triangle_processing_set.get_descriptor_set());
+
+
+	// Nonupdated terrain
+	for (uint32_t i = 0; i < m_num_draw_nodes; i++)
+	{
+		m_triangle_processing_frame_data.node_index = m_draw_nodes[i];
+		queue.cmd_push_constants(
+			m_triangle_processing_pipeline_layout.get_pipeline_layout(), 
+			VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT, 
+			sizeof(TriangleProcessingFrameData), 
+			&m_triangle_processing_frame_data);
+
+		// Dispatch triangle processing
+		queue.cmd_dispatch(1, 1, 1);
+	}
+
+	// Newly generated terrain
+	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
+	{
+		m_triangle_processing_frame_data.node_index = m_generate_nodes[i].index;
+		queue.cmd_push_constants(
+			m_triangle_processing_pipeline_layout.get_pipeline_layout(),
+			VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT,
+			sizeof(TriangleProcessingFrameData),
+			&m_triangle_processing_frame_data);
+
+		// Dispatch triangle processing
+		queue.cmd_dispatch(1, 1, 1);
+	}
+
+	// Memory barrier for GPU buffer
+	queue.cmd_buffer_barrier(get_buffer().get_buffer(),
+		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 }
 
 void Quadtree::draw_error_metric(
@@ -348,6 +424,8 @@ void Quadtree::create_pipelines(Window& window)
 	m_generation_pipeline = m_context->create_compute_pipeline("terrain_generate", m_generation_pipeline_layout, nullptr);
 
 	m_triangulation_pipeline = m_context->create_compute_pipeline("triangulate", m_triangulation_pipeline_layout, nullptr);
+
+	m_triangle_processing_compute_pipeline = m_context->create_compute_pipeline("triangle_processing", m_triangle_processing_pipeline_layout, nullptr);
 }
 
 void Quadtree::triangulate(GraphicsQueue& queue, glm::vec3 pos)
@@ -365,6 +443,11 @@ void Quadtree::triangulate(GraphicsQueue& queue, glm::vec3 pos)
 				&m_triangulation_push_data);
 		queue.cmd_dispatch(1, 1, 1);
 	}
+}
+
+PipelineLayout& Quadtree::get_triangle_processing_layout()
+{
+	return m_triangle_processing_pipeline_layout;
 }
 
 ImageView& Quadtree::get_em_image_view()
@@ -455,6 +538,11 @@ void Quadtree::move_from(Quadtree&& other)
 	other.m_draw_nodes = nullptr;
 
 	m_node_memory_size = other.m_node_memory_size;
+
+	m_triangle_processing_layout = std::move(other.m_triangle_processing_layout);
+	m_triangle_processing_set = std::move(other.m_triangle_processing_set);
+	m_triangle_processing_pipeline_layout = std::move(other.m_triangle_processing_pipeline_layout);
+	m_triangle_processing_compute_pipeline = std::move(other.m_triangle_processing_compute_pipeline);
 }
 
 void Quadtree::destroy()

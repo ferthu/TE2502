@@ -36,12 +36,14 @@ public:
 		Window& window,
 		GraphicsQueue& queue);
 
-
 	// Recursive intersection that gathers data on what needs to be generated or drawn
 	void intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd);
 
 	// Performs frustum culling and draws/generates visible terrain
 	void draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool wireframe);
+
+	// Adds new vertices to terrain buffer when needed
+	void process_triangles(GraphicsQueue& queue, Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);
 
 	// Performs frustum culling and draws/generates visible terrain to error metric image
 	void draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool draw_to_screen, float area_multiplier, float curvature_multiplier, bool wireframe);
@@ -54,6 +56,8 @@ public:
 
 	// Re-triangulate the terrain using the new points that have been previously added
 	void triangulate(GraphicsQueue& queue, glm::vec3 pos);
+
+	PipelineLayout& get_triangle_processing_layout();
 
 	// Return the image view of the error metric image
 	ImageView& get_em_image_view();
@@ -73,7 +77,7 @@ private:
 		glm::vec4 camera_pos;
 		glm::vec2 min;			// Min corner
 		glm::vec2 max;			// Max corner
-		uint32_t node_index;  // Previouly ("buffer_slot")
+		uint32_t node_index;    // Previouly ("buffer_slot")
 	};
 
 	struct ErrorMetricData
@@ -83,6 +87,17 @@ private:
 		glm::vec2 screen_size;
 		float area_multiplier;
 		float curvature_multiplier;
+	};
+
+	struct TriangleProcessingFrameData
+	{
+		glm::mat4 vp;
+		glm::vec4 camera_position;
+		glm::vec2 screen_size;
+		float em_threshold;
+		float area_multiplier;
+		float curvature_multiplier;
+		uint32_t node_index;
 	};
 
 	struct TriangulationData
@@ -142,6 +157,7 @@ private:
 	// Contains terrain indices + vertices for quadtree nodes
 	GPUBuffer m_buffer;
 
+	TriangleProcessingFrameData m_triangle_processing_frame_data;
 
 	DescriptorSetLayout m_generation_set_layout;
 	DescriptorSet m_descriptor_set;
@@ -165,6 +181,12 @@ private:
 	RenderPass m_em_render_pass;
 	std::unique_ptr<Pipeline> m_em_pipeline;
 	std::unique_ptr<Pipeline> m_em_wireframe_pipeline;
+
+	// Triangle processing
+	DescriptorSetLayout m_triangle_processing_layout;
+	DescriptorSet m_triangle_processing_set;
+	PipelineLayout m_triangle_processing_pipeline_layout;
+	std::unique_ptr<Pipeline> m_triangle_processing_compute_pipeline;
 
 	// Max number of indices and vertices per node
 	VkDeviceSize m_max_indices;

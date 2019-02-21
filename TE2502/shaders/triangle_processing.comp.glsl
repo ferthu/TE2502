@@ -245,18 +245,9 @@ void main(void)
 
 
 
-
-
-
-
-
-
-
 	////// PREFIX SUM
 
 	const uint n = WORK_GROUP_SIZE;
-	const uint m = WORK_GROUP_SIZE;  // TODO: Remove m
-	int offset = 1;
 
 	// Load into shared memory
 	s_counts[thid] = new_point_count;
@@ -270,7 +261,8 @@ void main(void)
 	barrier();
 	memoryBarrierShared();
 
-	for (uint d = m >> 1; d > 0; d >>= 1) // Build sum in place up the tree
+	int offset = 1;
+	for (uint d = n >> 1; d > 0; d >>= 1) // Build sun in place up the tree
 	{
 		barrier();
 		memoryBarrierShared();
@@ -282,10 +274,8 @@ void main(void)
 		}
 		offset *= 2;
 	}
-	if (thid == 0) { s_counts[m - 1] = 0; } // Clear the last element
-
-
-	for (int d = 1; d < m; d *= 2) // Traverse down tree & build scan
+	if (thid == 0) { s_counts[n - 1] = 0; } // Clear the last element
+	for (int d = 1; d < n; d *= 2) // Traverse down tree & build scan
 	{
 		offset >>= 1;
 		barrier();
@@ -309,12 +299,6 @@ void main(void)
 		s_total += s_counts[n - 1];
 		terrain_buffer.data[node_index].new_points_count = s_total;
 	}
-
-	//terrain_buffer.data[node_index].new_points[thid] = vec4(s_counts[thid]);
-	//return;
-
-	//barrier();
-	//memoryBarrierShared();
 
 	// Write points to output storage buffer
 	const uint base_offset = s_counts[thid];

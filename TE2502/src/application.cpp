@@ -251,6 +251,9 @@ void Application::run()
 		else if (f5_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F5) == GLFW_RELEASE)
 			f5_pressed = false;
 
+		// Refinement button
+		m_triangulate_button_held = glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_R) == GLFW_PRESS;
+
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame(!m_window->get_mouse_locked() && m_show_imgui);
 		ImGui_ImplGlfw_SetHandleCallbacks(!m_window->get_mouse_locked() && m_show_imgui);
@@ -303,9 +306,10 @@ void Application::update(const float dt)
 		ImGui::Text(text.c_str());
 		ImGui::Checkbox("Draw Ray Marched View", &m_draw_ray_march);
 		ImGui::Checkbox("Wireframe", &m_draw_wireframe);
-		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.1f, 0.0f, 3.0f);
-		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.1f, 0.0f, 3.0f);
-		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.0001f, 0.5f);
+		ImGui::Checkbox("Refine", &m_triangulate);
+		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.01f, 0.0f, 3.0f);
+		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.01f, 0.0f, 3.0f);
+		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.1f, 10.0f);
 		if (ImGui::Button("Clear Terrain"))
 			m_quadtree.clear_terrain();
 		ImGui::End();
@@ -394,7 +398,7 @@ void Application::draw_main()
 	ImGui::Begin("Triangulate");
 
 	// Fritjof stuff
-	if (ImGui::Button("Set"))
+	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held)
 	{
 		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold, m_em_area_multiplier, m_em_curvature_multiplier);
 

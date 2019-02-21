@@ -161,7 +161,7 @@ void main(void)
 	// Set shared variables
 	if (thid == 0)
 	{
-	  s_index_count = terrain_buffer.data[node_index].index_count;
+		s_index_count = terrain_buffer.data[node_index].index_count;
 		s_triangle_count = s_index_count / 3;
 		s_triangles_removed = 0;
 		s_vertex_count = terrain_buffer.data[node_index].vertex_count;

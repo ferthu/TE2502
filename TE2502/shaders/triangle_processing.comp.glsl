@@ -233,10 +233,10 @@ void main(void)
 			// s is semiperimeter
 			float s = (a + b + c) * 0.5;
 
-			float area = /*sqrt*/(s * (s - a) * (s - b) * (s - c)) * frame_data.area_multiplier;
+			float area = pow(/*sqrt*/(s * (s - a) * (s - b) * (s - c)), frame_data.area_multiplier);
 
 			vec3 mid = (v0.xyz + v1.xyz + v2.xyz) / 3.0;
-			float curv = curvature(mid) * frame_data.curvature_multiplier;
+			float curv = pow(curvature(mid), frame_data.curvature_multiplier);
 
 			if (curv * area >= frame_data.threshold)
 			{
@@ -301,12 +301,12 @@ void main(void)
 	if (thid == 0)
 	{
 		s_total += s_counts[n - 1];
-		terrain_buffer.data[node_index].new_points_count = s_total;
+		terrain_buffer.data[node_index].new_points_count = min(s_total, num_new_points);
 	}
 
 	// Write points to output storage buffer
 	const uint base_offset = s_counts[thid];
-	for (uint i = 0; i < new_point_count; ++i)
+	for (uint i = 0; i < new_point_count && base_offset + i < num_new_points; ++i)
 	{
 		//output_data.points[base_offset + i] = new_points[i];
 		terrain_buffer.data[node_index].new_points[base_offset + i] = vec4(new_points[i].x, -terrain(new_points[i].xy), new_points[i].y, 1.0);

@@ -190,7 +190,7 @@ float curvature(in vec3 p)
 	return abs(curvature);
 }
 
-const uint max_new_points = TRIANGULATE_MAX_NEW_POINTS / WORK_GROUP_SIZE + 1;
+const uint max_new_points = TRIANGULATE_MAX_NEW_POINTS / WORK_GROUP_SIZE;
 vec2 new_points[max_new_points];
 shared uint s_counts[WORK_GROUP_SIZE];
 shared uint s_total;
@@ -204,7 +204,7 @@ void main(void)
 	uint new_point_count = 0;
 
 	// For every triangle
-	for (uint i = thid * 3; i + 3 <= index_count && new_point_count < max_new_points; i += WORK_GROUP_SIZE * 3)
+	for (uint i = thid * 3; i + 3 < index_count && new_point_count < max_new_points; i += WORK_GROUP_SIZE * 3)
 	{
 		// Get vertices
 		vec4 v0 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i    ]];

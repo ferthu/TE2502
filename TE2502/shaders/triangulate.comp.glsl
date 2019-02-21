@@ -37,6 +37,11 @@ struct terrain_data_t
 
 		vec2 min;
 		vec2 max;
+
+		uint top_count;
+		uint bottom_count;
+		uint left_count;
+		uint right_count;
 	// }
 
 	uint indices[num_indices];
@@ -128,24 +133,17 @@ struct Edge
 	uint p1;
 	uint p2;
 };
-
+ 
 shared Edge s_edges[200 * 3];
 
-#define INDICES_TO_STORE 150
-#define TRIANGLES_TO_STORE 50
-
-shared uint s_triangles_to_remove[TRIANGLES_TO_STORE];
-
-//shared uint s_last_indices[INDICES_TO_STORE];
-//shared vec2 s_last_circumcentres[TRIANGLES_TO_STORE];
-//shared float s_last_circumradii[TRIANGLES_TO_STORE];
+shared uint s_triangles_to_remove[50];
 shared uint s_triangles_removed;
 
 shared uint s_index_count;
 shared uint s_triangle_count;
 shared uint s_vertex_count;
 
-#define INVALID 999999
+#define INVALID 9999999
 #define EPSILON 1 - 0.0001
 
 void main(void)
@@ -317,6 +315,19 @@ void main(void)
 				// Insert new point
 				terrain_buffer.data[node_index].positions[s_vertex_count] = current_point;
 				++s_vertex_count;
+
+
+
+				const float t = 10;
+				if (current_point.x < terrain_buffer.data[node_index].min.x + t)
+					++terrain_buffer.data[node_index].left_count;
+				else if (current_point.x > terrain_buffer.data[node_index].max.x - t)
+					++terrain_buffer.data[node_index].right_count;
+
+				if (current_point.z < terrain_buffer.data[node_index].min.y + t)
+					++terrain_buffer.data[node_index].bottom_count;
+				else if (current_point.z > terrain_buffer.data[node_index].max.y - t)
+					++terrain_buffer.data[node_index].top_count;
 			}
 			// Exclude the new point and revert
 			else

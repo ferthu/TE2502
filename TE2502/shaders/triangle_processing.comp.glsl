@@ -44,6 +44,11 @@ struct terrain_data_t
 
 		vec2 min;
 		vec2 max;
+
+		uint top_count;
+		uint bottom_count;
+		uint left_count;
+		uint right_count;
 	// }
 
 	uint indices[num_indices];

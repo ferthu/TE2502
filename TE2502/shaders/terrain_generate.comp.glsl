@@ -34,10 +34,9 @@ struct terrain_data_t
 		vec2 min;
 		vec2 max;
 
-		uint top_count;
-		uint bottom_count;
-		uint left_count;
-		uint right_count;
+		float proximity[4];
+		uint proximity_count[4];
+		uint border_level[4];
 	// }
 
 	uint indices[num_indices];
@@ -183,6 +182,7 @@ float find_circum_radius_squared(vec2 P, vec2 Q, vec2 R)
 
 /////////////////
 
+
 void main(void)
 {
 	const uint node_index = frame_data.node_index;
@@ -200,6 +200,13 @@ void main(void)
 
 		terrain_buffer.data[node_index].min = frame_data.min;
 		terrain_buffer.data[node_index].max = frame_data.max;
+
+		const float proximity = (frame_data.max.x - frame_data.min.x) * 0.8;
+		for (uint b = 0; b < 4; ++b)
+		{
+			terrain_buffer.data[node_index].proximity[b] = proximity;
+			terrain_buffer.data[node_index].border_level[b] = 1;
+		}
 	}
 
 	// Positions
@@ -216,7 +223,6 @@ void main(void)
 		//{
 		//	int max = 10;
 		//	terrain_buffer.data[node_index].new_points_count = max * max;
-
 		//	for (int a = 0; a < max; ++a)
 		//	{
 		//		for (int b = 0; b < max; ++b)

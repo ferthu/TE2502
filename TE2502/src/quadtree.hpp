@@ -55,7 +55,10 @@ public:
 	void create_pipelines(Window& window);
 
 	// Re-triangulate the terrain using the new points that have been previously added
-	void triangulate(GraphicsQueue& queue, glm::vec3 pos);
+	void triangulate(GraphicsQueue& queue);
+
+	// Handle borders
+	void handle_borders(GraphicsQueue& queue);
 
 	PipelineLayout& get_triangle_processing_layout();
 
@@ -111,6 +114,7 @@ private:
 		uint32_t pad;
 		glm::vec2 min;
 		glm::vec2 max;
+		float proximity[4];
 		uint32_t proximity_count[4];
 		uint32_t border_level[4];
 	};
@@ -167,6 +171,7 @@ private:
 	PipelineLayout m_triangulation_pipeline_layout;
 	std::unique_ptr<Pipeline> m_generation_pipeline;
 	std::unique_ptr<Pipeline> m_triangulation_pipeline;
+	std::unique_ptr<Pipeline> m_border_handling_pipeline;
 
 	RenderPass m_render_pass;
 	PipelineLayout m_draw_pipeline_layout;

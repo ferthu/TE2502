@@ -297,7 +297,11 @@ void Application::update(const float dt)
 		values[values_offset] = dt;
 		values_offset = (values_offset + 1) % num_frames;
 		ImGui::PlotLines("Frame Time", values, num_frames, values_offset, nullptr, 0.0f, 0.02f, ImVec2(150, 30));
-		
+		//if (values_offset == 5)
+		//{
+		//	exit(0);
+		//}
+		//Sleep(100);
 
 		std::string text = "Frame info: " + std::to_string(int(1.f / dt)) + "fps  "
 			+ std::to_string(dt) + "s  " + std::to_string(int(100.f * dt / 0.016f)) + "%%";
@@ -402,15 +406,19 @@ void Application::draw_main()
 	{
 		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold, m_em_area_multiplier, m_em_curvature_multiplier);
 
-		m_quadtree.triangulate(m_main_queue, m_main_camera->get_pos());
+	}
+	ImGui::End();
+
+	m_quadtree.handle_borders(m_main_queue);
+
+		m_quadtree.triangulate(m_main_queue);
+
 
 		m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
 			VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
 			VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
-	}
-	ImGui::End();
 
 	// Do debug drawing
 	{

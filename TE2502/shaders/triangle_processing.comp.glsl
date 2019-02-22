@@ -45,10 +45,9 @@ struct terrain_data_t
 		vec2 min;
 		vec2 max;
 
-		uint top_count;
-		uint bottom_count;
-		uint left_count;
-		uint right_count;
+		float proximity[4];
+		uint proximity_count[4];
+		uint border_level[4];
 	// }
 
 	uint indices[num_indices];
@@ -195,8 +194,8 @@ float curvature(in vec3 p)
 	return abs(curvature);
 }
 
-const uint max_new_points = TRIANGULATE_MAX_NEW_POINTS / WORK_GROUP_SIZE + 1;
-vec2 new_points[max_new_points];
+const uint max_new_points = TRIANGULATE_MAX_NEW_POINTS / WORK_GROUP_SIZE;
+vec2 new_points[max_new_points + 1];
 shared uint s_counts[WORK_GROUP_SIZE];
 shared uint s_total;
 
@@ -238,7 +237,7 @@ void main(void)
 			// s is semiperimeter
 			float s = (a + b + c) * 0.5;
 
-			float area = pow(/*sqrt*/(s * (s - a) * (s - b) * (s - c)), frame_data.area_multiplier);
+			float area = pow(s * (s - a) * (s - b) * (s - c), frame_data.area_multiplier);
 
 			vec3 mid = (v0.xyz + v1.xyz + v2.xyz) / 3.0;
 			float curv = pow(curvature(mid), frame_data.curvature_multiplier);
@@ -271,7 +270,7 @@ void main(void)
 	memoryBarrierShared();
 
 	int offset = 1;
-	for (uint d = n >> 1; d > 0; d >>= 1) // Build sun in place up the tree
+	for (uint d = n >> 1; d > 0; d >>= 1) // Build sum in place up the tree
 	{
 		barrier();
 		memoryBarrierShared();
@@ -302,18 +301,24 @@ void main(void)
 	barrier();
 	memoryBarrierShared();
 
+	uint prev_count = terrain_buffer.data[node_index].new_points_count;
+
+	barrier();
+	memoryBarrierShared();
+	memoryBarrierBuffer();
+
 	// Make sure the total is saved as well
 	if (thid == 0)
 	{
 		s_total += s_counts[n - 1];
-		terrain_buffer.data[node_index].new_points_count = min(s_total, num_new_points);
+		terrain_buffer.data[node_index].new_points_count += s_total;
+		//terrain_buffer.data[node_index].new_points_count = min(terrain_buffer.data[node_index].new_points_count, num_new_points);
 	}
 
 	// Write points to output storage buffer
-	const uint base_offset = s_counts[thid];
+	const uint base_offset = prev_count + s_counts[thid];
 	for (uint i = 0; i < new_point_count && base_offset + i < num_new_points; ++i)
 	{
-		//output_data.points[base_offset + i] = new_points[i];
 		terrain_buffer.data[node_index].new_points[base_offset + i] = vec4(new_points[i].x, -terrain(new_points[i].xy), new_points[i].y, 1.0);
 	}
 }

@@ -38,10 +38,9 @@ struct terrain_data_t
 		vec2 min;
 		vec2 max;
 
-		uint top_count;
-		uint bottom_count;
-		uint left_count;
-		uint right_count;
+		float proximity[4];
+		uint proximity_count[4];
+		uint border_level[4];
 	// }
 
 	uint indices[num_indices];
@@ -156,6 +155,9 @@ void main(void)
 	const uint thid = gl_GlobalInvocationID.x;
 	bool finish = false;
 
+	const vec2 node_min = terrain_buffer.data[node_index].min;
+	const vec2 node_max = terrain_buffer.data[node_index].max;
+
 	// Set shared variables
 	if (thid == 0)
 	{
@@ -164,10 +166,12 @@ void main(void)
 		s_triangles_removed = 0;
 		s_vertex_count = terrain_buffer.data[node_index].vertex_count;
 	}
+
 	barrier();
 	memoryBarrierShared();
 
-	const uint new_points_count = terrain_buffer.data[node_index].new_points_count;
+
+	uint new_points_count = terrain_buffer.data[node_index].new_points_count;
 	for (uint n = 0; n < new_points_count && s_vertex_count < num_vertices && !finish; ++n)
 	{
 		vec4 current_point = terrain_buffer.data[node_index].new_points[n];
@@ -255,6 +259,20 @@ void main(void)
 					vec3 Q = terrain_buffer.data[node_index].positions[s_edges[i].p2].xyz;
 					vec3 R = current_point.xyz;
 
+					vec2 PQ = normalize(Q.xz - P.xz);
+					vec2 PR = normalize(R.xz - P.xz);
+					vec2 RQ = normalize(Q.xz - R.xz);
+
+					float d1 = abs(dot(PQ, PR));
+					float d2 = abs(dot(PR, RQ));
+					float d3 = abs(dot(RQ, PQ));
+
+					// Skip this triangle because it is too narrow (should only happen at borders)
+					if (d1 > EPSILON || d2 > EPSILON || d3 > EPSILON)
+					{
+						continue;
+					}
+
 					// Make sure winding order is correct
 					vec3 n = cross(R - P, Q - P);
 					if (n.y > 0)
@@ -268,23 +286,11 @@ void main(void)
 					terrain_buffer.data[node_index].indices[s_index_count + 0] = s_edges[i].p1;
 					terrain_buffer.data[node_index].indices[s_index_count + 1] = s_edges[i].p2;
 					terrain_buffer.data[node_index].indices[s_index_count + 2] = s_vertex_count;
+
 					// Set circumcircles for the new triangle
 					float a = distance(P.xz, Q.xz);
 					float b = distance(P.xz, R.xz);
 					float c = distance(R.xz, Q.xz);
-
-					vec2 PQ = normalize(Q.xz - P.xz);
-					vec2 PR = normalize(R.xz - P.xz);
-					vec2 RQ = normalize(Q.xz - R.xz);
-					float d1 = abs(dot(PQ, PR));
-					float d2 = abs(dot(PR, RQ));
-					float d3 = abs(dot(RQ, PQ));
-
-					if (d1 > EPSILON || d2 > EPSILON || d3 > EPSILON)
-					{
-						all_valid = false;
-						break;
-					}
 					terrain_buffer.data[node_index].triangles[s_triangle_count].circumcentre = find_circum_center(P.xz, Q.xz, R.xz);
 					terrain_buffer.data[node_index].triangles[s_triangle_count].circumradius = find_circum_radius_squared(a, b, c);
 
@@ -293,48 +299,40 @@ void main(void)
 				}
 			}
 			// Remove old triangles
-			if (all_valid)
+			uint last_valid_triangle = s_triangle_count - 1;
+			for (int j = int(s_triangles_removed) - 1; j >= 0; --j)
 			{
-				uint last_valid_triangle = s_triangle_count - 1;
-				for (int j = int(s_triangles_removed) - 1; j >= 0; --j)
+				uint index = s_triangles_to_remove[j];
+				if (index < last_valid_triangle)
 				{
-					uint index = s_triangles_to_remove[j];
-					if (index < last_valid_triangle)
-					{
-						terrain_buffer.data[node_index].indices[index * 3 + 0] = terrain_buffer.data[node_index].indices[last_valid_triangle * 3 + 0];
-						terrain_buffer.data[node_index].indices[index * 3 + 1] = terrain_buffer.data[node_index].indices[last_valid_triangle * 3 + 1];
-						terrain_buffer.data[node_index].indices[index * 3 + 2] = terrain_buffer.data[node_index].indices[last_valid_triangle * 3 + 2];
-						terrain_buffer.data[node_index].triangles[index].circumcentre = terrain_buffer.data[node_index].triangles[last_valid_triangle].circumcentre;
-						terrain_buffer.data[node_index].triangles[index].circumradius = terrain_buffer.data[node_index].triangles[last_valid_triangle].circumradius;
-					}
-					--last_valid_triangle;
+					terrain_buffer.data[node_index].indices[index * 3 + 0] = terrain_buffer.data[node_index].indices[last_valid_triangle * 3 + 0];
+					terrain_buffer.data[node_index].indices[index * 3 + 1] = terrain_buffer.data[node_index].indices[last_valid_triangle * 3 + 1];
+					terrain_buffer.data[node_index].indices[index * 3 + 2] = terrain_buffer.data[node_index].indices[last_valid_triangle * 3 + 2];
+					terrain_buffer.data[node_index].triangles[index].circumcentre = terrain_buffer.data[node_index].triangles[last_valid_triangle].circumcentre;
+					terrain_buffer.data[node_index].triangles[index].circumradius = terrain_buffer.data[node_index].triangles[last_valid_triangle].circumradius;
 				}
-				s_triangle_count -= s_triangles_removed;
-				s_index_count = s_triangle_count * 3;
-
-				// Insert new point
-				terrain_buffer.data[node_index].positions[s_vertex_count] = current_point;
-				++s_vertex_count;
-
-
-
-				const float t = 10;
-				if (current_point.x < terrain_buffer.data[node_index].min.x + t)
-					++terrain_buffer.data[node_index].left_count;
-				else if (current_point.x > terrain_buffer.data[node_index].max.x - t)
-					++terrain_buffer.data[node_index].right_count;
-
-				if (current_point.z < terrain_buffer.data[node_index].min.y + t)
-					++terrain_buffer.data[node_index].bottom_count;
-				else if (current_point.z > terrain_buffer.data[node_index].max.y - t)
-					++terrain_buffer.data[node_index].top_count;
+				--last_valid_triangle;
 			}
-			// Exclude the new point and revert
-			else
+			s_triangle_count -= s_triangles_removed;
+			s_index_count = s_triangle_count * 3;
+
+
+			if (current_point.w > 0.5)
 			{
-				s_index_count = old_index_count;
-				s_triangle_count = old_triangle_count;
+				if (current_point.x < node_min.x + terrain_buffer.data[node_index].proximity[3])
+					++terrain_buffer.data[node_index].proximity_count[3];
+				else if (current_point.x > node_max.x - terrain_buffer.data[node_index].proximity[1])
+					++terrain_buffer.data[node_index].proximity_count[1];
+
+				if (current_point.z < node_min.y + terrain_buffer.data[node_index].proximity[0])
+					++terrain_buffer.data[node_index].proximity_count[0];
+				else if (current_point.z > node_max.y - terrain_buffer.data[node_index].proximity[2])
+					++terrain_buffer.data[node_index].proximity_count[2];
 			}
+
+			// Insert new point
+			terrain_buffer.data[node_index].positions[s_vertex_count] = vec4(current_point.xyz, 1);
+			++s_vertex_count;
 
 			s_triangles_removed = 0;
 		}

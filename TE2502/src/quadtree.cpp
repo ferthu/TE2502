@@ -183,9 +183,9 @@ void Quadtree::intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd
 	{
 		queue.cmd_buffer_barrier(m_buffer.get_buffer(),
 			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+			VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
 			m_cpu_index_buffer_size + m_generate_nodes[i].index * m_node_memory_size,
 			m_node_memory_size);
 	}

@@ -52,16 +52,18 @@ struct terrain_data_t
 	vec4 new_points[num_new_points];
 };
 
-const uint num_quadtree_nodes = (1 << quadtree_levels) * (1 << quadtree_levels);
-const uint aligned_quadtree_index_num = (num_quadtree_nodes + 4) + (16 - ((num_quadtree_nodes + 4) % 16));
+const uint quadtree_data_size = (1 << quadtree_levels) * (1 << quadtree_levels) + 4;
+const uint pad_size = 16 - (quadtree_data_size % 16);
 
 coherent layout(set = 0, binding = 0) buffer terrain_buffer_t
 {
-	uint quadtree_index_map[aligned_quadtree_index_num - 4];
+	uint quadtree_index_map[(1 << quadtree_levels) * (1 << quadtree_levels)];
 	vec2 quadtree_min;
 	vec2 quadtree_max;
+	uint pad[pad_size];
 	terrain_data_t data[num_nodes];
 } terrain_buffer;
+
 
 
 //// TERRAIN 
@@ -190,7 +192,7 @@ float curvature(in vec3 p)
 	return abs(curvature);
 }
 
-const uint max_new_points = TRIANGULATE_MAX_NEW_POINTS / WORK_GROUP_SIZE + 1;
+const uint max_new_points = TRIANGULATE_MAX_NEW_POINTS / WORK_GROUP_SIZE;
 vec2 new_points[max_new_points];
 shared uint s_counts[WORK_GROUP_SIZE];
 shared uint s_total;
@@ -203,45 +205,70 @@ void main(void)
 
 	uint new_point_count = 0;
 
-	// For every triangle
-	for (uint i = thid * 3; i + 3 <= index_count && new_point_count < max_new_points; i += WORK_GROUP_SIZE * 3)
+	//////////////////////////////////////////
+	//float node_size = terrain_buffer.data[node_index].max.x - terrain_buffer.data[node_index].min.x;
+	//vec2 qmid = (terrain_buffer.data[node_index].min + terrain_buffer.data[node_index].max) * 0.5;
+	//uint v = 120;
+	//if (thid == 0)
+	//{
+	//	for (uint x = 0; x < 128; ++x)
+	//	{
+	//		for (uint y = 0; y < 128; ++y)
+	//		{
+	//			float XD = fract(sin(float(x + node_index * 65 + v) * 11.65765) * 21.635);
+	//			float YD = fract(cos(XD * 54.968) * 7.95457);
+	//			terrain_buffer.data[node_index].new_points[x + y * 32] = vec4(qmid.x + (XD * 2.0 - 1.0) * node_size * 0.5, -50.0 * (sin(XD + YD) + 1.0), qmid.y + (YD * 2.0 - 1.0) * node_size * 0.5, 1.0);
+	//			++new_point_count;
+	//		}
+	//	}
+	//terrain_buffer.data[node_index].new_points_count = num_new_points;
+	//}
+
+	//return;
+	//////////////////////////////////////////
+
+	if (true)
 	{
-		// Get vertices
-		vec4 v0 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i    ]];
-		vec4 v1 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i + 1]];
-		vec4 v2 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i + 2]];
-
-		// Get clipspace coordinates
-		vec4 c0 = frame_data.vp * v0;
-		vec4 c1 = frame_data.vp * v1;
-		vec4 c2 = frame_data.vp * v2;
-
-		// Check if any vertex is visible (shitty clipping)
-		if (clip(c0) || clip(c1) || clip(c2))
+		// For every triangle
+		for (uint i = thid * 3; i + 3 < index_count && new_point_count < max_new_points; i += WORK_GROUP_SIZE * 3)
 		{
-			// Calculate screen space area
+			// Get vertices
+			vec4 v0 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i]];
+			vec4 v1 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i + 1]];
+			vec4 v2 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i + 2]];
 
-			c0 /= c0.w;
-			c1 /= c1.w;
-			c2 /= c2.w;
+			// Get clipspace coordinates
+			vec4 c0 = frame_data.vp * v0;
+			vec4 c1 = frame_data.vp * v1;
+			vec4 c2 = frame_data.vp * v2;
 
-			// a, b, c is triangle side lengths
-			float a = distance(c0.xy, c1.xy);
-			float b = distance(c0.xy, c2.xy);
-			float c = distance(c1.xy, c2.xy);
-
-			// s is semiperimeter
-			float s = (a + b + c) * 0.5;
-
-			float area = pow(/*sqrt*/(s * (s - a) * (s - b) * (s - c)), frame_data.area_multiplier);
-
-			vec3 mid = (v0.xyz + v1.xyz + v2.xyz) / 3.0;
-			float curv = pow(curvature(mid), frame_data.curvature_multiplier);
-
-			if (curv * area >= frame_data.threshold)
+			// Check if any vertex is visible (shitty clipping)
+			if (clip(c0) || clip(c1) || clip(c2))
 			{
-				new_points[new_point_count] = mid.xz;
-				++new_point_count;
+				// Calculate screen space area
+
+				c0 /= c0.w;
+				c1 /= c1.w;
+				c2 /= c2.w;
+
+				// a, b, c is triangle side lengths
+				float a = distance(c0.xy, c1.xy);
+				float b = distance(c0.xy, c2.xy);
+				float c = distance(c1.xy, c2.xy);
+
+				// s is semiperimeter
+				float s = (a + b + c) * 0.5;
+
+				float area = pow(/*sqrt*/(s * (s - a) * (s - b) * (s - c)), frame_data.area_multiplier);
+
+				vec3 mid = (v0.xyz + v1.xyz + v2.xyz) / 3.0;
+				float curv = pow(curvature(mid), frame_data.curvature_multiplier);
+
+				if (curv * area >= frame_data.threshold)
+				{
+					new_points[new_point_count] = mid.xz;
+					++new_point_count;
+				}
 			}
 		}
 	}

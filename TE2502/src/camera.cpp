@@ -116,6 +116,12 @@ void Camera::set_pos(const glm::vec3& new_pos)
 	m_position = new_pos;
 }
 
+void Camera::set_yaw_pitch(float yaw, float pitch)
+{
+	m_yaw = yaw;
+	m_pitch = pitch;
+}
+
 Frustum Camera::get_frustum() const
 {
 	return m_frustum;

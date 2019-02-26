@@ -30,6 +30,9 @@ public:
 	// Is preferrably called before camera.update()
 	void set_pos(const glm::vec3& new_pos);
 
+	// Set yaw and pitch
+	void set_yaw_pitch(float yaw, float pitch);
+
 	Frustum get_frustum() const;
 
 	static glm::mat4 calculate_perspective(float horiz_fov_degrees, float near, float far, float window_width, float window_height);

@@ -14,6 +14,7 @@
 
 #include <string>
 #include <glm/gtc/matrix_transform.hpp>
+#include <array>
 
 //#define RAY_MARCH_WINDOW
 
@@ -90,7 +91,7 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 	VkDeviceSize num_nodes = m_tfile.get_u64("TERRAIN_GENERATE_NUM_NODES");
 	VkDeviceSize num_new_points = m_tfile.get_u64("TRIANGULATE_MAX_NEW_POINTS");
 	uint32_t num_levels = m_tfile.get_u32("QUADTREE_LEVELS");
-	m_quadtree = Quadtree(m_vulkan_context, 500.0f, num_levels, num_nodes, num_indices, num_vertices, num_new_points, *m_window, m_main_queue);
+	m_quadtree = Quadtree(m_vulkan_context, 50000.0f, num_levels, num_nodes, num_indices, num_vertices, num_new_points, *m_window, m_main_queue);
 #ifdef RAY_MARCH_WINDOW
 	m_ray_march_window_states.swapchain_framebuffers.resize(m_ray_march_window->get_swapchain_size());
 	for (uint32_t i = 0; i < m_ray_march_window->get_swapchain_size(); i++)
@@ -198,6 +199,7 @@ void Application::run()
 	bool demo_window = true;
 	bool camera_switch_pressed = false;
 	bool f5_pressed = false;
+	bool q_pressed = false;
 
 	while (!glfwWindowShouldClose(m_window->get_glfw_window()))
 	{
@@ -251,6 +253,15 @@ void Application::run()
 		else if (f5_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_F5) == GLFW_RELEASE)
 			f5_pressed = false;
 
+		// Clear terrain
+		if (!q_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_Q) == GLFW_PRESS)
+		{
+			q_pressed = true;
+			m_quadtree.clear_terrain();
+		}
+		else if (q_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_Q) == GLFW_RELEASE)
+			q_pressed = false;
+
 		// Refinement button
 		m_triangulate_button_held = glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_R) == GLFW_PRESS;
 
@@ -261,7 +272,7 @@ void Application::run()
 
 		// Reset debug drawer
 		m_debug_drawer.new_frame();
-
+			   		 	  	  
 		update(delta_time.count());
 
 		draw();
@@ -303,6 +314,8 @@ void Application::update(const float dt)
 			+ std::to_string(dt) + "s  " + std::to_string(int(100.f * dt / 0.016f)) + "%%";
 		ImGui::Text(text.c_str());
 		text = "Position: " + std::to_string(m_main_camera->get_pos().x) + ", " + std::to_string(m_main_camera->get_pos().y) + ", " + std::to_string(m_main_camera->get_pos().z);
+		ImGui::Text(text.c_str());
+		text = "Debug Position: " + std::to_string(m_debug_camera->get_pos().x) + ", " + std::to_string(m_debug_camera->get_pos().y) + ", " + std::to_string(m_debug_camera->get_pos().z);
 		ImGui::Text(text.c_str());
 		ImGui::Checkbox("Draw Ray Marched View", &m_draw_ray_march);
 		ImGui::Checkbox("Wireframe", &m_draw_wireframe);

@@ -209,6 +209,7 @@ void main(void)
 		for (uint b = 0; b < 4 * border_zones; ++b)
 		{
 			terrain_buffer.data[node_index].proximity[b] = proximity;
+			terrain_buffer.data[node_index].proximity_count[b] = 0;
 			terrain_buffer.data[node_index].border_level[b] = 1;
 		}
 	}

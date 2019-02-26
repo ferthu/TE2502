@@ -9,6 +9,8 @@ const uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
 const uint num_nodes = TERRAIN_GENERATE_NUM_NODES;
 const uint num_new_points = TRIANGULATE_MAX_NEW_POINTS;
 const uint quadtree_levels = QUADTREE_LEVELS;
+const uint border_zones = BORDER_ZONES;
+const float proximity_multiplier = BORDER_PROXIMITY_MULTIPLIER / 100.f;
 
 layout(push_constant) uniform frame_data_t
 {
@@ -38,9 +40,9 @@ struct terrain_data_t
 	vec2 min;
 	vec2 max;
 
-	float proximity[4];
-	uint proximity_count[4];
-	uint border_level[4];
+	float proximity[4 * border_zones];
+	uint proximity_count[4 * border_zones];
+	uint border_level[4 * border_zones];
 	// }
 
 	uint indices[num_indices];
@@ -183,6 +185,7 @@ void main(void)
 	const vec2 node_min = terrain_buffer.data[node_index].min;
 	const vec2 node_max = terrain_buffer.data[node_index].max;
 	const float side = node_max.x - node_min.x;
+	const float zone_side = side / border_zones;
 
 	if (thid == 0)
 	{
@@ -191,65 +194,77 @@ void main(void)
 		// Borders
 		for (uint bb = 0; bb < 4; ++bb)
 		{
-			vec2 min = node_min;
-			vec2 max = node_max;
-			uint level = terrain_buffer.data[node_index].border_level[bb];
-
-			int nodes_per_side = 1 << quadtree_levels;
-			int ny = int((node_min.y - terrain_buffer.quadtree_min.y + 1) / side);
-			int nx = int((node_min.x - terrain_buffer.quadtree_min.x + 1) / side);
-
-			if (bb == 0)
+			for (uint zz = 0; zz < border_zones; ++zz)
 			{
-				min.y = max.y;
-				++ny;
-			}
-			else if (bb == 1)
-			{
-				min.x = max.x;
-				++nx;
-			}
-			else if (bb == 2)
-			{
-				max.y = min.y;
-				--ny;
-			}
-			else if (bb == 3)
-			{
-				max.x = min.x;
-				--nx;
-			}
+				const uint index = bb * border_zones + zz;
+				vec2 min = node_min;
+				vec2 max = node_max;
+				uint level = terrain_buffer.data[node_index].border_level[index];
 
-			int neighbour_index = ny * nodes_per_side + nx;
-			uint neighbour_border = (bb + 2) % 4;
-			uint neighbour_level = 0;
+				int nodes_per_side = 1 << quadtree_levels;
+				int ny = int((node_min.y - terrain_buffer.quadtree_min.y + 1) / side);
+				int nx = int((node_min.x - terrain_buffer.quadtree_min.x + 1) / side);
 
-			// Check if valid neighbour
-			if (ny >= 0 && ny < nodes_per_side && nx >= 0 && nx < nodes_per_side)
-				neighbour_level = terrain_buffer.data[terrain_buffer.quadtree_index_map[neighbour_index]].border_level[neighbour_border];
-
-			const float limiter = 0.35f;
-
-			// Check if border needs splitting
-			while (terrain_buffer.data[node_index].proximity_count[bb] > level
-				|| neighbour_level > level)
-			{
-				terrain_buffer.data[node_index].proximity[bb] *= limiter;
-				level *= 2;
-
-				float part = 1.f / level;
-				float p = part;
-				while (p < 1.f)
+				// TODO: Calculate min and max outside loops and store/access in array
+				if (bb == 0)
 				{
-					float x = mix(min.x, max.x, p);
-					float z = mix(min.y, max.y, p);
-					vec4 border_point = vec4(x, -terrain(vec2(x, z)), z, 0);
-					terrain_buffer.data[node_index].new_points[count++] = border_point;
-
-					p += part * 2;
+					min.y = max.y;
+					min.x = min.x + zz * zone_side;
+					max.x = min.x + zone_side;
+					++ny;
 				}
+				else if (bb == 1)
+				{
+					min.x = max.x;
+					min.y = min.y + zz * zone_side;
+					max.y = min.y + zone_side;
+					++nx;
+				}
+				else if (bb == 2)
+				{
+					max.y = min.y;
+					min.x = min.x + zz * zone_side;
+					max.x = min.x + zone_side;
+					--ny;
+				}
+				else if (bb == 3)
+				{
+					max.x = min.x;
+					min.y = min.y + zz * zone_side;
+					max.y = min.y + zone_side;
+					--nx;
+				}
+
+				int neighbour_index = ny * nodes_per_side + nx;
+				uint neighbour_border = ((bb + 2) % 4) * border_zones + zz;
+				uint neighbour_level = 0;
+
+				// Check if valid neighbour
+				// TODO: Calculate neighbour indices only once, in terrain_generate
+				if (ny >= 0 && ny < nodes_per_side && nx >= 0 && nx < nodes_per_side)
+					neighbour_level = terrain_buffer.data[terrain_buffer.quadtree_index_map[neighbour_index]].border_level[neighbour_border];
+
+				// Check if border needs splitting
+				while (terrain_buffer.data[node_index].proximity_count[index] > level
+					|| neighbour_level > level)
+				{
+					terrain_buffer.data[node_index].proximity[index] *= proximity_multiplier;
+					level *= 2;
+
+					float part = 1.f / level;
+					float p = part;
+					while (p < 1.f)  // TODO: Multiple threads?
+					{
+						float x = mix(min.x, max.x, p);
+						float z = mix(min.y, max.y, p);
+						vec4 border_point = vec4(x, -terrain(vec2(x, z)), z, 0);
+						terrain_buffer.data[node_index].new_points[count++] = border_point;
+
+						p += part * 2;
+					}
+				}
+				terrain_buffer.data[node_index].border_level[index] = level;
 			}
-			terrain_buffer.data[node_index].border_level[bb] = level;
 		}
 		terrain_buffer.data[node_index].new_points_count = count;
 	}

@@ -9,6 +9,7 @@ const uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
 const uint num_nodes = TERRAIN_GENERATE_NUM_NODES;
 const uint num_new_points = TRIANGULATE_MAX_NEW_POINTS;
 const uint quadtree_levels = QUADTREE_LEVELS;
+const uint border_zones = BORDER_ZONES;
 
 layout(push_constant) uniform frame_data_t
 {
@@ -38,9 +39,9 @@ struct terrain_data_t
 		vec2 min;
 		vec2 max;
 
-		float proximity[4];
-		uint proximity_count[4];
-		uint border_level[4];
+		float proximity[4 * border_zones];
+		uint proximity_count[4 * border_zones];
+		uint border_level[4 * border_zones];
 	// }
 
 	uint indices[num_indices];
@@ -159,6 +160,8 @@ void main(void)
 
 	const vec2 node_min = terrain_buffer.data[node_index].min;
 	const vec2 node_max = terrain_buffer.data[node_index].max;
+	const float side = node_max.x - node_min.x;
+	const float zone_side = side / border_zones;
 
 	// Set shared variables
 	if (thid == 0)
@@ -321,15 +324,25 @@ void main(void)
 
 			if (current_point.w > 0.5)
 			{
-				if (current_point.x < node_min.x + terrain_buffer.data[node_index].proximity[3])
-					++terrain_buffer.data[node_index].proximity_count[3];
-				if (current_point.x > node_max.x - terrain_buffer.data[node_index].proximity[1])
-					++terrain_buffer.data[node_index].proximity_count[1];
+				// Left
+				uint index = 3 * border_zones + uint((current_point.z - node_min.y) / zone_side);
+				if (current_point.x < node_min.x + terrain_buffer.data[node_index].proximity[index])
+					++terrain_buffer.data[node_index].proximity_count[index];
 
-				if (current_point.z > node_max.y - terrain_buffer.data[node_index].proximity[0])
-					++terrain_buffer.data[node_index].proximity_count[0];
-				if (current_point.z < node_min.y + terrain_buffer.data[node_index].proximity[2])
-					++terrain_buffer.data[node_index].proximity_count[2];
+				// Right
+				index = 1 * border_zones + uint((current_point.z - node_min.y) / zone_side);
+				if (current_point.x > node_max.x - terrain_buffer.data[node_index].proximity[index])
+					++terrain_buffer.data[node_index].proximity_count[index];
+
+				// Up
+				index = 0 * border_zones + uint((current_point.x - node_min.x) / zone_side);
+				if (current_point.z > node_max.y - terrain_buffer.data[node_index].proximity[index])
+					++terrain_buffer.data[node_index].proximity_count[index];
+
+				// Down
+				index = 2 * border_zones + uint((current_point.x - node_min.x) / zone_side);
+				if (current_point.z < node_min.y + terrain_buffer.data[node_index].proximity[index])
+					++terrain_buffer.data[node_index].proximity_count[index];
 			}
 
 			// Insert new point

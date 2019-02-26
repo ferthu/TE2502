@@ -107,6 +107,7 @@ private:
 	{
 		uint32_t node_index;
 	};
+	#define BORDER_ZONES 16
 	struct BufferNodeHeader
 	{
 		uint32_t vertex_count;
@@ -114,9 +115,9 @@ private:
 		uint32_t pad;
 		glm::vec2 min;
 		glm::vec2 max;
-		float proximity[4];
-		uint32_t proximity_count[4];
-		uint32_t border_level[4];
+		float proximity[4 * BORDER_ZONES];
+		uint32_t proximity_count[4 * BORDER_ZONES];
+		uint32_t border_level[4 * BORDER_ZONES];
 	};
 	struct Triangle
 	{

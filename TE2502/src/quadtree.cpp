@@ -1,4 +1,7 @@
 #include "quadtree.hpp"
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_vulkan.h"
 
 Quadtree::~Quadtree()
 {
@@ -75,6 +78,10 @@ Quadtree::Quadtree(
 
 	// Point to the end of cpu index buffer
 	m_quadtree_minmax = (glm::vec2*) (((char*)m_node_index_to_buffer_index) + (1 << levels) * (1 << levels) * sizeof(uint32_t));
+
+	float half_length = m_total_side_length * 0.5f;
+	m_quadtree_minmax[0] = glm::vec2(-half_length, -half_length);
+	m_quadtree_minmax[1] = glm::vec2(half_length, half_length);
 
 	// (1 << levels) is number of nodes per axis
 	memset(m_node_index_to_buffer_index, INVALID, (1 << levels) * (1 << levels) * sizeof(uint32_t));
@@ -446,12 +453,12 @@ void Quadtree::triangulate(GraphicsQueue& queue)
 		queue.cmd_dispatch(1, 1, 1);
 	}
 
-	//// Memory barrier for GPU buffer
-	//queue.cmd_buffer_barrier(get_buffer().get_buffer(),
-	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	// Memory barrier for GPU buffer
+	queue.cmd_buffer_barrier(get_buffer().get_buffer(),
+		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 }
 
 void Quadtree::handle_borders(GraphicsQueue& queue)
@@ -470,12 +477,12 @@ void Quadtree::handle_borders(GraphicsQueue& queue)
 		queue.cmd_dispatch(1, 1, 1);
 	}
 
-	// Memory barrier for GPU buffer
-	queue.cmd_buffer_barrier(get_buffer().get_buffer(),
-		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	//// Memory barrier for GPU buffer
+	//queue.cmd_buffer_barrier(get_buffer().get_buffer(),
+	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 }
 
 PipelineLayout& Quadtree::get_triangle_processing_layout()

@@ -49,16 +49,18 @@ struct terrain_data_t
 	vec4 new_points[num_new_points];
 };
 
-const uint num_quadtree_nodes = (1 << quadtree_levels) * (1 << quadtree_levels);
-const uint aligned_quadtree_index_num = (num_quadtree_nodes + 4) + (16 - ((num_quadtree_nodes + 4) % 16));
+const uint quadtree_data_size = (1 << quadtree_levels) * (1 << quadtree_levels) + 4;
+const uint pad_size = 16 - (quadtree_data_size % 16);
 
 coherent layout(set = 0, binding = 0) buffer terrain_buffer_t
 {
-	uint quadtree_index_map[aligned_quadtree_index_num - 4];
+	uint quadtree_index_map[(1 << quadtree_levels) * (1 << quadtree_levels)];
 	vec2 quadtree_min;
 	vec2 quadtree_max;
+	uint pad[pad_size];
 	terrain_data_t data[num_nodes];
 } terrain_buffer;
+
 
 
 
@@ -321,12 +323,12 @@ void main(void)
 			{
 				if (current_point.x < node_min.x + terrain_buffer.data[node_index].proximity[3])
 					++terrain_buffer.data[node_index].proximity_count[3];
-				else if (current_point.x > node_max.x - terrain_buffer.data[node_index].proximity[1])
+				if (current_point.x > node_max.x - terrain_buffer.data[node_index].proximity[1])
 					++terrain_buffer.data[node_index].proximity_count[1];
 
-				if (current_point.z < node_min.y + terrain_buffer.data[node_index].proximity[0])
+				if (current_point.z > node_max.y - terrain_buffer.data[node_index].proximity[0])
 					++terrain_buffer.data[node_index].proximity_count[0];
-				else if (current_point.z > node_max.y - terrain_buffer.data[node_index].proximity[2])
+				if (current_point.z < node_min.y + terrain_buffer.data[node_index].proximity[2])
 					++terrain_buffer.data[node_index].proximity_count[2];
 			}
 

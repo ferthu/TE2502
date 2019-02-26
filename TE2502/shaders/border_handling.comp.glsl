@@ -49,14 +49,15 @@ struct terrain_data_t
 	vec4 new_points[num_new_points];
 };
 
-const uint num_quadtree_nodes = (1 << quadtree_levels) * (1 << quadtree_levels);
-const uint aligned_quadtree_index_num = (num_quadtree_nodes + 4) + (16 - ((num_quadtree_nodes + 4) % 16));
+const uint quadtree_data_size = (1 << quadtree_levels) * (1 << quadtree_levels) + 4;
+const uint pad_size = 16 - (quadtree_data_size % 16);
 
 coherent layout(set = 0, binding = 0) buffer terrain_buffer_t
 {
-	uint quadtree_index_map[aligned_quadtree_index_num - 4];
+	uint quadtree_index_map[(1 << quadtree_levels) * (1 << quadtree_levels)];
 	vec2 quadtree_min;
 	vec2 quadtree_max;
+	uint pad[pad_size];
 	terrain_data_t data[num_nodes];
 } terrain_buffer;
 
@@ -186,49 +187,54 @@ void main(void)
 	if (thid == 0)
 	{
 		uint count = terrain_buffer.data[node_index].new_points_count;
+
 		// Borders
-		for (uint b = 0; b < 4; ++b)
+		for (uint bb = 0; bb < 4; ++bb)
 		{
 			vec2 min = node_min;
 			vec2 max = node_max;
-			uint level = terrain_buffer.data[node_index].border_level[b];
+			uint level = terrain_buffer.data[node_index].border_level[bb];
 
-			uint nodes_per_side = 1 << quadtree_levels;
+			int nodes_per_side = 1 << quadtree_levels;
 			int ny = int((node_min.y - terrain_buffer.quadtree_min.y + 1) / side);
 			int nx = int((node_min.x - terrain_buffer.quadtree_min.x + 1) / side);
 
-			if (b == 0)
+			if (bb == 0)
 			{
 				min.y = max.y;
-				--ny;
+				++ny;
 			}
-			else if (b == 1)
+			else if (bb == 1)
 			{
 				min.x = max.x;
 				++nx;
 			}
-			else if (b == 2)
+			else if (bb == 2)
 			{
 				max.y = min.y;
-				++ny;
+				--ny;
 			}
-			else if (b == 3)
+			else if (bb == 3)
 			{
 				max.x = min.x;
 				--nx;
 			}
 
-			int neighbour_index = ny * int(nodes_per_side) + nx;
-			uint neighbour_border = (b + 2) % 4;
-			bool valid_neighbour = neighbour_index >= 0 && neighbour_index < num_quadtree_nodes;
+			int neighbour_index = ny * nodes_per_side + nx;
+			uint neighbour_border = (bb + 2) % 4;
 			uint neighbour_level = 0;
-			if (valid_neighbour)
-				neighbour_level = terrain_buffer.data[neighbour_index].border_level[neighbour_border];
+
+			// Check if valid neighbour
+			if (ny >= 0 && ny < nodes_per_side && nx >= 0 && nx < nodes_per_side)
+				neighbour_level = terrain_buffer.data[terrain_buffer.quadtree_index_map[neighbour_index]].border_level[neighbour_border];
+
+			const float limiter = 0.35f;
 
 			// Check if border needs splitting
-			while (terrain_buffer.data[node_index].proximity_count[b] > level)
+			while (terrain_buffer.data[node_index].proximity_count[bb] > level
+				|| neighbour_level > level)
 			{
-				terrain_buffer.data[node_index].proximity[b] *= 0.2;
+				terrain_buffer.data[node_index].proximity[bb] *= limiter;
 				level *= 2;
 
 				float part = 1.f / level;
@@ -240,19 +246,10 @@ void main(void)
 					vec4 border_point = vec4(x, -terrain(vec2(x, z)), z, 0);
 					terrain_buffer.data[node_index].new_points[count++] = border_point;
 
-					if (neighbour_level < level && valid_neighbour)
-						terrain_buffer.data[neighbour_index].new_points[terrain_buffer.data[neighbour_index].new_points_count++] = border_point;
-
 					p += part * 2;
 				}
-
-				if (neighbour_level < level && valid_neighbour)
-				{
-					terrain_buffer.data[neighbour_index].proximity[neighbour_border] *= 0.2;
-					terrain_buffer.data[neighbour_index].border_level[neighbour_border] *= 2;
-				}
 			}
-			terrain_buffer.data[node_index].border_level[b] = level;
+			terrain_buffer.data[node_index].border_level[bb] = level;
 		}
 		terrain_buffer.data[node_index].new_points_count = count;
 	}

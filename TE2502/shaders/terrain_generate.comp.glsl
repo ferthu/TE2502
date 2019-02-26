@@ -41,16 +41,18 @@ struct terrain_data_t
 	vec4 new_points[num_new_points];
 };
 
-const uint num_quadtree_nodes = (1 << quadtree_levels) * (1 << quadtree_levels);
-const uint aligned_quadtree_index_num = (num_quadtree_nodes + 4) + (16 - ((num_quadtree_nodes + 4) % 16));
+const uint quadtree_data_size = (1 << quadtree_levels) * (1 << quadtree_levels) + 4;
+const uint pad_size = 16 - (quadtree_data_size % 16);
 
-layout(set = 0, binding = 0) buffer terrain_buffer_t
+coherent layout(set = 0, binding = 0) buffer terrain_buffer_t
 {
-	uint quadtree_index_map[aligned_quadtree_index_num - 4];
+	uint quadtree_index_map[(1 << quadtree_levels) * (1 << quadtree_levels)];
 	vec2 quadtree_min;
 	vec2 quadtree_max;
+	uint pad[pad_size];
 	terrain_data_t data[num_nodes];
 } terrain_buffer;
+
 
 layout(push_constant) uniform frame_data_t
 {

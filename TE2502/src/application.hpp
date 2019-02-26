@@ -113,9 +113,9 @@ private:
 	ComputeQueue m_ray_march_compute_queue;
 
 	// Error metric parameters
-	float m_em_area_multiplier = 0.5f;
-	float m_em_curvature_multiplier = 0.5f;
-	float m_em_threshold = 2.0f;
+	float m_em_area_multiplier = 0.0f;
+	float m_em_curvature_multiplier = 0.0f;
+	float m_em_threshold = 0.1f;
 
 	// Group size of error metric dispatch
 	uint32_t m_em_group_size = 0;

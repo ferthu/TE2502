@@ -52,7 +52,7 @@ Quadtree::Quadtree(
 		sizeof(BufferNodeHeader) + 
 		max_node_indices * sizeof(uint32_t) + // Indices
 		max_node_vertices * sizeof(glm::vec4) + // Vertices
-		max_node_indices / 3 * sizeof(Triangle) + // Circumcentre and circumradius
+		(max_node_indices / 3) * sizeof(Triangle) + // Circumcentre and circumradius
 		max_node_new_points * sizeof(glm::vec4); // New points
 
 	// Add space for an additional two vec2's to store the quadtree min and max

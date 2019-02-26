@@ -45,16 +45,18 @@ struct terrain_data_t
 	vec4 new_points[num_new_points];
 };
 
-const uint num_quadtree_nodes = (1 << quadtree_levels) * (1 << quadtree_levels);
-const uint aligned_quadtree_index_num = (num_quadtree_nodes + 4) + (16 - ((num_quadtree_nodes + 4) % 16));
+const uint quadtree_data_size = (1 << quadtree_levels) * (1 << quadtree_levels) + 4;
+const uint pad_size = 16 - (quadtree_data_size % 16);
 
 coherent layout(set = 0, binding = 0) buffer terrain_buffer_t
 {
-	uint quadtree_index_map[aligned_quadtree_index_num - 4];
+	uint quadtree_index_map[(1 << quadtree_levels) * (1 << quadtree_levels)];
 	vec2 quadtree_min;
 	vec2 quadtree_max;
+	uint pad[pad_size];
 	terrain_data_t data[num_nodes];
 } terrain_buffer;
+
 
 
 
@@ -131,14 +133,11 @@ struct Edge
 
 shared Edge s_edges[200 * 3];
 
-#define INDICES_TO_STORE 150
-#define TRIANGLES_TO_STORE 50
+#define INDICES_TO_STORE 300
+#define TRIANGLES_TO_STORE 100
 
 shared uint s_triangles_to_remove[TRIANGLES_TO_STORE];
 
-//shared uint s_last_indices[INDICES_TO_STORE];
-//shared vec2 s_last_circumcentres[TRIANGLES_TO_STORE];
-//shared float s_last_circumradii[TRIANGLES_TO_STORE];
 shared uint s_triangles_removed;
 
 shared uint s_index_count;
@@ -211,7 +210,7 @@ void main(void)
 		barrier();
 		memoryBarrierShared();
 
-		if (s_index_count + (s_triangles_removed + 2) * 3 >= num_indices)
+		if (s_index_count + (s_triangles_removed + 2) * 9 >= num_indices)
 		{
 			finish = true;
 			break;
@@ -333,7 +332,7 @@ void main(void)
 		memoryBarrierBuffer();
 	}
 
-	// Write new buffer lenghts to buffer
+	// Write new buffer lengths to buffer
 	if (thid == 0)
 	{
 		terrain_buffer.data[node_index].vertex_count = s_vertex_count;

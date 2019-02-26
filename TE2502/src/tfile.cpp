@@ -50,6 +50,15 @@ uint64_t TFile::get_u64(const std::string& key)
 
 void TFile::compile_shaders()
 {
+	compile_shaders("vert");
+	compile_shaders("glsl");
+	compile_shaders("geom");
+	compile_shaders("frag");
+	compile_shaders("comp");
+}
+
+void TFile::compile_shaders(std::string extension)
+{
 	TCHAR dir[MAX_PATH];
 	WIN32_FIND_DATA ffd;
 	HANDLE h_find = INVALID_HANDLE_VALUE;
@@ -57,12 +66,12 @@ void TFile::compile_shaders()
 
 	// Copy directory to buffer and append wildcard
 	StringCchCopyA(dir, MAX_PATH, m_shader_dir.c_str());
-	StringCchCatA(dir, MAX_PATH, "*.glsl");
+	extension = "*." + extension;
+	StringCchCatA(dir, MAX_PATH, extension.c_str());
 
 	// Find the first file in directory
 	h_find = FindFirstFileA(dir, &ffd);
-
-	CHECK(INVALID_HANDLE_VALUE != h_find, "Found no files in specified shader directory!");
+	dw_error = GetLastError();
 
 #ifdef _DEBUG
 	std::cout << "Compiling shaders:\n";
@@ -70,72 +79,76 @@ void TFile::compile_shaders()
 
 	std::vector<PROCESS_INFORMATION> pis;
 
-	do
+	if (dw_error != ERROR_FILE_NOT_FOUND)
 	{
-		if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+		do
 		{
-			// File is a directory, do nothing
-		}
-		else
-		{
-			std::string command_line = m_shader_dir;
-			command_line += "glslangValidator.exe ";
-			command_line += "-o \"" + m_shader_dir + "compiled/";
-			command_line += ffd.cFileName;
-			command_line += ".spv\" ";
-
-			for (auto& [key, val] : m_map)
+			if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 			{
-				command_line += "-D" + key + "=" + std::to_string(val) + " ";
+				// File is a directory, do nothing
 			}
+			else
+			{
+				std::string command_line = m_shader_dir;
+				command_line += "glslangValidator.exe ";
+				command_line += "-o \"" + m_shader_dir + "compiled/";
+				command_line += ffd.cFileName;
+				command_line += ".spv\" ";
 
-			command_line += "-V " + m_shader_dir;
-			command_line += ffd.cFileName;
+				for (auto&[key, val] : m_map)
+				{
+					command_line += "-D" + key + "=" + std::to_string(val) + " ";
+				}
 
-			// Run compiler
-			STARTUPINFO si;
-			PROCESS_INFORMATION pi;
+				command_line += "-V " + m_shader_dir;
+				command_line += ffd.cFileName;
 
-			ZeroMemory(&si, sizeof(si));
-			si.cb = sizeof(si);
-			ZeroMemory(&pi, sizeof(pi));
+				// Run compiler
+				STARTUPINFO si;
+				PROCESS_INFORMATION pi;
 
-
-
-			CHECK(CreateProcessA(NULL,
-				command_line.data(),						// Command line
-				NULL,										// Process handle not inheritable
-				NULL,										// Thread handle not inheritable
-				FALSE,										// Set handle inheritance to FALSE
-				0,											// No creation flags
-				NULL,										// Use parent's environment block
-				NULL,										// Use parent's starting directory 
-				&si,										// Pointer to STARTUPINFO structure
-				&pi)										// Pointer to PROCESS_INFORMATION structure
-				, "Failed to start shader compiler!");
+				ZeroMemory(&si, sizeof(si));
+				si.cb = sizeof(si);
+				ZeroMemory(&pi, sizeof(pi));
 
 
-			DWORD error = GetLastError();
-			
-			//LPVOID lpMsgBuf;
-			//LPVOID lpDisplayBuf;
 
-			//FormatMessage(
-			//	FORMAT_MESSAGE_ALLOCATE_BUFFER |
-			//	FORMAT_MESSAGE_FROM_SYSTEM |
-			//	FORMAT_MESSAGE_IGNORE_INSERTS,
-			//	NULL,
-			//	error,
-			//	MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-			//	(LPTSTR)&lpMsgBuf,
-			//	0, NULL);
+				CHECK(CreateProcessA(NULL,
+					command_line.data(),						// Command line
+					NULL,										// Process handle not inheritable
+					NULL,										// Thread handle not inheritable
+					FALSE,										// Set handle inheritance to FALSE
+					0,											// No creation flags
+					NULL,										// Use parent's environment block
+					NULL,										// Use parent's starting directory 
+					&si,										// Pointer to STARTUPINFO structure
+					&pi)										// Pointer to PROCESS_INFORMATION structure
+					, "Failed to start shader compiler!");
 
-			pis.push_back(pi);
-		}
-	} while (FindNextFileA(h_find, &ffd) != 0);
 
-	dw_error = GetLastError();
-	CHECK(dw_error == ERROR_NO_MORE_FILES, "Error searching directory!");
+				DWORD error = GetLastError();
+
+				//LPVOID lpMsgBuf;
+				//LPVOID lpDisplayBuf;
+
+				//FormatMessage(
+				//	FORMAT_MESSAGE_ALLOCATE_BUFFER |
+				//	FORMAT_MESSAGE_FROM_SYSTEM |
+				//	FORMAT_MESSAGE_IGNORE_INSERTS,
+				//	NULL,
+				//	error,
+				//	MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+				//	(LPTSTR)&lpMsgBuf,
+				//	0, NULL);
+
+				pis.push_back(pi);
+			}
+		} while (FindNextFileA(h_find, &ffd) != 0);
+
+		dw_error = GetLastError();
+		CHECK(dw_error == ERROR_NO_MORE_FILES, "Error searching directory!");
+
+	}
 
 	FindClose(h_find);
 

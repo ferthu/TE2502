@@ -175,7 +175,7 @@ void main(void)
 	{
 		vec4 current_point = terrain_buffer.data[node_index].new_points[n];
 
-		// Check distance from circumcircles to new point
+		// If a circumcircle's perimeter is close to the point, add an offset to all radii
 		uint i = thid;
 		while (i < s_triangle_count)
 		{
@@ -184,9 +184,9 @@ void main(void)
 
 			float dx = current_point.x - circumcentre.x;
 			float dy = current_point.z - circumcentre.y;
-			if (abs(dx * dx + dy * dy - circumradius) < 0.05f)
+			if (abs(dx * dx + dy * dy - circumradius) < circumradius * 0.01f)
 			{
-				s_circumradius_offset = 0.07f;
+				s_circumradius_offset = 0.01f * circumradius;
 			}
 
 			i += WORK_GROUP_SIZE;

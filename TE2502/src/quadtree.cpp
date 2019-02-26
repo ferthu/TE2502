@@ -368,32 +368,6 @@ void Quadtree::clear_terrain()
 
 void Quadtree::create_pipelines(Window& window)
 {
-	VertexAttributes em_va(*m_context);
-	em_va.add_buffer();
-	em_va.add_attribute(4);
-	m_em_pipeline = m_context->create_graphics_pipeline(
-		"error_metric",
-		window.get_size(),
-		m_em_pipeline_layout,
-		em_va,
-		m_em_render_pass,
-		true,
-		true,
-		nullptr,
-		nullptr);
-	m_em_wireframe_pipeline = m_context->create_graphics_pipeline(
-		"error_metric",
-		window.get_size(),
-		m_em_pipeline_layout,
-		em_va,
-		m_em_render_pass,
-		true,
-		true,
-		nullptr,
-		nullptr,
-		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		VK_POLYGON_MODE_LINE);
-
 	VertexAttributes va(*m_context);
 	va.add_buffer();
 	va.add_attribute(4);

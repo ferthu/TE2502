@@ -315,13 +315,13 @@ void main(void)
 	{
 		s_total += s_counts[n - 1];
 		terrain_buffer.data[node_index].new_points_count += s_total;
-		//terrain_buffer.data[node_index].new_points_count = min(terrain_buffer.data[node_index].new_points_count, num_new_points);
+		terrain_buffer.data[node_index].new_points_count = min(terrain_buffer.data[node_index].new_points_count, num_new_points);
 	}
 
 	// Write points to output storage buffer
 	const uint base_offset = prev_count + s_counts[thid];
 	for (uint i = 0; i < new_point_count && base_offset + i < num_new_points; ++i)
 	{
-		terrain_buffer.data[node_index].new_points[base_offset + i] = vec4(new_points[i].x, -terrain(new_points[i].xy), new_points[i].y, 1.0);
+		terrain_buffer.data[node_index].new_points[base_offset + i] = vec4(new_points[i].x, -terrain(new_points[i].xy) - 0.5, new_points[i].y, 1.0);
 	}
 }

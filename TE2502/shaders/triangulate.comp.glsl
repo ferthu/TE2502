@@ -145,6 +145,10 @@ shared uint s_index_count;
 shared uint s_triangle_count;
 shared uint s_vertex_count;
 
+// Border stuff
+shared float s_proximity[4 * border_zones];
+shared uint s_proximity_count[4 * border_zones];
+
 #define INVALID 9999999
 #define EPSILON 1 - 0.0001
 
@@ -161,7 +165,7 @@ void main(void)
 	const vec2 node_min = terrain_buffer.data[node_index].min;
 	const vec2 node_max = terrain_buffer.data[node_index].max;
 	const float side = node_max.x - node_min.x;
-	const float zone_side = side / border_zones;
+	const float inv_zone_side = 1 / (side / border_zones);
 
 	// Set shared variables
 	if (thid == 0)
@@ -170,6 +174,15 @@ void main(void)
 		s_triangle_count = s_index_count / 3;
 		s_triangles_removed = 0;
 		s_vertex_count = terrain_buffer.data[node_index].vertex_count;
+	}
+
+	// Loading border stuff to shared memory
+	uint i = thid;
+	while (i < 4 * border_zones)
+	{
+		s_proximity[i] = terrain_buffer.data[node_index].proximity[i];
+		s_proximity_count[i] = terrain_buffer.data[node_index].proximity_count[i];
+		i += WORK_GROUP_SIZE;
 	}
 
 	barrier();
@@ -182,7 +195,7 @@ void main(void)
 		vec4 current_point = terrain_buffer.data[node_index].new_points[n];
 
 		// Check distance from circumcircles to new point
-		uint i = thid;
+		i = thid;
 		while (i < s_triangle_count)
 		{
 			vec2 circumcentre = terrain_buffer.data[node_index].triangles[i].circumcentre;
@@ -321,30 +334,31 @@ void main(void)
 			s_triangle_count -= s_triangles_removed;
 			s_index_count = s_triangle_count * 3;
 
-
+			// Increase border zone proximity count(s)
+			// Make sure new points is not on border (w is 0 when on border)
 			if (current_point.w > 0.5)
 			{
-				const uint tx = uint((current_point.x - node_min.x) / zone_side);
-				const uint tz = uint((current_point.z - node_min.y) / zone_side);
+				const uint tx = uint((current_point.x - node_min.x) * inv_zone_side);
+				const uint tz = uint((current_point.z - node_min.y) * inv_zone_side);
 				// Left
 				uint index = 3 * border_zones + tz;
-				if (current_point.x < node_min.x + terrain_buffer.data[node_index].proximity[index])
-					++terrain_buffer.data[node_index].proximity_count[index];
+				if (current_point.x < node_min.x + s_proximity[index])
+					++s_proximity_count[index];
 
 				// Right
 				index = 1 * border_zones + tz;
-				if (current_point.x > node_max.x - terrain_buffer.data[node_index].proximity[index])
-					++terrain_buffer.data[node_index].proximity_count[index];
+				if (current_point.x > node_max.x - s_proximity[index])
+					++s_proximity_count[index];
 
 				// Up
 				index = 0 * border_zones + tx;
-				if (current_point.z > node_max.y - terrain_buffer.data[node_index].proximity[index])
-					++terrain_buffer.data[node_index].proximity_count[index];
+				if (current_point.z > node_max.y - s_proximity[index])
+					++s_proximity_count[index];
 
 				// Down
 				index = 2 * border_zones + tx;
-				if (current_point.z < node_min.y + terrain_buffer.data[node_index].proximity[index])
-					++terrain_buffer.data[node_index].proximity_count[index];
+				if (current_point.z < node_min.y + s_proximity[index])
+					++s_proximity_count[index];
 			}
 
 			// Insert new point
@@ -357,6 +371,15 @@ void main(void)
 		barrier();
 		memoryBarrierShared();
 		memoryBarrierBuffer();
+	}
+
+	// Loading border stuff to shared memory
+	i = thid;
+	while (i < 4 * border_zones)
+	{
+		terrain_buffer.data[node_index].proximity[i] = s_proximity[i];
+		terrain_buffer.data[node_index].proximity_count[i] = s_proximity_count[i];
+		i += WORK_GROUP_SIZE;
 	}
 
 	// Write new buffer lenghts to buffer

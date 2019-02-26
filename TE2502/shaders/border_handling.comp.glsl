@@ -176,6 +176,7 @@ float terrain(in vec2 p)
 
 //////////
 
+
 shared float s_proximity[4 * border_zones];
 shared uint s_proximity_count[4 * border_zones];
 shared uint s_border_level[4 * border_zones];
@@ -219,7 +220,10 @@ void main(void)
 		{
 			int nx = cx + neighbur_indexing_x[bb];
 			int ny = cy + neighbur_indexing_y[bb];
-			int neighbour_index = ny * nodes_per_side + nx;
+			bool valid_neighbour = ny >= 0 && ny < nodes_per_side && nx >= 0 && nx < nodes_per_side;
+			uint neighbour_index = 0;
+			if (valid_neighbour)
+				neighbour_index = terrain_buffer.quadtree_index_map[ny * nodes_per_side + nx];
 			uint neighbour_main_border = (bb + 2) % 4;
 
 			// Border zones
@@ -260,25 +264,23 @@ void main(void)
 				const uint neighbour_border = neighbour_main_border * border_zones + zz;
 				uint neighbour_level = 0;
 
-				// Check if valid neighbour
-				// TODO: Calculate neighbour indices only once, in terrain_generate
-				if (ny >= 0 && ny < nodes_per_side && nx >= 0 && nx < nodes_per_side)
-					neighbour_level = terrain_buffer.data[terrain_buffer.quadtree_index_map[neighbour_index]].border_level[neighbour_border];
+				if (valid_neighbour)
+					neighbour_level = terrain_buffer.data[neighbour_index].border_level[neighbour_border];
 
 				// Check if border needs splitting
-				while (s_proximity_count[index] > level
-					|| neighbour_level > level)
+				while (s_proximity_count[index] > level || neighbour_level > level)
 				{
 					proximity *= proximity_multiplier;
 					level *= 2;
 
-					float part = 1.f / level;
+					const float part = 1.f / level;
 					float p = part;
+					// Add new points on border
 					while (p < 1.f)  // TODO: Multiple threads?
 					{
 						float x = mix(min.x, max.x, p);
 						float z = mix(min.y, max.y, p);
-						vec4 border_point = vec4(x, -terrain(vec2(x, z)), z, 0);
+						vec4 border_point = vec4(x, -terrain(vec2(x, z)) - 0.5, z, 0);
 						terrain_buffer.data[node_index].new_points[count++] = border_point;
 
 						p += part * 2;

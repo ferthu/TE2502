@@ -297,11 +297,6 @@ void Application::update(const float dt)
 		values[values_offset] = dt;
 		values_offset = (values_offset + 1) % num_frames;
 		ImGui::PlotLines("Frame Time", values, num_frames, values_offset, nullptr, 0.0f, 0.02f, ImVec2(150, 30));
-		//if (values_offset == 5)
-		//{
-		//	exit(0);
-		//}
-		//Sleep(100);
 
 		std::string text = "Frame info: " + std::to_string(int(1.f / dt)) + "fps  "
 			+ std::to_string(dt) + "s  " + std::to_string(int(100.f * dt / 0.016f)) + "%%";
@@ -405,7 +400,6 @@ void Application::draw_main()
 	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held)
 	{
 		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold, m_em_area_multiplier, m_em_curvature_multiplier);
-
 	}
 	ImGui::End();
 
@@ -420,7 +414,7 @@ void Application::draw_main()
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
-	// Run border handling a second time to make sure the order does not make a crack appear for 1 frame
+	// Run border handling a second time to make sure the order does not make a crack appear during 1 frame
 	m_quadtree.handle_borders(m_main_queue);
 
 	m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),

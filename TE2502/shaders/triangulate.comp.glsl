@@ -324,23 +324,25 @@ void main(void)
 
 			if (current_point.w > 0.5)
 			{
+				const uint tx = uint((current_point.x - node_min.x) / zone_side);
+				const uint tz = uint((current_point.z - node_min.y) / zone_side);
 				// Left
-				uint index = 3 * border_zones + uint((current_point.z - node_min.y) / zone_side);
+				uint index = 3 * border_zones + tz;
 				if (current_point.x < node_min.x + terrain_buffer.data[node_index].proximity[index])
 					++terrain_buffer.data[node_index].proximity_count[index];
 
 				// Right
-				index = 1 * border_zones + uint((current_point.z - node_min.y) / zone_side);
+				index = 1 * border_zones + tz;
 				if (current_point.x > node_max.x - terrain_buffer.data[node_index].proximity[index])
 					++terrain_buffer.data[node_index].proximity_count[index];
 
 				// Up
-				index = 0 * border_zones + uint((current_point.x - node_min.x) / zone_side);
+				index = 0 * border_zones + tx;
 				if (current_point.z > node_max.y - terrain_buffer.data[node_index].proximity[index])
 					++terrain_buffer.data[node_index].proximity_count[index];
 
 				// Down
-				index = 2 * border_zones + uint((current_point.x - node_min.x) / zone_side);
+				index = 2 * border_zones + tx;
 				if (current_point.z < node_min.y + terrain_buffer.data[node_index].proximity[index])
 					++terrain_buffer.data[node_index].proximity_count[index];
 			}

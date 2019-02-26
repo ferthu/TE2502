@@ -143,6 +143,7 @@ shared uint s_triangles_removed;
 shared uint s_index_count;
 shared uint s_triangle_count;
 shared uint s_vertex_count;
+shared float s_circumradius_offset;
 
 #define INVALID 999999
 #define EPSILON 1 - 0.0001
@@ -164,6 +165,7 @@ void main(void)
 		s_triangle_count = s_index_count / 3;
 		s_triangles_removed = 0;
 		s_vertex_count = terrain_buffer.data[node_index].vertex_count;
+		s_circumradius_offset = 0.0f;
 	}
 	barrier();
 	memoryBarrierShared();
@@ -182,7 +184,27 @@ void main(void)
 
 			float dx = current_point.x - circumcentre.x;
 			float dy = current_point.z - circumcentre.y;
-			if (dx * dx + dy * dy < circumradius)
+			if (abs(dx * dx + dy * dy - circumradius) < 0.05f)
+			{
+				s_circumradius_offset = 0.07f;
+			}
+
+			i += WORK_GROUP_SIZE;
+		}
+
+		barrier();
+		memoryBarrierShared();
+
+		// Check distance from circumcircles to new point
+		i = thid;
+		while (i < s_triangle_count)
+		{
+			vec2 circumcentre = terrain_buffer.data[node_index].triangles[i].circumcentre;
+			float circumradius = terrain_buffer.data[node_index].triangles[i].circumradius;
+
+			float dx = current_point.x - circumcentre.x;
+			float dy = current_point.z - circumcentre.y;
+			if (dx * dx + dy * dy < circumradius - s_circumradius_offset)
 			{
 				// Add triangle edges to edge buffer
 				uint tr = atomicAdd(s_triangles_removed, 1);

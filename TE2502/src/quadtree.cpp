@@ -1,4 +1,7 @@
 #include "quadtree.hpp"
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_vulkan.h"
 
 Quadtree::~Quadtree()
 {
@@ -75,6 +78,10 @@ Quadtree::Quadtree(
 
 	// Point to the end of cpu index buffer
 	m_quadtree_minmax = (glm::vec2*) (((char*)m_node_index_to_buffer_index) + (1 << levels) * (1 << levels) * sizeof(uint32_t));
+
+	float half_length = m_total_side_length * 0.5f;
+	m_quadtree_minmax[0] = glm::vec2(-half_length, -half_length);
+	m_quadtree_minmax[1] = glm::vec2(half_length, half_length);
 
 	// (1 << levels) is number of nodes per axis
 	memset(m_node_index_to_buffer_index, INVALID, (1 << levels) * (1 << levels) * sizeof(uint32_t));
@@ -399,10 +406,12 @@ void Quadtree::create_pipelines(Window& window)
 
 	m_triangulation_pipeline = m_context->create_compute_pipeline("triangulate", m_triangulation_pipeline_layout, nullptr);
 
+	m_border_handling_pipeline = m_context->create_compute_pipeline("border_handling", m_triangulation_pipeline_layout, nullptr);
+
 	m_triangle_processing_compute_pipeline = m_context->create_compute_pipeline("triangle_processing", m_triangle_processing_pipeline_layout, nullptr);
 }
 
-void Quadtree::triangulate(GraphicsQueue& queue, glm::vec3 pos)
+void Quadtree::triangulate(GraphicsQueue& queue)
 {
 	queue.cmd_bind_compute_pipeline(m_triangulation_pipeline->m_pipeline);
 	queue.cmd_bind_descriptor_set_compute(m_triangulation_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
@@ -417,6 +426,37 @@ void Quadtree::triangulate(GraphicsQueue& queue, glm::vec3 pos)
 				&m_triangulation_push_data);
 		queue.cmd_dispatch(1, 1, 1);
 	}
+
+	// Memory barrier for GPU buffer
+	queue.cmd_buffer_barrier(get_buffer().get_buffer(),
+		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+}
+
+void Quadtree::handle_borders(GraphicsQueue& queue)
+{
+	queue.cmd_bind_compute_pipeline(m_border_handling_pipeline->m_pipeline);
+	queue.cmd_bind_descriptor_set_compute(m_triangulation_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
+
+	for (unsigned i = 0; i < m_num_draw_nodes; ++i)
+	{
+		m_triangulation_push_data.node_index = m_draw_nodes[i];
+		queue.cmd_push_constants(
+			m_triangulation_pipeline_layout.get_pipeline_layout(),
+			VK_SHADER_STAGE_COMPUTE_BIT,
+			sizeof(TriangulationData),
+			&m_triangulation_push_data);
+		queue.cmd_dispatch(1, 1, 1);
+	}
+
+	//// Memory barrier for GPU buffer
+	//queue.cmd_buffer_barrier(get_buffer().get_buffer(),
+	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 }
 
 PipelineLayout& Quadtree::get_triangle_processing_layout()
@@ -498,6 +538,8 @@ void Quadtree::move_from(Quadtree&& other)
 
 	m_triangulation_pipeline_layout = std::move(other.m_triangulation_pipeline_layout);
 	m_triangulation_pipeline = std::move(other.m_triangulation_pipeline);
+
+	m_border_handling_pipeline = std::move(other.m_border_handling_pipeline);
 
 	m_draw_pipeline_layout = std::move(other.m_draw_pipeline_layout);
 	m_draw_pipeline = std::move(other.m_draw_pipeline);

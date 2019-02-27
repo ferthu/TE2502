@@ -10,6 +10,8 @@ const uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
 const uint num_nodes = TERRAIN_GENERATE_NUM_NODES;
 const uint num_new_points = TRIANGULATE_MAX_NEW_POINTS;
 const uint quadtree_levels = QUADTREE_LEVELS;
+const uint border_zones = BORDER_ZONES;
+const uint border_proximity = BORDER_START_PROXIMITY;
 
 struct Triangle
 {
@@ -33,6 +35,10 @@ struct terrain_data_t
 
 		vec2 min;
 		vec2 max;
+
+		float proximity[4 * border_zones];
+		uint proximity_count[4 * border_zones];
+		uint border_level[4 * border_zones];
 	// }
 
 	uint indices[num_indices];
@@ -180,6 +186,7 @@ float find_circum_radius_squared(vec2 P, vec2 Q, vec2 R)
 
 /////////////////
 
+
 void main(void)
 {
 	const uint node_index = frame_data.node_index;
@@ -197,6 +204,14 @@ void main(void)
 
 		terrain_buffer.data[node_index].min = frame_data.min;
 		terrain_buffer.data[node_index].max = frame_data.max;
+
+		const float proximity = (frame_data.max.x - frame_data.min.x) * border_proximity / 100.f;
+		for (uint b = 0; b < 4 * border_zones; ++b)
+		{
+			terrain_buffer.data[node_index].proximity[b] = proximity;
+			terrain_buffer.data[node_index].proximity_count[b] = 0;
+			terrain_buffer.data[node_index].border_level[b] = 1;
+		}
 	}
 
 	// Positions
@@ -213,7 +228,6 @@ void main(void)
 		//{
 		//	int max = 10;
 		//	terrain_buffer.data[node_index].new_points_count = max * max;
-
 		//	for (int a = 0; a < max; ++a)
 		//	{
 		//		for (int b = 0; b < max; ++b)

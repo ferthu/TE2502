@@ -576,7 +576,7 @@ static std::vector<char> read_file(const std::string& filename)
 
 std::unique_ptr<Pipeline> VulkanContext::create_compute_pipeline(const std::string& shader_name, PipelineLayout& layout, SpecializationInfo* compute_shader_specialization)
 {
-	auto shader_code = read_file("shaders/compiled/" + shader_name + ".comp.glsl.spv");
+	auto shader_code = read_file("shaders/compiled/" + shader_name + ".comp.spv");
 
 	VkShaderModule shader_module = create_shader_module(shader_code);
 
@@ -630,8 +630,8 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 	VkPrimitiveTopology topology,
 	VkPolygonMode polygon_mode)
 {
-	auto vert_shader_code = read_file("shaders/compiled/" + shader_name + ".vert.glsl.spv");
-	auto frag_shader_code = read_file("shaders/compiled/" + shader_name + ".frag.glsl.spv");
+	auto vert_shader_code = read_file("shaders/compiled/" + shader_name + ".vert.spv");
+	auto frag_shader_code = read_file("shaders/compiled/" + shader_name + ".frag.spv");
 
 	VkShaderModule vert_shader_module = create_shader_module(vert_shader_code);
 	VkShaderModule frag_shader_module = create_shader_module(frag_shader_code);
@@ -641,7 +641,7 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 	VkPipelineShaderStageCreateInfo geom_shader_stage_info = {};
 	if (enable_geometry_shader)
 	{
-		geom_shader_code = read_file("shaders/compiled/" + shader_name + ".geom.glsl.spv");
+		geom_shader_code = read_file("shaders/compiled/" + shader_name + ".geom.spv");
 		geom_shader_module = create_shader_module(geom_shader_code);
 
 		geom_shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

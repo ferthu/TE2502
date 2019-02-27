@@ -15,6 +15,8 @@ public:
 
 	void compile_shaders();
 private:
+	void compile_shaders(std::string extension);
+
 	std::unordered_map<std::string, uint64_t> m_map;
 
 	FFile m_ffile;

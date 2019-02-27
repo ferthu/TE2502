@@ -10,6 +10,7 @@ Camera::Camera(GLFWwindow* window)
 {
 	m_window = window;
 	glfwGetWindowSize(m_window, &m_window_width, &m_window_height);
+	
 	m_perspective = calculate_perspective(90.0f, m_near, m_far, (float)m_window_width, (float)m_window_height);
 	get_camera_planes();
 }
@@ -78,7 +79,11 @@ void Camera::update(const float dt, bool mouse_locked, DebugDrawer& dd)
 
 	m_view = glm::translate(camera_rotation, glm::vec3{ -m_position });
 
-	m_perspective = calculate_perspective(90.0f, m_near, m_far, (float)m_window_width, (float)m_window_height);
+	static float fov = 90.0f;
+	ImGui::Begin("Camera Settings");
+	ImGui::DragFloat("FOV", &fov, 0.3f, 5.0f, 90.0f);
+	ImGui::End();
+	m_perspective = calculate_perspective(fov, m_near, m_far, (float)m_window_width, (float)m_window_height);
 	m_vp = m_perspective * m_view;
 
 	m_ray_march_view = glm::inverse(camera_rotation);

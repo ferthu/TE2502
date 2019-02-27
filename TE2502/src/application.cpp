@@ -18,6 +18,623 @@
 
 //#define RAY_MARCH_WINDOW
 
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+
+int num_indices = 20000;
+int num_vertices = 13000;
+const int num_nodes = 4;
+const int num_new_points = 1024;
+const int max_new_points = 1024;
+const int quadtree_levels = 1;
+
+const uint32_t WORK_GROUP_SIZE = 1;
+
+struct Triangle
+{
+	glm::vec2 circumcentre;
+	float circumradius;
+	uint32_t pad;
+};
+
+struct terrain_data_t
+{
+	uint32_t index_count;
+	uint32_t instance_count;
+	uint32_t first_index;
+	int  vertex_offset;
+	uint32_t first_instance;
+
+	// struct BufferNodeHeader {
+	uint32_t vertex_count;
+	uint32_t new_points_count;
+	uint32_t pad;
+
+	glm::vec2 min;
+	glm::vec2 max;
+	// }
+
+	std::vector<uint32_t> indices;
+	std::vector<glm::vec4> positions;
+	std::vector<Triangle> triangles;
+	std::vector<glm::vec4> new_points;
+};
+
+struct terrain_buffer_t
+{
+	uint32_t quadtree_index_map[4];
+	glm::vec2 quadtree_min;
+	glm::vec2 quadtree_max;
+	terrain_data_t data;
+};
+
+std::array<glm::vec2, max_new_points> new_points;
+//uint32_t s_counts[WORK_GROUP_SIZE];
+std::array<uint32_t, 2> s_counts;
+int s_total;
+
+terrain_buffer_t terrain_buffer;
+
+struct Edge
+{
+	uint32_t p1;
+	uint32_t p2;
+};
+
+std::array<Edge, 600> s_edges;
+
+#define INDICES_TO_STORE 300
+#define TRIANGLES_TO_STORE 100
+
+std::array<uint32_t, TRIANGLES_TO_STORE> s_triangles_to_remove;
+
+uint32_t s_triangles_removed;
+
+uint32_t s_index_count;
+uint32_t s_triangle_count;
+uint32_t s_vertex_count;
+
+#define INVALID 999999
+#define EPSILON 1.0f - 0.0001f
+
+void line_from_points(glm::vec2 p1, glm::vec2 p2, float& a, float& b, float& c)
+{
+	a = p2.y - p1.y;
+	b = p1.x - p2.x;
+	c = a * p1.x + b * p2.y;
+}
+void perpendicular_bisector_from_line(glm::vec2 p1, glm::vec2 p2, float& a, float& b, float& c)
+{
+	glm::vec2 mid_point = glm::vec2((p1.x + p2.x) * 0.5, (p1.y + p2.y) * 0.5);
+
+	// c = -bx + ay 
+	c = -b * mid_point.x + a * mid_point.y;
+
+	float temp = a;
+	a = -b;
+	b = temp;
+}
+glm::vec2 line_line_intersection(float a1, float b1, float c1, float a2, float b2, float c2)
+{
+	float determinant = a1 * b2 - a2 * b1;
+
+	float x = (b2 * c1 - b1 * c2) / determinant;
+	float y = (a1 * c2 - a2 * c1) / determinant;
+
+	return glm::vec2(x, y);
+}
+glm::vec2 find_circum_center(glm::vec2 P, glm::vec2 Q, glm::vec2 R)
+{
+	// Line PQ is represented as ax + by = c 
+	float a, b, c;
+	line_from_points(P, Q, a, b, c);
+
+	// Line QR is represented as ex + fy = g 
+	float e, f, g;
+	line_from_points(Q, R, e, f, g);
+
+	// Converting lines PQ and QR to perpendicular 
+	// vbisectors. After this, L = ax + by = c 
+	// M = ex + fy = g 
+	perpendicular_bisector_from_line(P, Q, a, b, c);
+	perpendicular_bisector_from_line(Q, R, e, f, g);
+
+	// The point of intersection of L and M gives 
+	// the circumcenter 
+	return line_line_intersection(a, b, c, e, f, g);
+}
+float find_circum_radius_squared(glm::vec2 P, glm::vec2 Q, glm::vec2 R)
+{
+	float a = distance(P, Q);
+	float b = distance(P, R);
+	float c = distance(R, Q);
+
+	return (a * a * b * b * c * c) / ((a + b + c) * (b + c - a) * (c + a - b) * (a + b - c));
+}
+float find_circum_radius_squared(float a, float b, float c)
+{
+	return (a * a * b * b * c * c) / ((a + b + c) * (b + c - a) * (c + a - b) * (a + b - c));
+}
+bool clip(glm::vec4 p)
+{
+	return (abs(p.x) <= p.w &&
+		abs(p.y) <= p.w &&
+		abs(p.z) <= p.w);
+}
+
+void gen_terrain()
+{
+	uint32_t GRID_SIDE = 10;
+	struct f_data { glm::vec2 min; glm::vec2 max; };
+	f_data frame_data{ {-5000, 0}, {0, 5000} };
+
+	{
+		terrain_buffer.data.index_count = 6 * (GRID_SIDE - 1) * (GRID_SIDE - 1);
+		terrain_buffer.data.instance_count = 1;
+		terrain_buffer.data.first_index = 0;
+		terrain_buffer.data.vertex_offset = 0;
+		terrain_buffer.data.first_instance = 0;
+
+		terrain_buffer.data.vertex_count = GRID_SIDE * GRID_SIDE;
+		terrain_buffer.data.new_points_count = 0;
+
+		terrain_buffer.data.min = frame_data.min;
+		terrain_buffer.data.max = frame_data.max;
+	}
+
+	// Positions
+	uint32_t i = 0;
+	while (i < GRID_SIDE * GRID_SIDE)
+	{
+		float x = frame_data.min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * (frame_data.max.x - frame_data.min.x);
+		float z = frame_data.min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * (frame_data.max.y - frame_data.min.y);
+
+		terrain_buffer.data.positions[i] = glm::vec4(x, 0.0f, z, 1.0);
+
+		i++;
+	}
+
+	// Triangles
+	i = 0;
+	while (i < (GRID_SIDE - 1) * (GRID_SIDE - 1))
+	{
+		uint32_t y = i / (GRID_SIDE - 1);
+		uint32_t x = i % (GRID_SIDE - 1);
+		uint32_t index = y * GRID_SIDE + x;
+
+		// Indices
+		uint32_t offset = i * 6;
+		terrain_buffer.data.indices[offset] = index;
+		terrain_buffer.data.indices[offset + 1] = index + GRID_SIDE + 1;
+		terrain_buffer.data.indices[offset + 2] = index + 1;
+
+		terrain_buffer.data.indices[offset + 3] = index;
+		terrain_buffer.data.indices[offset + 4] = index + GRID_SIDE;
+		terrain_buffer.data.indices[offset + 5] = index + GRID_SIDE + 1;
+
+		// Circumcentres
+		offset = i * 2;
+		glm::vec2 P1 = glm::vec2(terrain_buffer.data.positions[index].x, terrain_buffer.data.positions[index].z);
+		glm::vec2 Q1 = glm::vec2(terrain_buffer.data.positions[index + GRID_SIDE + 1].x, terrain_buffer.data.positions[index + GRID_SIDE + 1].z);
+		glm::vec2 R1 = glm::vec2(terrain_buffer.data.positions[index + 1].x, terrain_buffer.data.positions[index + 1].z);
+		terrain_buffer.data.triangles[offset].circumcentre = find_circum_center(P1, Q1, R1);
+
+		glm::vec2 P2 = glm::vec2(terrain_buffer.data.positions[index].x, terrain_buffer.data.positions[index].z);
+		glm::vec2 Q2 = glm::vec2(terrain_buffer.data.positions[index + GRID_SIDE].x, terrain_buffer.data.positions[index + GRID_SIDE].z);
+		glm::vec2 R2 = glm::vec2(terrain_buffer.data.positions[index + GRID_SIDE + 1].x, terrain_buffer.data.positions[index + GRID_SIDE + 1].z);
+		terrain_buffer.data.triangles[offset + 1].circumcentre = find_circum_center(P2, Q2, R2);
+
+		// Circumradii
+		terrain_buffer.data.triangles[offset].circumradius = find_circum_radius_squared(P1, Q1, R1);
+		terrain_buffer.data.triangles[offset + 1].circumradius = find_circum_radius_squared(P2, Q2, R2);
+
+		i += WORK_GROUP_SIZE;
+	}
+}
+
+void triangle_process(const glm::mat4& vp)
+{
+	struct f_d { glm::mat4 vp; };
+	f_d frame_data{ vp };
+
+	const uint32_t thid = 0;
+	const uint32_t index_count = terrain_buffer.data.index_count;
+
+	uint32_t new_point_count = 0;
+
+	if (true)
+	{
+		// For every triangle
+		for (uint32_t i = thid * 3; i + 3 < index_count && new_point_count < max_new_points; i += WORK_GROUP_SIZE * 3)
+		{
+			// Get vertices
+			glm::vec4 v0 = terrain_buffer.data.positions[terrain_buffer.data.indices[i]];
+			glm::vec4 v1 = terrain_buffer.data.positions[terrain_buffer.data.indices[i + 1]];
+			glm::vec4 v2 = terrain_buffer.data.positions[terrain_buffer.data.indices[i + 2]];
+
+			// Get clipspace coordinates
+			glm::vec4 c0 = frame_data.vp * v0;
+			glm::vec4 c1 = frame_data.vp * v1;
+			glm::vec4 c2 = frame_data.vp * v2;
+
+			// Check if any vertex is visible (shitty clipping)
+			if (clip(c0) || clip(c1) || clip(c2))
+			{
+				// Calculate screen space area
+
+				c0 /= c0.w;
+				c1 /= c1.w;
+				c2 /= c2.w;
+
+				// a, b, c is triangle side lengths
+				float a = distance(glm::vec2(c0.x, c0.y), glm::vec2(c1.x, c1.y));
+				float b = distance(glm::vec2(c0.x, c0.y), glm::vec2(c2.x, c2.y));
+				float c = distance(glm::vec2(c1.x, c1.y), glm::vec2(c2.x, c2.y));
+
+				// s is semiperimeter
+				float s = (a + b + c) * 0.5f;
+
+				float area = pow(/*sqrt*/(s * (s - a) * (s - b) * (s - c)), 0.0f);
+
+				glm::vec3 mid = (glm::vec3(v0) + glm::vec3(v1) + glm::vec3(v2)) / 3.0f;
+				float curv = powf(rand() / RAND_MAX, 0.0f);
+
+				//if (rand() / RAND_MAX > 0.94f)
+				{
+					new_points[new_point_count] = glm::vec2(mid.x, mid.z);
+					++new_point_count;
+				}
+			}
+		}
+	}
+
+
+
+
+	////// PREFIX SUM
+
+	const uint32_t n = WORK_GROUP_SIZE;
+
+	// Load into shared memory
+	s_counts[thid] = new_point_count;
+
+	if (thid == 0)
+		s_total = s_counts[n - 1];
+
+	int offset = 1;
+	for (uint32_t d = n >> 1; d > 0; d >>= 1) // Build sun in place up the tree
+	{
+		if (thid < d)
+		{
+			uint32_t ai = offset * (2 * thid + 1) - 1;
+			uint32_t bi = offset * (2 * thid + 2) - 1;
+			s_counts[bi] += s_counts[ai];
+		}
+		offset *= 2;
+	}
+	if (thid == 0) { s_counts[n - 1] = 0; } // Clear the last element
+	for (int d = 1; d < n; d *= 2) // Traverse down tree & build scan
+	{
+		offset >>= 1;
+		if (thid < d)
+		{
+			uint32_t ai = offset * (2 * thid + 1) - 1;
+			uint32_t bi = offset * (2 * thid + 2) - 1;
+
+			uint32_t t = s_counts[ai];
+			s_counts[ai] = s_counts[bi];
+			s_counts[bi] += t;
+		}
+	}
+
+	// Make sure the total is saved as well
+	if (thid == 0)
+	{
+		s_total += s_counts[n - 1];
+		terrain_buffer.data.new_points_count = std::min(s_total, num_new_points);
+	}
+
+	// Write points to output storage buffer
+	const uint32_t base_offset = s_counts[thid];
+	for (uint32_t i = 0; i < new_point_count && base_offset + i < num_new_points; ++i)
+	{
+		//output_data.points[base_offset + i] = new_points[i];
+		terrain_buffer.data.new_points[base_offset + i] = glm::vec4(new_points[i].x, 0, new_points[i].y, 1.0);
+	}
+}
+
+void triangulate()
+{
+	if (terrain_buffer.data.new_points_count == 0)
+		return;
+
+	const uint32_t thid = 0;
+	bool finish = false;
+
+	// Set shared variables
+	if (thid == 0)
+	{
+		s_index_count = terrain_buffer.data.index_count;
+		s_triangle_count = s_index_count / 3;
+		s_triangles_removed = 0;
+		s_vertex_count = terrain_buffer.data.vertex_count;
+	}
+
+	const int new_points_count = terrain_buffer.data.new_points_count;
+	for (int n = 0; n < new_points_count && s_vertex_count < num_vertices && !finish; ++n)
+	{
+		glm::vec4 current_point = terrain_buffer.data.new_points[n];
+
+		// Check distance from circumcircles to new point
+		uint32_t i = thid;
+		while (i < s_triangle_count)
+		{
+			glm::vec2 circumcentre = terrain_buffer.data.triangles[i].circumcentre;
+			float circumradius = terrain_buffer.data.triangles[i].circumradius;
+
+			float dx = current_point.x - circumcentre.x;
+			float dy = current_point.z - circumcentre.y;
+			if (dx * dx + dy * dy < circumradius)
+			{
+				// Add triangle edges to edge buffer
+				uint32_t tr = s_triangles_removed;
+				s_triangles_removed++;
+				uint32_t ec = tr * 3; //atomicAdd(s_edge_count, 3);
+				uint32_t index_offset = i * 3;
+				uint32_t index0 = terrain_buffer.data.indices[index_offset + 0];
+				uint32_t index1 = terrain_buffer.data.indices[index_offset + 1];
+				uint32_t index2 = terrain_buffer.data.indices[index_offset + 2];
+				// Edge 1
+				s_edges[ec + 0].p1 = std::min(index0, index1);
+				s_edges[ec + 0].p2 = std::max(index0, index1);
+				// Edge 2
+				s_edges[ec + 1].p1 = std::min(index1, index2);
+				s_edges[ec + 1].p2 = std::max(index1, index2);
+				// Edge 3
+				s_edges[ec + 2].p1 = std::min(index2, index0);
+				s_edges[ec + 2].p2 = std::max(index2, index0);
+
+				// Mark the triangle to be removed later
+				s_triangles_to_remove[tr] = i;
+			}
+
+			i += WORK_GROUP_SIZE;
+		}
+
+		if (s_index_count + (s_triangles_removed + 2) * 9 >= num_indices)
+		{
+			finish = true;
+			break;
+		}
+
+		// Delete all doubly specified edges from edge buffer (this leaves the edges of the enclosing polygon only)
+		const uint32_t edge_count = s_triangles_removed * 3;
+		i = thid;
+		while (i < edge_count)
+		{
+			bool found = false;
+			for (uint32_t j = 0; j < edge_count; ++j)
+			{
+				if (i != j &&
+					s_edges[i].p1 == s_edges[j].p1 &&
+					s_edges[i].p2 == s_edges[j].p2)
+				{
+					// Mark as invalid
+					s_edges[j].p1 = INVALID;
+					found = true;
+				}
+			}
+			if (found)
+				s_edges[i].p1 = INVALID;
+			i += WORK_GROUP_SIZE;
+		}
+
+		if (thid == 0)
+		{
+			uint32_t old_index_count = s_index_count;
+			uint32_t old_triangle_count = s_triangle_count;
+			bool all_valid = true;
+
+			// Add to the triangle list all triangles formed between the point and the edges of the enclosing polygon
+			for (uint32_t i = 0; i < edge_count; ++i)
+			{
+				if (s_edges[i].p1 != INVALID)
+				{
+					glm::vec3 P = glm::vec3(terrain_buffer.data.positions[s_edges[i].p1]);
+					glm::vec3 Q = glm::vec3(terrain_buffer.data.positions[s_edges[i].p2]);
+					glm::vec3 R = glm::vec3(current_point);
+
+					// Make sure winding order is correct
+					glm::vec3 n = cross(R - P, Q - P);
+					if (n.y > 0)
+					{
+						uint32_t temp = s_edges[i].p1;
+						s_edges[i].p1 = s_edges[i].p2;
+						s_edges[i].p2 = temp;
+					}
+
+					// Set indices for the new triangle
+					assert(s_edges[i].p1 < s_vertex_count);
+					assert(s_edges[i].p2 < s_vertex_count);
+					assert(s_vertex_count <= num_vertices);
+					terrain_buffer.data.indices[s_index_count + 0] = s_edges[i].p1;
+					terrain_buffer.data.indices[s_index_count + 1] = s_edges[i].p2;
+					terrain_buffer.data.indices[s_index_count + 2] = s_vertex_count;
+					// Set circumcircles for the new triangle
+					float a = distance(glm::vec2(P.x, P.z), glm::vec2(Q.x, Q.z));
+					float b = distance(glm::vec2(P.x, P.z), glm::vec2(R.x, R.z));
+					float c = distance(glm::vec2(R.x, R.z), glm::vec2(Q.x, Q.z));
+
+					glm::vec2 PQ = glm::normalize(glm::vec2(Q.x, Q.z) - glm::vec2(P.x, P.z));
+					glm::vec2 PR = glm::normalize(glm::vec2(R.x, R.z) - glm::vec2(P.x, P.z));
+					glm::vec2 RQ = glm::normalize(glm::vec2(Q.x, Q.z) - glm::vec2(R.x, R.z));
+					float d1 = abs(dot(PQ, PR));
+					float d2 = abs(dot(PR, RQ));
+					float d3 = abs(dot(RQ, PQ));
+
+					if (d1 > EPSILON || d2 > EPSILON || d3 > EPSILON)
+					{
+						all_valid = false;
+						break;
+					}
+					terrain_buffer.data.triangles[s_triangle_count].circumcentre = find_circum_center(glm::vec2(P.x, P.z), glm::vec2(Q.x, Q.z), glm::vec2(R.x, R.z));
+					terrain_buffer.data.triangles[s_triangle_count].circumradius = find_circum_radius_squared(a, b, c);
+
+					s_index_count += 3;
+					++s_triangle_count;
+				}
+			}
+			// Remove old triangles
+			if (all_valid)
+			{
+				uint32_t last_valid_triangle = s_triangle_count - 1;
+				for (int j = int(s_triangles_removed) - 1; j >= 0; --j)
+				{
+					uint32_t index = s_triangles_to_remove[j];
+					if (index < last_valid_triangle)
+					{
+						assert(terrain_buffer.data.indices[last_valid_triangle * 3 + 0] <= s_vertex_count);
+						assert(terrain_buffer.data.indices[last_valid_triangle * 3 + 1] <= s_vertex_count);
+						assert(terrain_buffer.data.indices[last_valid_triangle * 3 + 2] <= s_vertex_count);
+
+						terrain_buffer.data.indices[index * 3 + 0] = terrain_buffer.data.indices[last_valid_triangle * 3 + 0];
+						terrain_buffer.data.indices[index * 3 + 1] = terrain_buffer.data.indices[last_valid_triangle * 3 + 1];
+						terrain_buffer.data.indices[index * 3 + 2] = terrain_buffer.data.indices[last_valid_triangle * 3 + 2];
+						terrain_buffer.data.triangles[index].circumcentre = terrain_buffer.data.triangles[last_valid_triangle].circumcentre;
+						terrain_buffer.data.triangles[index].circumradius = terrain_buffer.data.triangles[last_valid_triangle].circumradius;
+					}
+					--last_valid_triangle;
+				}
+				s_triangle_count -= s_triangles_removed;
+				s_index_count = s_triangle_count * 3;
+
+				// Insert new point
+				terrain_buffer.data.positions[s_vertex_count] = current_point;
+				++s_vertex_count;
+			}
+			// Exclude the new point and revert
+			else
+			{
+				s_index_count = old_index_count;
+				s_triangle_count = old_triangle_count;
+			}
+
+			s_triangles_removed = 0;
+		}
+	}
+
+	// Write new buffer lengths to buffer
+	if (thid == 0)
+	{
+		terrain_buffer.data.vertex_count = s_vertex_count;
+		assert(terrain_buffer.data.positions[s_vertex_count - 1].w > 0.5f);
+
+		terrain_buffer.data.index_count = s_index_count;
+
+		terrain_buffer.data.new_points_count = 0;
+	}
+}
+
+void cpu_triangulate_test(const glm::mat4& vp, DebugDrawer& dd, Camera& camera)
+{
+	static int vistris_begin = 0;
+	static int vistris_end = num_indices / 3;
+
+	ImGui::Begin("Triangle Debug Shit");
+
+	if (ImGui::Button("EXPAND!! XD"))
+	{
+		num_indices += 3;
+	}
+
+	if (ImGui::Button("retract :("))
+		num_indices -= 3;
+
+	ImGui::DragInt("Num Indices", &num_indices, 1.0f, 100, 4700);
+	ImGui::DragInt("Num Vertices", &num_vertices, 1.0f, 100, 4700);
+
+	ImGui::Text("Indices: %u", num_indices);
+
+
+	if (ImGui::Button("SET CAMERAAAA"))
+	{
+		camera.set_pos({ -60.324883f, 217.934616f, 71.968697f });
+		camera.set_yaw_pitch(1.72681379f, 1.07079637);
+	}
+
+	ImGui::DragInt("Vistris B", &vistris_begin, 0.2f, 0, num_indices / 3);
+	ImGui::DragInt("Vistris E", &vistris_end, 0.2f, 0, num_indices / 3);
+
+
+	if (ImGui::Button("Reset"))
+	{
+		terrain_buffer.data.indices.resize(num_indices);
+		terrain_buffer.data.positions.resize(num_vertices);
+		terrain_buffer.data.triangles.resize(num_indices / 3);
+		terrain_buffer.data.new_points.resize(num_new_points);
+
+		terrain_buffer.data.new_points_count = 0;
+		terrain_buffer.data.vertex_count = 0;
+		terrain_buffer.data.index_count = 0;
+		
+		gen_terrain();
+	}
+
+	if (ImGui::Button("Refine"))
+	{
+		triangle_process(vp);
+		triangulate();
+	}
+
+	ImGui::End();
+
+	for (size_t i = vistris_begin * 3; i < terrain_buffer.data.index_count && i < vistris_end * 3; i += 3)
+	{
+		assert(terrain_buffer.data.positions[terrain_buffer.data.indices[i]].w > 0.5f);
+		assert(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 1]].w > 0.5f);
+		assert(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 2]].w > 0.5f);
+
+		dd.draw_line(glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i]]), glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 1]]), glm::vec3(1, 0, 0));
+		dd.draw_line(glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 1]]), glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 2]]), glm::vec3(1, 0, 0));
+		dd.draw_line(glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 2]]), glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i]]), glm::vec3(1, 0, 0));
+
+		glm::vec3 mid = (terrain_buffer.data.positions[terrain_buffer.data.indices[i]] + terrain_buffer.data.positions[terrain_buffer.data.indices[i + 1]] + terrain_buffer.data.positions[terrain_buffer.data.indices[i + 2]]) / 3.0f;
+
+		dd.draw_line(mid, glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i]]), glm::vec3(0, 1, 0));
+		dd.draw_line(mid, glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 1]]), glm::vec3(0, 1, 0));
+		dd.draw_line(mid, glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 2]]), glm::vec3(0, 1, 0));
+
+		/*size_t tri_index = i / 3;
+		glm::vec3 c = { terrain_buffer.data.triangles[tri_index].circumcentre.x, 0, terrain_buffer.data.triangles[tri_index].circumcentre.y };
+		float r = terrain_buffer.data.triangles[tri_index].circumradius;
+
+		glm::vec3 dir = glm::normalize(glm::vec3(1, 0, -1));
+		glm::vec3 dir2 = glm::normalize(glm::vec3(-1, 0, -1));
+
+		dd.draw_line(c, c + glm::vec3(0, 0, 1) * sqrtf(r), { 0, 0, 1 });
+		dd.draw_line(c, c + dir * sqrtf(r), { 0, 0, 1 });
+		dd.draw_line(c, c + dir2 * sqrtf(r), { 0, 0, 1 });*/
+	}
+}
+
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+
+
 void error_callback(int error, const char* description)
 {
 	fprintf(stderr, "Error: %s\n", description);
@@ -160,7 +777,7 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-	m_debug_drawer = DebugDrawer(m_vulkan_context, 11000);
+	m_debug_drawer = DebugDrawer(m_vulkan_context, 110000);
 
 	create_pipelines();
 
@@ -272,7 +889,17 @@ void Application::run()
 
 		// Reset debug drawer
 		m_debug_drawer.new_frame();
-			   		 	  	  
+		
+		/////////////////////////////
+		/////////////////////////////
+		/////////////////////////////
+		/////////////////////////////
+		cpu_triangulate_test(m_main_camera->get_vp(), m_debug_drawer, *m_main_camera);
+		/////////////////////////////
+		/////////////////////////////
+		/////////////////////////////
+		/////////////////////////////
+
 		update(delta_time.count());
 
 		draw();

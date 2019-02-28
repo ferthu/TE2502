@@ -56,7 +56,7 @@ void Camera::update(const float dt, bool mouse_locked, DebugDrawer& dd)
 
 		if (m_yaw > glm::pi<float>() * 2.0f)
 			m_yaw -= glm::pi<float>() * 2.0f;
-		if (m_yaw < -glm::pi<float>() * 2.0f)
+		if (m_yaw < 0)
 			m_yaw += glm::pi<float>() * 2.0f;
 
 		if (m_pitch > glm::pi<float>() * 0.5f - 0.01f)

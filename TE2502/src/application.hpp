@@ -16,6 +16,7 @@
 #include "graphics/debug_drawer.hpp"
 #include "quadtree.hpp"
 #include "tfile.hpp"
+#include "path_handler.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -134,6 +135,8 @@ private:
 	bool m_draw_wireframe = true;
 	bool m_triangulate = false;
 	bool m_triangulate_button_held = false;
+
+	PathHandler m_path_handler;
 
 	std::mutex m_mutex;
 	std::condition_variable m_cv;

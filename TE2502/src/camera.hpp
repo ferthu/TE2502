@@ -25,6 +25,10 @@ public:
 	const glm::mat4& get_perspective() const;
 	// Get ray march view matrix
 	const glm::mat4& get_ray_march_view() const;
+	// Get camera yaw (rotation)
+	inline float get_yaw() const { return m_yaw; }
+	// Get camera pitch (up/down)
+	inline float get_pitch() const { return m_pitch; }
 
 	// Set new camera position
 	// Is preferrably called before camera.update()

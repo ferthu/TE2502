@@ -1,0 +1,7 @@
+RMB	Attach/detach mouse to camera movement
+F	Hide main hud
+F1	Toggle debug camera
+F5	Reload shaders
+Q	Clear terrain
+K	Start/stop camera path saving
+LMB	Cancel current path action

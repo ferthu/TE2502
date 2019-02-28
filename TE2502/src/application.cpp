@@ -29,7 +29,9 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
+Application::Application() : 
+	m_tfile("shaders/vars.txt", "shaders/"),
+	m_path_handler("camera_paths.txt")
 {
 	m_tfile.compile_shaders();
 
@@ -45,6 +47,8 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 	m_main_camera = new Camera(m_window->get_glfw_window());
 	m_debug_camera = new Camera(m_window->get_glfw_window());
 	m_current_camera = m_main_camera;
+
+	m_path_handler.attach_camera(m_main_camera);
 
 	glfwSetWindowPos(m_window->get_glfw_window(), 840, 100);
 
@@ -197,10 +201,11 @@ void Application::run()
 {
 	bool right_mouse_clicked = false;
 	bool f_pressed = false;
-	bool demo_window = true;
 	bool camera_switch_pressed = false;
 	bool f5_pressed = false;
 	bool q_pressed = false;
+	bool left_mouse_clicked = false;
+	bool k_pressed = false;
 
 	while (!glfwWindowShouldClose(m_window->get_glfw_window()))
 	{
@@ -263,6 +268,30 @@ void Application::run()
 		else if (q_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_Q) == GLFW_RELEASE)
 			q_pressed = false;
 
+		// Start/stop making new camera path
+		if (!k_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_K) == GLFW_PRESS)
+		{
+			k_pressed = true;
+			if (m_path_handler.get_mode() == MODE::NOTHING)
+				m_path_handler.start_new_path();
+			else
+				m_path_handler.finish_new_path();
+		}
+		else if (k_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_K) == GLFW_RELEASE)
+			k_pressed = false;
+
+		// Cancel current path action
+		if (!left_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS
+			&& !ImGui::GetIO().WantCaptureMouse)
+		{
+			left_mouse_clicked = true;
+			m_path_handler.cancel_new_path();
+			m_path_handler.stop_following();
+		}
+		else if (m_window && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE
+			&& !ImGui::GetIO().WantCaptureMouse)
+			left_mouse_clicked = false;
+
 		// Refinement button
 		m_triangulate_button_held = glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_R) == GLFW_PRESS;
 
@@ -289,6 +318,7 @@ void Application::run()
 
 void Application::update(const float dt)
 {
+	m_path_handler.update(dt);
 	m_current_camera->update(dt, m_window->get_mouse_locked(), m_debug_drawer);
 
 #ifdef RAY_MARCH_WINDOW
@@ -325,6 +355,28 @@ void Application::update(const float dt)
 		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.1f, 10.0f);
 		if (ImGui::Button("Clear Terrain"))
 			m_quadtree.clear_terrain();
+
+		ImGui::Text((m_path_handler.get_mode() == MODE::CREATING) ? "Making path" : (m_path_handler.get_mode() == MODE::FOLLOWING) ? "Following path" : "");
+
+		auto& path_names = m_path_handler.get_path_names();
+		static std::string current_item = (path_names.size() == 0) ? "" : path_names[0];
+		if (ImGui::BeginCombo("Camera Paths", current_item.c_str()))
+		{
+			for (auto& p : path_names)
+			{
+				bool is_selected = (current_item == p);
+				if (ImGui::Selectable(p.c_str(), is_selected))
+					current_item = p;
+				if (is_selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+		if (current_item != "" && m_path_handler.get_mode() == MODE::NOTHING && ImGui::Button("Follow"))
+		{
+			m_quadtree.clear_terrain();
+			m_path_handler.follow_path(current_item);
+		}
 		ImGui::End();
 	}
 }

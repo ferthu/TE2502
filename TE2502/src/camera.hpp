@@ -51,7 +51,7 @@ private:
 	GLFWwindow* m_window;
 	int m_window_width;
 	int m_window_height;
-	glm::vec3 m_position = glm::vec3(0);
+	glm::vec3 m_position = glm::vec3(0, -500, 0);
 	float m_yaw = 0.f;  // Radians
 	float m_pitch = 0.f;  // Radians
 	glm::mat4 m_view;

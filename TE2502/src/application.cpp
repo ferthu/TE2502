@@ -703,12 +703,13 @@ Application::Application() : m_tfile("shaders/vars.txt", "shaders/")
 
 
 	// Set up terrain generation/drawing
+	float total_side_length = float(m_tfile.get_u32("TERRAIN_GENERATE_TOTAL_SIDE_LENGTH"));
 	VkDeviceSize num_indices = m_tfile.get_u64("TERRAIN_GENERATE_NUM_INDICES");
 	VkDeviceSize num_vertices = m_tfile.get_u64("TERRAIN_GENERATE_NUM_VERTICES");
 	VkDeviceSize num_nodes = m_tfile.get_u64("TERRAIN_GENERATE_NUM_NODES");
 	VkDeviceSize num_new_points = m_tfile.get_u64("TRIANGULATE_MAX_NEW_POINTS");
 	uint32_t num_levels = m_tfile.get_u32("QUADTREE_LEVELS");
-	m_quadtree = Quadtree(m_vulkan_context, 500.0f, num_levels, num_nodes, num_indices, num_vertices, num_new_points, *m_window, m_main_queue);
+	m_quadtree = Quadtree(m_vulkan_context, total_side_length, num_levels, num_nodes, num_indices, num_vertices, num_new_points, *m_window, m_main_queue);
 #ifdef RAY_MARCH_WINDOW
 	m_ray_march_window_states.swapchain_framebuffers.resize(m_ray_march_window->get_swapchain_size());
 	for (uint32_t i = 0; i < m_ray_march_window->get_swapchain_size(); i++)
@@ -935,7 +936,6 @@ void Application::update(const float dt)
 		values[values_offset] = dt;
 		values_offset = (values_offset + 1) % num_frames;
 		ImGui::PlotLines("Frame Time", values, num_frames, values_offset, nullptr, 0.0f, 0.02f, ImVec2(150, 30));
-		
 
 		std::string text = "Frame info: " + std::to_string(int(1.f / dt)) + "fps  "
 			+ std::to_string(dt) + "s  " + std::to_string(int(100.f * dt / 0.016f)) + "%%";
@@ -947,7 +947,7 @@ void Application::update(const float dt)
 		ImGui::Checkbox("Draw Ray Marched View", &m_draw_ray_march);
 		ImGui::Checkbox("Wireframe", &m_draw_wireframe);
 		ImGui::Checkbox("Refine", &m_triangulate);
-		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.01f, 0.0f, 3.0f);
+		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.0f, 0.0f, 3.0f);
 		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.01f, 0.0f, 3.0f);
 		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.1f, 10.0f);
 		if (ImGui::Button("Clear Terrain"))
@@ -1041,16 +1041,28 @@ void Application::draw_main()
 	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held)
 	{
 		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold, m_em_area_multiplier, m_em_curvature_multiplier);
-
-		m_quadtree.triangulate(m_main_queue, m_main_camera->get_pos());
-
-		m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
-			VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-			VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
 	}
 	ImGui::End();
+
+	m_quadtree.triangulate(m_main_queue);
+
+	m_quadtree.handle_borders(m_main_queue);
+
+	// Memory barrier for GPU buffer
+	m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
+		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+	// Run border handling a second time to make sure the order does not make a crack appear during 1 frame
+	m_quadtree.handle_borders(m_main_queue);
+
+	m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
+		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+		VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
 
 	// Do debug drawing
 	{

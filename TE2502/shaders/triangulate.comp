@@ -137,8 +137,7 @@ struct Edge
 };
 
 
-#define INDICES_TO_STORE 300
-#define TRIANGLES_TO_STORE 100
+const uint TRIANGLES_TO_STORE = 100;
 
 shared Edge s_edges[TRIANGLES_TO_STORE * 3];
 

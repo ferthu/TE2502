@@ -137,7 +137,6 @@ private:
 	bool m_triangulate_button_held = false;
 
 	PathHandler m_path_handler;
-	bool m_saving_camera_path = false;
 
 	std::mutex m_mutex;
 	std::condition_variable m_cv;

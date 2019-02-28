@@ -4,4 +4,4 @@ F1	Toggle debug camera
 F5	Reload shaders
 Q	Clear terrain
 K	Start/stop camera path saving
-LMB	Save camera position and view direction
+LMB	Cancel current path action

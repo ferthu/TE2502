@@ -4,6 +4,12 @@
 
 class Camera;
 
+enum class MODE {
+	CREATING,
+	FOLLOWING,
+	NOTHING
+};
+
 class PathHandler
 {
 public:
@@ -22,19 +28,32 @@ public:
 	// Start a new path (saves current position)
 	void start_new_path();
 
-	// Save the current position to the new path
-	void save_path_part();
-
 	// Finish the new path (saves current position)
 	void finish_new_path();
 
+	// Cancel and delete the new path
+	void cancel_new_path();
+
+	// Get all path names
 	const std::vector<std::string>& get_path_names() const;
 
+	// Get the current internal mode/state
+	MODE get_mode() const;
+
+	// Start following an existing path with the given name
 	void follow_path(const std::string& path_name);
 
+	// Stop following the currently followed path
+	void stop_following();
+
+	// Move along the started path
+	// Need to call follow_path(...) before this does anything
 	void update(const float dt);
 
 private:
+	// Save current position
+	void save_path_part();
+
 	struct PathPart
 	{
 		glm::vec3 pos;
@@ -47,10 +66,12 @@ private:
 	Camera* m_camera;
 	std::vector<std::string> m_path_names;
 	std::vector<Path> m_paths;
-	bool m_creating_path = false;
+
+	MODE m_mode = MODE::NOTHING;
+	float m_countdown;
+	const float m_max_countdown = 0.5f;  // If this changes, the existing paths will not be the speed they were saved at
 
 	// Following path stuff
-	bool m_following_path = false;
 	int m_path_index = 0;
 	int m_path_part_index = 0;
 	float m_percent = 0.f;

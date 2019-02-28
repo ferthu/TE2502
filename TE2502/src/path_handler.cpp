@@ -93,7 +93,7 @@ bool PathHandler::path_name_exists(const std::string & name) const
 
 void PathHandler::start_new_path()
 {
-	m_creating_path = true;
+	m_mode = MODE::CREATING;
 	std::string name;
 	do
 	{
@@ -106,26 +106,39 @@ void PathHandler::start_new_path()
 
 void PathHandler::save_path_part()
 {
-	if (m_creating_path)
-	{
-		PathPart part;
-		part.pos = m_camera->get_pos();
-		part.yaw = m_camera->get_yaw();
-		part.pitch = m_camera->get_pitch();
-		m_paths.back().push_back(part);
-	}
+	PathPart part;
+	part.pos = m_camera->get_pos();
+	part.yaw = m_camera->get_yaw();
+	part.pitch = m_camera->get_pitch();
+	m_paths.back().push_back(part);
+	m_countdown = m_max_countdown;
 }
 
 void PathHandler::finish_new_path()
 {
 	save_path_part();
 	save_to_file();
-	m_creating_path = false;
+	m_mode = MODE::NOTHING;
+}
+
+void PathHandler::cancel_new_path()
+{
+	if (m_mode == MODE::CREATING)
+	{
+		m_path_names.pop_back();
+		m_paths.pop_back();
+		m_mode = MODE::NOTHING;
+	}
 }
 
 const std::vector<std::string>& PathHandler::get_path_names() const
 {
 	return m_path_names;
+}
+
+MODE PathHandler::get_mode() const
+{
+	return m_mode;
 }
 
 void PathHandler::follow_path(const std::string & path_name)
@@ -134,7 +147,7 @@ void PathHandler::follow_path(const std::string & path_name)
 	{
 		if (m_path_names[ii] == path_name)
 		{
-			m_following_path = true;
+			m_mode = MODE::FOLLOWING;
 			m_path_index = ii;
 			m_path_part_index = 0;
 
@@ -143,9 +156,22 @@ void PathHandler::follow_path(const std::string & path_name)
 	}
 }
 
+void PathHandler::stop_following()
+{
+	m_mode = MODE::NOTHING;
+}
+
 void PathHandler::update(const float dt)
 {
-	if (m_following_path)
+	if (m_mode == MODE::CREATING)
+	{
+		m_countdown -= dt;
+		if (m_countdown < 0)
+		{
+			save_path_part();
+		}
+	}
+	else if (m_mode == MODE::FOLLOWING)
 	{
 		// Position
 		glm::vec3 current_pos = m_paths[m_path_index][m_path_part_index].pos;
@@ -155,26 +181,27 @@ void PathHandler::update(const float dt)
 		// Yaw
 		float current_yaw = m_paths[m_path_index][m_path_part_index].yaw;
 		float next_yaw = m_paths[m_path_index][m_path_part_index + 1].yaw;
+		if (next_yaw - current_yaw > 3.141592f )
+			current_yaw += 6.283184f;
+		else if (current_yaw - next_yaw > 3.141592f)
+			next_yaw += 6.283184f;
 		float yaw = (1.f - m_percent) * current_yaw + m_percent * next_yaw;
 
 		// Pitch
 		float current_pitch = m_paths[m_path_index][m_path_part_index].pitch;
 		float next_pitch = m_paths[m_path_index][m_path_part_index + 1].pitch;
-		if (fabsf(current_pitch - next_pitch) > 3.141592f )
-			current_pitch += 6.283184f;
 		float pitch = (1.f - m_percent) * current_pitch + m_percent * next_pitch;
-		pitch = fmod(pitch, 6.283184f);
 
 		m_camera->set_pos(pos);
 		m_camera->set_yaw_pitch(yaw, pitch);
 
-		m_percent += m_speed * dt;
+		m_percent += 1.f / m_max_countdown * dt;
 		if (m_percent > 0.99)
 		{
 			++m_path_part_index;
 			m_percent = 0.f;
 			if (m_path_part_index == m_paths[m_path_index].size() - 1)
-				m_following_path = false;
+				m_mode = MODE::NOTHING;
 		}
 	}
 }

@@ -272,21 +272,21 @@ void Application::run()
 		if (!k_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_K) == GLFW_PRESS)
 		{
 			k_pressed = true;
-			if (!m_saving_camera_path)
+			if (m_path_handler.get_mode() == MODE::NOTHING)
 				m_path_handler.start_new_path();
 			else
 				m_path_handler.finish_new_path();
-			m_saving_camera_path = !m_saving_camera_path;
 		}
 		else if (k_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_K) == GLFW_RELEASE)
 			k_pressed = false;
 
-		// Save camera path part
+		// Cancel current path action
 		if (!left_mouse_clicked && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS
 			&& !ImGui::GetIO().WantCaptureMouse)
 		{
 			left_mouse_clicked = true;
-			m_path_handler.save_path_part();
+			m_path_handler.cancel_new_path();
+			m_path_handler.stop_following();
 		}
 		else if (m_window && glfwGetMouseButton(m_window->get_glfw_window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE
 			&& !ImGui::GetIO().WantCaptureMouse)
@@ -356,14 +356,14 @@ void Application::update(const float dt)
 		if (ImGui::Button("Clear Terrain"))
 			m_quadtree.clear_terrain();
 
-		static char new_path_name[20] = "";
-		ImGui::InputText("Path name", new_path_name, 20);
-		if (!m_saving_camera_path && ImGui::Button("Start new path"))
-		{
-			//m_path_handler.start_new_path();
-		}
+		//static char new_path_name[20] = "";
+		//ImGui::InputText("Path name", new_path_name, 20);
+		//if (!m_saving_camera_path && ImGui::Button("Start new path"))
+		//{
+		//	//m_path_handler.start_new_path();
+		//}
 
-		ImGui::Text((m_saving_camera_path) ? "Making path" : "");
+		ImGui::Text((m_path_handler.get_mode() == MODE::CREATING) ? "Making path" : (m_path_handler.get_mode() == MODE::FOLLOWING) ? "Following path" : "");
 
 		auto& path_names = m_path_handler.get_path_names();
 		static std::string current_item = (path_names.size() == 0) ? "" : path_names[0];
@@ -371,7 +371,7 @@ void Application::update(const float dt)
 		{
 			for (auto& p : path_names)
 			{
-				bool is_selected = (current_item == p); // You can store your selection however you want, outside or inside your objects
+				bool is_selected = (current_item == p);
 				if (ImGui::Selectable(p.c_str(), is_selected))
 					current_item = p;
 				if (is_selected)
@@ -379,7 +379,7 @@ void Application::update(const float dt)
 			}
 			ImGui::EndCombo();
 		}
-		if (current_item != "" && ImGui::Button("Follow"))
+		if (current_item != "" && m_path_handler.get_mode() == MODE::NOTHING && ImGui::Button("Follow"))
 		{
 			m_path_handler.follow_path(current_item);
 		}

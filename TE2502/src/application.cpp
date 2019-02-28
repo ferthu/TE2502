@@ -356,13 +356,6 @@ void Application::update(const float dt)
 		if (ImGui::Button("Clear Terrain"))
 			m_quadtree.clear_terrain();
 
-		//static char new_path_name[20] = "";
-		//ImGui::InputText("Path name", new_path_name, 20);
-		//if (!m_saving_camera_path && ImGui::Button("Start new path"))
-		//{
-		//	//m_path_handler.start_new_path();
-		//}
-
 		ImGui::Text((m_path_handler.get_mode() == MODE::CREATING) ? "Making path" : (m_path_handler.get_mode() == MODE::FOLLOWING) ? "Following path" : "");
 
 		auto& path_names = m_path_handler.get_path_names();
@@ -381,6 +374,7 @@ void Application::update(const float dt)
 		}
 		if (current_item != "" && m_path_handler.get_mode() == MODE::NOTHING && ImGui::Button("Follow"))
 		{
+			m_quadtree.clear_terrain();
 			m_path_handler.follow_path(current_item);
 		}
 		ImGui::End();

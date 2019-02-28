@@ -69,7 +69,7 @@ private:
 
 	MODE m_mode = MODE::NOTHING;
 	float m_countdown;
-	const float m_max_countdown = 0.5f;  // If this changes, the existing paths will not be the speed they were saved at
+	const float m_max_countdown = 0.1f;  // If this changes, the existing paths will not be the speed they were saved at
 
 	// Following path stuff
 	int m_path_index = 0;

@@ -90,7 +90,7 @@ void TFile::compile_shaders(std::string extension)
 			else
 			{
 				std::string command_line = m_shader_dir;
-				command_line += "glslangValidator.exe ";
+				command_line += "glslc.exe ";
 				command_line += "-o \"" + m_shader_dir + "compiled/";
 				command_line += ffd.cFileName;
 				command_line += ".spv\" ";
@@ -100,7 +100,7 @@ void TFile::compile_shaders(std::string extension)
 					command_line += "-D" + key + "=" + std::to_string(val) + " ";
 				}
 
-				command_line += "-V " + m_shader_dir;
+				command_line += "-O " + m_shader_dir;
 				command_line += ffd.cFileName;
 
 				// Run compiler

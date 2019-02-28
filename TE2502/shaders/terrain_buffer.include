@@ -1,0 +1,56 @@
+
+
+const uint num_indices = TERRAIN_GENERATE_NUM_INDICES;
+const uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
+const uint num_nodes = TERRAIN_GENERATE_NUM_NODES;
+const uint num_new_points = TRIANGULATE_MAX_NEW_POINTS;
+const uint quadtree_levels = QUADTREE_LEVELS;
+const uint border_zones = BORDER_ZONES;
+const uint border_proximity = BORDER_START_PROXIMITY;
+const float proximity_multiplier = BORDER_PROXIMITY_MULTIPLIER / 100.f;
+
+struct Triangle
+{
+	vec2 circumcentre;
+	float circumradius;
+	uint pad;
+};
+
+struct terrain_data_t
+{
+	uint index_count;
+	uint instance_count;
+	uint first_index;
+	int  vertex_offset;
+	uint first_instance;
+
+	// struct BufferNodeHeader {
+		uint vertex_count;
+		uint new_points_count;
+		uint pad;
+
+		vec2 min;
+		vec2 max;
+
+		float proximity[4 * border_zones];
+		uint proximity_count[4 * border_zones];
+		uint border_level[4 * border_zones];
+	// }
+
+	uint indices[num_indices];
+	vec4 positions[num_vertices];
+	Triangle triangles[num_indices / 3];
+	vec4 new_points[num_new_points];
+};
+
+const uint quadtree_data_size = (1 << quadtree_levels) * (1 << quadtree_levels) + 4;
+const uint pad_size = 16 - (quadtree_data_size % 16);
+
+coherent layout(set = TERRAIN_SET, binding = TERRAIN_BINDING) buffer terrain_buffer_t
+{
+	uint quadtree_index_map[(1 << quadtree_levels) * (1 << quadtree_levels)];
+	vec2 quadtree_min;
+	vec2 quadtree_max;
+	uint pad[pad_size];
+	terrain_data_t data[num_nodes];
+} terrain_buffer;

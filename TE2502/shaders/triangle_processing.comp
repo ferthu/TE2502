@@ -303,8 +303,10 @@ void main(void)
 	}
 	barrier();
 	memoryBarrierShared();
+	memoryBarrierBuffer();
 
 	uint prev_count = terrain_buffer.data[node_index].new_points_count;
+	prev_count = 0;
 
 	barrier();
 	memoryBarrierShared();
@@ -314,8 +316,8 @@ void main(void)
 	if (thid == 0)
 	{
 		s_total += s_counts[n - 1];
-		terrain_buffer.data[node_index].new_points_count += s_total;
-		terrain_buffer.data[node_index].new_points_count = min(terrain_buffer.data[node_index].new_points_count, num_new_points);
+		//terrain_buffer.data[node_index].new_points_count = prev_count + s_total;
+		terrain_buffer.data[node_index].new_points_count = min(prev_count + s_total, num_new_points);
 	}
 
 	// Write points to output storage buffer
@@ -323,5 +325,6 @@ void main(void)
 	for (uint i = 0; i < new_point_count && base_offset + i < num_new_points; ++i)
 	{
 		terrain_buffer.data[node_index].new_points[base_offset + i] = vec4(new_points[i].x, -terrain(new_points[i].xy) - 0.5, new_points[i].y, 1.0);
+		//terrain_buffer.data[node_index].new_points[base_offset + i] = vec4(prev_count, prev_count, prev_count, 1.0);
 	}
 }

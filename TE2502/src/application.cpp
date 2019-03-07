@@ -28,8 +28,8 @@
 /////////////////////////////////////////
 /////////////////////////////////////////
 
-int num_indices = 20000;
-int num_vertices = 13000;
+int num_indices = 789;
+int num_vertices = 133;
 const int num_nodes = 4;
 const int num_new_points = 1024;
 const int max_new_points = 1024;
@@ -102,7 +102,7 @@ uint32_t s_triangle_count;
 uint32_t s_vertex_count;
 
 #define INVALID 999999
-#define EPSILON 1.0f - 0.0001f
+#define EPSILON 1.0 - 0.0001
 
 void line_from_points(glm::vec2 p1, glm::vec2 p2, float& a, float& b, float& c)
 {
@@ -171,9 +171,9 @@ bool clip(glm::vec4 p)
 
 void gen_terrain()
 {
-	uint32_t GRID_SIDE = 10;
+	uint32_t GRID_SIDE = 5;
 	struct f_data { glm::vec2 min; glm::vec2 max; };
-	f_data frame_data{ {-5000, 0}, {0, 5000} };
+	f_data frame_data{ {-500, 0}, {0, 500} };
 
 	{
 		terrain_buffer.data.index_count = 6 * (GRID_SIDE - 1) * (GRID_SIDE - 1);
@@ -196,7 +196,7 @@ void gen_terrain()
 		float x = frame_data.min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * (frame_data.max.x - frame_data.min.x);
 		float z = frame_data.min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * (frame_data.max.y - frame_data.min.y);
 
-		terrain_buffer.data.positions[i] = glm::vec4(x, 0.0f, z, 1.0);
+		terrain_buffer.data.positions[i] = glm::vec4(x + 50.0f * ((i / GRID_SIDE) % 2), 0.0f, z, 1.0f);
 
 		i++;
 	}
@@ -209,26 +209,51 @@ void gen_terrain()
 		uint32_t x = i % (GRID_SIDE - 1);
 		uint32_t index = y * GRID_SIDE + x;
 
-		// Indices
-		uint32_t offset = i * 6;
-		terrain_buffer.data.indices[offset] = index;
-		terrain_buffer.data.indices[offset + 1] = index + GRID_SIDE + 1;
-		terrain_buffer.data.indices[offset + 2] = index + 1;
+		uint32_t indices[6];
 
-		terrain_buffer.data.indices[offset + 3] = index;
-		terrain_buffer.data.indices[offset + 4] = index + GRID_SIDE;
-		terrain_buffer.data.indices[offset + 5] = index + GRID_SIDE + 1;
+		uint32_t offset = i * 6;
+		if ((y % 2) == 0)
+		{
+			// Indices
+			indices[0] = index;
+			indices[1] = index + 1;
+			indices[2] = index + GRID_SIDE;
+
+			indices[3] = index + 1;
+			indices[4] = index + GRID_SIDE;
+			indices[5] = index + GRID_SIDE + 1;
+		}
+		else
+		{
+			// Indices
+			indices[0] = index;
+			indices[1] = index + GRID_SIDE + 1;
+			indices[2] = index + 1;
+
+			indices[3] = index;
+			indices[4] = index + GRID_SIDE;
+			indices[5] = index + GRID_SIDE + 1;
+		}
+
+		// Indices
+		terrain_buffer.data.indices[offset] = indices[0];
+		terrain_buffer.data.indices[offset + 1] = indices[1];
+		terrain_buffer.data.indices[offset + 2] = indices[2];
+
+		terrain_buffer.data.indices[offset + 3] = indices[3];
+		terrain_buffer.data.indices[offset + 4] = indices[4];
+		terrain_buffer.data.indices[offset + 5] = indices[5];
 
 		// Circumcentres
 		offset = i * 2;
-		glm::vec2 P1 = glm::vec2(terrain_buffer.data.positions[index].x, terrain_buffer.data.positions[index].z);
-		glm::vec2 Q1 = glm::vec2(terrain_buffer.data.positions[index + GRID_SIDE + 1].x, terrain_buffer.data.positions[index + GRID_SIDE + 1].z);
-		glm::vec2 R1 = glm::vec2(terrain_buffer.data.positions[index + 1].x, terrain_buffer.data.positions[index + 1].z);
+		glm::vec2 P1 = glm::vec2(terrain_buffer.data.positions[indices[0]].x, terrain_buffer.data.positions[indices[0]].z);
+		glm::vec2 Q1 = glm::vec2(terrain_buffer.data.positions[indices[1]].x, terrain_buffer.data.positions[indices[1]].z);
+		glm::vec2 R1 = glm::vec2(terrain_buffer.data.positions[indices[2]].x, terrain_buffer.data.positions[indices[2]].z);
 		terrain_buffer.data.triangles[offset].circumcentre = find_circum_center(P1, Q1, R1);
 
-		glm::vec2 P2 = glm::vec2(terrain_buffer.data.positions[index].x, terrain_buffer.data.positions[index].z);
-		glm::vec2 Q2 = glm::vec2(terrain_buffer.data.positions[index + GRID_SIDE].x, terrain_buffer.data.positions[index + GRID_SIDE].z);
-		glm::vec2 R2 = glm::vec2(terrain_buffer.data.positions[index + GRID_SIDE + 1].x, terrain_buffer.data.positions[index + GRID_SIDE + 1].z);
+		glm::vec2 P2 = glm::vec2(terrain_buffer.data.positions[indices[3]].x, terrain_buffer.data.positions[indices[3]].z);
+		glm::vec2 Q2 = glm::vec2(terrain_buffer.data.positions[indices[4]].x, terrain_buffer.data.positions[indices[4]].z);
+		glm::vec2 R2 = glm::vec2(terrain_buffer.data.positions[indices[5]].x, terrain_buffer.data.positions[indices[5]].z);
 		terrain_buffer.data.triangles[offset + 1].circumcentre = find_circum_center(P2, Q2, R2);
 
 		// Circumradii
@@ -279,14 +304,14 @@ void triangle_process(const glm::mat4& vp)
 				float c = distance(glm::vec2(c1.x, c1.y), glm::vec2(c2.x, c2.y));
 
 				// s is semiperimeter
-				float s = (a + b + c) * 0.5f;
+				float s = (a + b + c) * 0.5;
 
 				float area = pow(/*sqrt*/(s * (s - a) * (s - b) * (s - c)), 0.0f);
 
 				glm::vec3 mid = (glm::vec3(v0) + glm::vec3(v1) + glm::vec3(v2)) / 3.0f;
-				float curv = powf(rand() / RAND_MAX, 0.0f);
+				float curv = powf(rand() / RAND_MAX, 0.0);
 
-				//if (rand() / RAND_MAX > 0.94f)
+				//if (rand() / RAND_MAX > 0.94)
 				{
 					new_points[new_point_count] = glm::vec2(mid.x, mid.z);
 					++new_point_count;
@@ -534,7 +559,7 @@ void triangulate()
 	if (thid == 0)
 	{
 		terrain_buffer.data.vertex_count = s_vertex_count;
-		assert(terrain_buffer.data.positions[s_vertex_count - 1].w > 0.5f);
+		assert(terrain_buffer.data.positions[s_vertex_count - 1].w > 0.5);
 
 		terrain_buffer.data.index_count = s_index_count;
 
@@ -546,13 +571,12 @@ void cpu_triangulate_test(const glm::mat4& vp, DebugDrawer& dd, Camera& camera)
 {
 	static int vistris_begin = 0;
 	static int vistris_end = num_indices / 3;
+	static int triangulation_passes = 1;
 
 	ImGui::Begin("Triangle Debug Shit");
 
 	if (ImGui::Button("EXPAND!! XD"))
-	{
 		num_indices += 3;
-	}
 
 	if (ImGui::Button("retract :("))
 		num_indices -= 3;
@@ -560,34 +584,29 @@ void cpu_triangulate_test(const glm::mat4& vp, DebugDrawer& dd, Camera& camera)
 	ImGui::DragInt("Num Indices", &num_indices, 1.0f, 100, 4700);
 	ImGui::DragInt("Num Vertices", &num_vertices, 1.0f, 100, 4700);
 
-	ImGui::Text("Indices: %u", num_indices);
-
+	ImGui::DragInt("Triangulation Passes", &triangulation_passes, 0.01f, 1, 20);
 
 	if (ImGui::Button("SET CAMERAAAA"))
 	{
-		camera.set_pos({ -60.324883f, 217.934616f, 71.968697f });
-		camera.set_yaw_pitch(1.72681379f, 1.07079637);
+		camera.set_pos({ -60.324883, 217.934616, 71.968697 });
+		camera.set_yaw_pitch(1.18681395f, 0.990796328f);
 	}
 
 	ImGui::DragInt("Vistris B", &vistris_begin, 0.2f, 0, num_indices / 3);
 	ImGui::DragInt("Vistris E", &vistris_end, 0.2f, 0, num_indices / 3);
 
+	terrain_buffer.data.indices.resize(num_indices);
+	terrain_buffer.data.positions.resize(num_vertices);
+	terrain_buffer.data.triangles.resize(num_indices / 3);
+	terrain_buffer.data.new_points.resize(num_new_points);
 
-	if (ImGui::Button("Reset"))
-	{
-		terrain_buffer.data.indices.resize(num_indices);
-		terrain_buffer.data.positions.resize(num_vertices);
-		terrain_buffer.data.triangles.resize(num_indices / 3);
-		terrain_buffer.data.new_points.resize(num_new_points);
-
-		terrain_buffer.data.new_points_count = 0;
-		terrain_buffer.data.vertex_count = 0;
-		terrain_buffer.data.index_count = 0;
+	terrain_buffer.data.new_points_count = 0;
+	terrain_buffer.data.vertex_count = 0;
+	terrain_buffer.data.index_count = 0;
 		
-		gen_terrain();
-	}
+	gen_terrain();
 
-	if (ImGui::Button("Refine"))
+	for (int i = 0; i < triangulation_passes; ++i)
 	{
 		triangle_process(vp);
 		triangulate();
@@ -597,9 +616,9 @@ void cpu_triangulate_test(const glm::mat4& vp, DebugDrawer& dd, Camera& camera)
 
 	for (size_t i = vistris_begin * 3; i < terrain_buffer.data.index_count && i < vistris_end * 3; i += 3)
 	{
-		assert(terrain_buffer.data.positions[terrain_buffer.data.indices[i]].w > 0.5f);
-		assert(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 1]].w > 0.5f);
-		assert(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 2]].w > 0.5f);
+		assert(terrain_buffer.data.positions[terrain_buffer.data.indices[i]].w > 0.5);
+		assert(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 1]].w > 0.5);
+		assert(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 2]].w > 0.5);
 
 		dd.draw_line(glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i]]), glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 1]]), glm::vec3(1, 0, 0));
 		dd.draw_line(glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 1]]), glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 2]]), glm::vec3(1, 0, 0));
@@ -611,16 +630,16 @@ void cpu_triangulate_test(const glm::mat4& vp, DebugDrawer& dd, Camera& camera)
 		dd.draw_line(mid, glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 1]]), glm::vec3(0, 1, 0));
 		dd.draw_line(mid, glm::vec3(terrain_buffer.data.positions[terrain_buffer.data.indices[i + 2]]), glm::vec3(0, 1, 0));
 
-		/*size_t tri_index = i / 3;
-		glm::vec3 c = { terrain_buffer.data.triangles[tri_index].circumcentre.x, 0, terrain_buffer.data.triangles[tri_index].circumcentre.y };
-		float r = terrain_buffer.data.triangles[tri_index].circumradius;
+		//size_t tri_index = i / 3;
+		//glm::vec3 c = { terrain_buffer.data.triangles[tri_index].circumcentre.x, 0, terrain_buffer.data.triangles[tri_index].circumcentre.y };
+		//float r = terrain_buffer.data.triangles[tri_index].circumradius;
 
-		glm::vec3 dir = glm::normalize(glm::vec3(1, 0, -1));
-		glm::vec3 dir2 = glm::normalize(glm::vec3(-1, 0, -1));
+		//glm::vec3 dir = glm::normalize(glm::vec3(1, 0, -1));
+		//glm::vec3 dir2 = glm::normalize(glm::vec3(-1, 0, -1));
 
-		dd.draw_line(c, c + glm::vec3(0, 0, 1) * sqrtf(r), { 0, 0, 1 });
-		dd.draw_line(c, c + dir * sqrtf(r), { 0, 0, 1 });
-		dd.draw_line(c, c + dir2 * sqrtf(r), { 0, 0, 1 });*/
+		//dd.draw_line(c, c + glm::vec3(0, 0, 1) * sqrtf(r), { 0, 0, 1 });
+		//dd.draw_line(c, c + dir * sqrtf(r), { 0, 0, 1 });
+		//dd.draw_line(c, c + dir2 * sqrtf(r), { 0, 0, 1 });
 	}
 }
 
@@ -895,7 +914,7 @@ void Application::run()
 		/////////////////////////////
 		/////////////////////////////
 		/////////////////////////////
-		cpu_triangulate_test(m_main_camera->get_vp(), m_debug_drawer, *m_main_camera);
+		/// cpu_triangulate_test(m_main_camera->get_vp(), m_debug_drawer, *m_main_camera);
 		/////////////////////////////
 		/////////////////////////////
 		/////////////////////////////
@@ -986,6 +1005,21 @@ void Application::draw_main()
 
 
 	// RENDER-------------------
+	bool triangle_process = false;
+	ImGui::Begin("Triangulate");
+
+	// Fritjof stuff
+	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held)
+	{
+		triangle_process = true;
+	}
+	if (ImGui::Button("SetClear"))
+	{
+		m_quadtree.clear_terrain();
+		triangle_process = true;
+	}
+	ImGui::End();
+
 
 	m_main_queue.start_recording();
 
@@ -1035,18 +1069,15 @@ void Application::draw_main()
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
 
-	ImGui::Begin("Triangulate");
-
 	// Fritjof stuff
-	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held)
+	if (triangle_process)
 	{
 		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold, m_em_area_multiplier, m_em_curvature_multiplier);
 	}
-	ImGui::End();
 
 	m_quadtree.triangulate(m_main_queue);
 
-	m_quadtree.handle_borders(m_main_queue);
+	//m_quadtree.handle_borders(m_main_queue);
 
 	// Memory barrier for GPU buffer
 	m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
@@ -1056,7 +1087,7 @@ void Application::draw_main()
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
 	// Run border handling a second time to make sure the order does not make a crack appear during 1 frame
-	m_quadtree.handle_borders(m_main_queue);
+	//m_quadtree.handle_borders(m_main_queue);
 
 	m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
 		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,

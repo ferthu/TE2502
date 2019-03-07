@@ -11,7 +11,7 @@ struct Triangle
 {
 	vec2 circumcentre;
 	float circumradius;
-	uint pad;
+	float circumradius2;
 };
 
 struct terrain_data_t

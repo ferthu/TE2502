@@ -125,7 +125,7 @@ private:
 	{
 		glm::vec2 circumcircle;
 		float circumradius;
-		uint32_t pad;
+		float circumradius2;
 	};
 
 	// Move other into this

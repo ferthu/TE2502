@@ -74,13 +74,13 @@ void main(void)
 		while (i < s_triangle_count)
 		{
 			vec2 circumcentre = terrain_buffer.data[node_index].triangles[i].circumcentre;
-			float circumradius = terrain_buffer.data[node_index].triangles[i].circumradius;
+			float circumradius2 = terrain_buffer.data[node_index].triangles[i].circumradius2;
 
 			float dx = current_point.x - circumcentre.x;
 			float dy = current_point.z - circumcentre.y;
-			if (abs(dx * dx + dy * dy - circumradius) < circumradius * 0.01f)
+			if (abs(dx * dx + dy * dy - circumradius2) < circumradius2 * 0.01f)
 			{
-				s_circumradius_offset = 0.01f * circumradius;
+				s_circumradius_offset = 0.01f * circumradius2;
 			}
 
 			i += WORK_GROUP_SIZE;
@@ -93,12 +93,12 @@ void main(void)
 		i = thid;
 		while (i < s_triangle_count)
 		{
-			vec2 circumcentre = terrain_buffer.data[node_index].triangles[i].circumcentre;
-			float circumradius = terrain_buffer.data[node_index].triangles[i].circumradius;
+			const vec2 circumcentre = terrain_buffer.data[node_index].triangles[i].circumcentre;
+			const float circumradius2 = terrain_buffer.data[node_index].triangles[i].circumradius2;
 
-			float dx = current_point.x - circumcentre.x;
-			float dy = current_point.z - circumcentre.y;
-			if (dx * dx + dy * dy < circumradius)
+			const float dx = current_point.x - circumcentre.x;
+			const float dy = current_point.z - circumcentre.y;
+			if (dx * dx + dy * dy < circumradius2)
 			{
 				// Add triangle edges to edge buffer
 				uint tr = atomicAdd(s_triangles_removed, 1);
@@ -206,10 +206,12 @@ void main(void)
 					float c = distance(R.xz, Q.xz);
 
 					const vec2 cc_center = find_circum_center(P.xz, Q.xz, R.xz);
-					const float cc_radius = find_circum_radius_squared(a, b, c);
+					const float cc_radius2 = find_circum_radius_squared(a, b, c);
+					const float cc_radius = sqrt(cc_radius2);
 
 					terrain_buffer.data[node_index].triangles[s_triangle_count].circumcentre = cc_center;
 					terrain_buffer.data[node_index].triangles[s_triangle_count].circumradius = cc_radius;
+					terrain_buffer.data[node_index].triangles[s_triangle_count].circumradius2 = cc_radius2;
 
 					// Left
 					uint count = terrain_buffer.data[node_index].border_count[3];
@@ -257,6 +259,21 @@ void main(void)
 			for (int j = int(s_triangles_removed) - 1; j >= 0; --j)
 			{
 				uint index = s_triangles_to_remove[j];
+				// Check border triangles
+				// TODO: Check if the cc for the triangle goes over a border, THEN find the correct index
+				for (uint bb = 0; bb < 4; ++bb)
+				{
+					uint count = terrain_buffer.data[node_index].border_count[bb];
+					for (uint tt = 0; tt < count; ++tt)
+					{
+						if (terrain_buffer.data[node_index].border_triangle_indices[bb * max_border_triangle_count + tt] == index)
+						{
+							terrain_buffer.data[node_index].border_triangle_indices[bb * max_border_triangle_count + tt] 
+								= terrain_buffer.data[node_index].border_triangle_indices[--terrain_buffer.data[node_index].border_count[bb]];
+						}
+					}
+				}
+				// Remove triangle
 				if (index < last_valid_triangle)
 				{
 					terrain_buffer.data[node_index].indices[index * 3 + 0] = terrain_buffer.data[node_index].indices[last_valid_triangle * 3 + 0];
@@ -264,7 +281,9 @@ void main(void)
 					terrain_buffer.data[node_index].indices[index * 3 + 2] = terrain_buffer.data[node_index].indices[last_valid_triangle * 3 + 2];
 					terrain_buffer.data[node_index].triangles[index].circumcentre = terrain_buffer.data[node_index].triangles[last_valid_triangle].circumcentre;
 					terrain_buffer.data[node_index].triangles[index].circumradius = terrain_buffer.data[node_index].triangles[last_valid_triangle].circumradius;
+					terrain_buffer.data[node_index].triangles[index].circumradius2 = terrain_buffer.data[node_index].triangles[last_valid_triangle].circumradius2;
 				}
+
 				--last_valid_triangle;
 			}
 			s_triangle_count -= s_triangles_removed;

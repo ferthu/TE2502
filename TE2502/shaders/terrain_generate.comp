@@ -41,14 +41,6 @@ void main(void)
 
 		terrain_buffer.data[node_index].min = frame_data.min;
 		terrain_buffer.data[node_index].max = frame_data.max;
-
-		const float proximity = (frame_data.max.x - frame_data.min.x) * border_proximity / 100.f;
-		for (uint b = 0; b < 4 * border_zones; ++b)
-		{
-			terrain_buffer.data[node_index].proximity[b] = proximity;
-			terrain_buffer.data[node_index].proximity_count[b] = 0;
-			terrain_buffer.data[node_index].border_level[b] = 1;
-		}
 	}
 
 	// Positions

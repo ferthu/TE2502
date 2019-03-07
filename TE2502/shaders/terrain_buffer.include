@@ -31,10 +31,6 @@ struct terrain_data_t
 
 		vec2 min;
 		vec2 max;
-
-		float proximity[4 * border_zones];
-		uint proximity_count[4 * border_zones];
-		uint border_level[4 * border_zones];
 	// }
 
 	uint indices[num_indices];

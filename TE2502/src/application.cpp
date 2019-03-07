@@ -471,7 +471,7 @@ void Application::draw_main()
 
 	m_quadtree.triangulate(m_main_queue);
 
-	m_quadtree.handle_borders(m_main_queue);
+	//m_quadtree.handle_borders(m_main_queue);
 
 	// Memory barrier for GPU buffer
 	m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
@@ -481,7 +481,7 @@ void Application::draw_main()
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
 	// Run border handling a second time to make sure the order does not make a crack appear during 1 frame
-	m_quadtree.handle_borders(m_main_queue);
+	//m_quadtree.handle_borders(m_main_queue);
 
 	m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
 		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,

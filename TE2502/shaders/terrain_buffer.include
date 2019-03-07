@@ -5,9 +5,7 @@ const uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
 const uint num_nodes = TERRAIN_GENERATE_NUM_NODES;
 const uint num_new_points = TRIANGULATE_MAX_NEW_POINTS;
 const uint quadtree_levels = QUADTREE_LEVELS;
-const uint border_zones = BORDER_ZONES;
-const uint border_proximity = BORDER_START_PROXIMITY;
-const float proximity_multiplier = BORDER_PROXIMITY_MULTIPLIER / 100.f;
+const uint max_border_triangle_count = MAX_BORDER_TRIANGLE_COUNT;
 
 struct Triangle
 {
@@ -31,6 +29,10 @@ struct terrain_data_t
 
 		vec2 min;
 		vec2 max;
+
+		float border_max[4];
+		uint border_count[4];
+		uint border_triangle_indices[4 * max_border_triangle_count];
 	// }
 
 	uint indices[num_indices];

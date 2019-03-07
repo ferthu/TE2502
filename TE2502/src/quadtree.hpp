@@ -107,13 +107,19 @@ private:
 	{
 		uint32_t node_index;
 	};
+#define MAX_BORDER_TRIANGLE_COUNT 500
 	struct BufferNodeHeader
 	{
 		uint32_t vertex_count;
 		uint32_t new_points_count;
 		uint32_t pad;
+
 		glm::vec2 min;
 		glm::vec2 max;
+
+		float border_max[4];
+		uint32_t border_count[4];
+		uint32_t border_triangle_indices[4 * MAX_BORDER_TRIANGLE_COUNT];
 	};
 	struct Triangle
 	{

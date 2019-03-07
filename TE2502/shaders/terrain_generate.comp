@@ -41,6 +41,12 @@ void main(void)
 
 		terrain_buffer.data[node_index].min = frame_data.min;
 		terrain_buffer.data[node_index].max = frame_data.max;
+
+		for (uint i = 0; i < 4; ++i)
+		{
+			terrain_buffer.data[node_index].border_max[i] = 0.f;
+			terrain_buffer.data[node_index].border_count[i] = 0;
+		}
 	}
 
 	// Positions

@@ -32,10 +32,6 @@ shared uint s_triangle_count;
 shared uint s_vertex_count;
 shared float s_circumradius_offset;
 
-// Border stuff
-shared float s_proximity[4 * border_zones];
-shared uint s_proximity_count[4 * border_zones];
-
 #define INVALID 9999999
 #define EPSILON 1 - 0.0001
 
@@ -52,7 +48,6 @@ void main(void)
 	const vec2 node_min = terrain_buffer.data[node_index].min;
 	const vec2 node_max = terrain_buffer.data[node_index].max;
 	const float side = node_max.x - node_min.x;
-	const float inv_zone_side = 1 / (side / border_zones);
 
 	// Set shared variables
 	if (thid == 0)
@@ -209,8 +204,41 @@ void main(void)
 					float a = distance(P.xz, Q.xz);
 					float b = distance(P.xz, R.xz);
 					float c = distance(R.xz, Q.xz);
-					terrain_buffer.data[node_index].triangles[s_triangle_count].circumcentre = find_circum_center(P.xz, Q.xz, R.xz);
-					terrain_buffer.data[node_index].triangles[s_triangle_count].circumradius = find_circum_radius_squared(a, b, c);
+
+					const vec2 cc_center = find_circum_center(P.xz, Q.xz, R.xz);
+					const float cc_radius = find_circum_radius_squared(a, b, c);
+
+					terrain_buffer.data[node_index].triangles[s_triangle_count].circumcentre = cc_center;
+					terrain_buffer.data[node_index].triangles[s_triangle_count].circumradius = cc_radius;
+
+					// Left
+					uint count = terrain_buffer.data[node_index].border_count[3];
+					if (cc_center.x - cc_radius < node_min.x && count < max_border_triangle_count)
+					{
+						terrain_buffer.data[node_index].border_triangle_indices[3 * max_border_triangle_count + count] = s_triangle_count;
+						++terrain_buffer.data[node_index].border_count[3];
+					}
+					// Right
+					count = terrain_buffer.data[node_index].border_count[1];
+					if (cc_center.x + cc_radius > node_max.x && count < max_border_triangle_count)
+					{
+						terrain_buffer.data[node_index].border_triangle_indices[1 * max_border_triangle_count + count] = s_triangle_count;
+						++terrain_buffer.data[node_index].border_count[1];
+					}
+					// Top
+					count = terrain_buffer.data[node_index].border_count[0];
+					if (cc_center.y + cc_radius > node_max.y && count < max_border_triangle_count)
+					{
+						terrain_buffer.data[node_index].border_triangle_indices[0 * max_border_triangle_count + count] = s_triangle_count;
+						++terrain_buffer.data[node_index].border_count[0];
+					}
+					// Bottom
+					count = terrain_buffer.data[node_index].border_count[2];
+					if (cc_center.y - cc_radius < node_min.y && count < max_border_triangle_count)
+					{
+						terrain_buffer.data[node_index].border_triangle_indices[2 * max_border_triangle_count + count] = s_triangle_count;
+						++terrain_buffer.data[node_index].border_count[2];
+					}
 
 					s_index_count += 3;
 					++s_triangle_count;

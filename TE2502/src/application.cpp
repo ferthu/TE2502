@@ -438,7 +438,7 @@ void Application::draw_main()
 
 	// Perform terrain generation/drawing
 	Frustum fr = m_main_camera->get_frustum();
-	m_quadtree.intersect(m_main_queue, fr, m_debug_drawer);
+	m_quadtree.intersect(m_main_queue, fr, m_debug_drawer, m_main_camera->get_pos());
 	m_quadtree.draw_terrain(m_main_queue, fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_current_camera, m_draw_wireframe);
 
 	m_main_queue.cmd_image_barrier(

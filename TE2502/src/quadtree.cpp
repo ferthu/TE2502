@@ -83,6 +83,8 @@ Quadtree::Quadtree(
 	m_quadtree_minmax[0] = glm::vec2(-half_length, -half_length);
 	m_quadtree_minmax[1] = glm::vec2(half_length, half_length);
 
+	m_node_size = glm::vec2(m_total_side_length / (1 << levels), m_total_side_length / (1 << levels));
+
 	// (1 << levels) is number of nodes per axis
 	memset(m_node_index_to_buffer_index, INVALID, (1 << levels) * (1 << levels) * sizeof(uint32_t));
 
@@ -142,16 +144,18 @@ Quadtree::Quadtree(
 	create_pipelines(window);
 }
 
-void Quadtree::intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd)
+void Quadtree::intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, glm::vec3 camera_pos)
 {
+	shift_quadtree(camera_pos);
+
 	m_num_generate_nodes = 0;
 	m_num_draw_nodes = 0;
 	
 	float half_length = m_total_side_length * 0.5f;
 
 	// Gather status of nodes
-	intersect(frustum, dd, { {-half_length, -half_length},
-		{half_length, half_length} }, 0, 0, 0);
+	intersect(frustum, dd, { m_quadtree_minmax[0],
+		m_quadtree_minmax[1] }, 0, 0, 0);
 
 	// Dispatch terrain generation
 	queue.cmd_bind_compute_pipeline(m_generation_pipeline->m_pipeline);
@@ -197,6 +201,136 @@ void Quadtree::intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd
 			m_node_memory_size);
 	}
 }
+
+void Quadtree::shift_quadtree(glm::vec3 camera_pos)
+{
+	size_t nodes_per_side = (1ull << m_levels);
+
+	bool shifted = false;
+
+	do
+	{
+		shifted = false;
+
+		if (camera_pos.x + m_quadtree_shift_distance >= m_quadtree_minmax[1].x)
+		{
+			shifted = true;
+
+			m_quadtree_minmax[0].x += m_node_size.x;
+			m_quadtree_minmax[1].x += m_node_size.x;
+
+			for (size_t y = 0; y < nodes_per_side; ++y)
+			{
+				for (size_t x = 0; x < nodes_per_side; ++x)
+				{
+					size_t index = y * nodes_per_side + x;
+
+					if (x == nodes_per_side - 1)
+					{
+						m_node_index_to_buffer_index[index] = INVALID;
+					}
+					else
+					{
+						if (x == 0 && m_node_index_to_buffer_index[index] != INVALID)
+						{
+							m_buffer_index_filled[m_node_index_to_buffer_index[index]] = false;
+						}
+
+						m_node_index_to_buffer_index[index] = m_node_index_to_buffer_index[index + 1];
+					}
+				}
+			}
+		}
+		else if (camera_pos.x - m_quadtree_shift_distance <= m_quadtree_minmax[0].x)
+		{
+			shifted = true;
+
+			m_quadtree_minmax[0].x -= m_node_size.x;
+			m_quadtree_minmax[1].x -= m_node_size.x;
+
+			for (size_t y = 0; y < nodes_per_side; ++y)
+			{
+				for (int64_t x = nodes_per_side - 1; x >= 0; --x)
+				{
+					size_t index = y * nodes_per_side + x;
+
+					if (x == 0)
+					{
+						m_node_index_to_buffer_index[index] = INVALID;
+					}
+					else
+					{
+						if (x == nodes_per_side - 1 && m_node_index_to_buffer_index[index] != INVALID)
+						{
+							m_buffer_index_filled[m_node_index_to_buffer_index[index]] = false;
+						}
+
+						m_node_index_to_buffer_index[index] = m_node_index_to_buffer_index[index - 1];
+					}
+				}
+			}
+		}
+		else if (camera_pos.z + m_quadtree_shift_distance >= m_quadtree_minmax[1].y)
+		{
+			shifted = true;
+
+			m_quadtree_minmax[0].y += m_node_size.y;
+			m_quadtree_minmax[1].y += m_node_size.y;
+
+			for (size_t y = 0; y < nodes_per_side; ++y)
+			{
+				for (size_t x = 0; x < nodes_per_side; ++x)
+				{
+					size_t index = y * nodes_per_side + x;
+
+					if (y == nodes_per_side - 1)
+					{
+						m_node_index_to_buffer_index[index] = INVALID;
+					}
+					else
+					{
+						if (y == 0 && m_node_index_to_buffer_index[index] != INVALID)
+						{
+							m_buffer_index_filled[m_node_index_to_buffer_index[index]] = false;
+						}
+
+						m_node_index_to_buffer_index[index] = m_node_index_to_buffer_index[index + nodes_per_side];
+					}
+				}
+			}
+		}
+		else if (camera_pos.z - m_quadtree_shift_distance <= m_quadtree_minmax[0].y)
+		{
+			shifted = true;
+
+			m_quadtree_minmax[0].y -= m_node_size.y;
+			m_quadtree_minmax[1].y -= m_node_size.y;
+
+			for (int64_t y = nodes_per_side - 1; y >= 0; --y)
+			{
+				for (size_t x = 0; x < nodes_per_side; ++x)
+				{
+					size_t index = y * nodes_per_side + x;
+
+					if (y == 0)
+					{
+						m_node_index_to_buffer_index[index] = INVALID;
+					}
+					else
+					{
+						if (y == nodes_per_side - 1 && m_node_index_to_buffer_index[index] != INVALID)
+						{
+							m_buffer_index_filled[m_node_index_to_buffer_index[index]] = false;
+						}
+
+						m_node_index_to_buffer_index[index] = m_node_index_to_buffer_index[index - nodes_per_side];
+					}
+				}
+			}
+		}
+	} while (shifted);
+}
+
 
 void Quadtree::draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool wireframe)
 {
@@ -502,6 +636,8 @@ void Quadtree::move_from(Quadtree&& other)
 	m_cpu_index_buffer_memory = std::move(other.m_cpu_index_buffer_memory);
 	m_quadtree_minmax = other.m_quadtree_minmax;
 	other.m_quadtree_minmax = nullptr;
+	m_node_size = other.m_node_size;
+	m_quadtree_shift_distance = other.m_quadtree_shift_distance;
 
 	m_generation_set_layout = std::move(other.m_generation_set_layout);
 	m_descriptor_set = std::move(other.m_descriptor_set);

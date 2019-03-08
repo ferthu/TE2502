@@ -37,7 +37,7 @@ public:
 		GraphicsQueue& queue);
 
 	// Recursive intersection that gathers data on what needs to be generated or drawn
-	void intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd);
+	void intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, glm::vec3 camera_pos);
 
 	// Performs frustum culling and draws/generates visible terrain
 	void draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool wireframe);
@@ -152,6 +152,9 @@ private:
 	// Get offset for indices for index i in m_buffer
 	VkDeviceSize get_offset_of_node(uint32_t i);
 
+	// Shifts the quadtree if required
+	void shift_quadtree(glm::vec3 camera_pos);
+
 	GenerationData m_push_data;
 	ErrorMetricData m_em_push_data;
 	TriangulationData m_triangulation_push_data;
@@ -217,6 +220,12 @@ private:
 	GPUMemory m_cpu_index_buffer_memory;
 	VkDeviceSize m_cpu_index_buffer_size;
 	glm::vec2* m_quadtree_minmax;
+
+	// The size of a node
+	glm::vec2 m_node_size;
+
+	// If camera is closer than this distance to the edge of the quadtree, it will shift
+	float m_quadtree_shift_distance = 100.0f;
 
 	// For chunk i of m_buffer, m_buffer_index_filled[i] is true if that chunk is used by a node
 	bool* m_buffer_index_filled;

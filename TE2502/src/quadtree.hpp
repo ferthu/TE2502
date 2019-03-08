@@ -106,7 +106,7 @@ private:
 	struct TriangulationData
 	{
 		uint32_t node_index;
-	};
+	}; 
 #define MAX_BORDER_TRIANGLE_COUNT 500
 	struct BufferNodeHeader
 	{
@@ -120,6 +120,7 @@ private:
 		float border_max[4];
 		uint32_t border_count[4];
 		uint32_t border_triangle_indices[4 * MAX_BORDER_TRIANGLE_COUNT];
+		float border_diffs[4 * MAX_BORDER_TRIANGLE_COUNT];
 	};
 	struct Triangle
 	{

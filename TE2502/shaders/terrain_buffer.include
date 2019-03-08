@@ -33,6 +33,7 @@ struct terrain_data_t
 		float border_max[4];
 		uint border_count[4];
 		uint border_triangle_indices[4 * max_border_triangle_count];
+		float border_diffs[4 * max_border_triangle_count];
 	// }
 
 	uint indices[num_indices];

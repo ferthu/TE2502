@@ -96,7 +96,18 @@ Application::Application() :
 	VkDeviceSize num_nodes = m_tfile.get_u64("TERRAIN_GENERATE_NUM_NODES");
 	VkDeviceSize num_new_points = m_tfile.get_u64("TRIANGULATE_MAX_NEW_POINTS");
 	uint32_t num_levels = m_tfile.get_u32("QUADTREE_LEVELS");
-	m_quadtree = Quadtree(m_vulkan_context, total_side_length, num_levels, num_nodes, num_indices, num_vertices, num_new_points, *m_window, m_main_queue);
+	m_quadtree = Quadtree(
+		m_vulkan_context, 
+		total_side_length,
+		num_levels, 
+		num_nodes, 
+		num_indices, 
+		num_vertices, 
+		num_new_points, 
+		*m_window, 
+		m_main_queue, 
+		m_tfile);
+
 #ifdef RAY_MARCH_WINDOW
 	m_ray_march_window_states.swapchain_framebuffers.resize(m_ray_march_window->get_swapchain_size());
 	for (uint32_t i = 0; i < m_ray_march_window->get_swapchain_size(); i++)

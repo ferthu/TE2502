@@ -1,3 +1,5 @@
+#include <glm/gtc/constants.hpp>
+
 #include "quadtree.hpp"
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
@@ -30,7 +32,8 @@ Quadtree::Quadtree(
 	VkDeviceSize max_node_vertices,
 	VkDeviceSize max_node_new_points,
 	Window& window,
-	GraphicsQueue& queue)
+	GraphicsQueue& queue,
+	TFile& tfile)
 	: m_context(&context),
 		m_total_side_length(total_side_length),
 		m_levels(levels),
@@ -122,6 +125,7 @@ Quadtree::Quadtree(
 	// Terrain processing
 	m_triangle_processing_layout = DescriptorSetLayout(context);
 	m_triangle_processing_layout.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	m_triangle_processing_layout.add_uniform_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
 	m_triangle_processing_layout.create();
 
 	m_triangle_processing_set = DescriptorSet(context, m_triangle_processing_layout);
@@ -138,9 +142,74 @@ Quadtree::Quadtree(
 		m_triangle_processing_pipeline_layout.create(&push_range);
 	}
 
+	terrain_processing_filter_setup(queue, tfile);
+
 	error_metric_setup(window, queue);
 	create_pipelines(window);
 }
+
+void Quadtree::terrain_processing_filter_setup(GraphicsQueue& queue, TFile& tfile)
+{
+	int64_t filter_radius = tfile.get_u64("CURVATURE_FILTER_RADIUS");
+	uint64_t filter_side = filter_radius * 2 + 1;
+	uint64_t filter_memory_size = filter_side * filter_side * sizeof(float);
+
+	m_triangle_processing_filter_cpu_memory = m_context->allocate_host_memory(filter_memory_size + 512);
+	m_triangle_processing_filter_gpu_memory = m_context->allocate_device_memory(filter_memory_size + 512);
+	m_triangle_processing_filter_cpu_buffer = 
+		GPUBuffer(
+			*m_context, filter_memory_size, 
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+			m_triangle_processing_filter_cpu_memory);
+
+	m_triangle_processing_filter_gpu_buffer = 
+		GPUBuffer(
+			*m_context, filter_memory_size, 
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+			m_triangle_processing_filter_gpu_memory);
+
+	float* filter;
+
+	vkMapMemory(m_context->get_device(), m_triangle_processing_filter_cpu_buffer.get_memory(), 0, filter_memory_size, 0, (void**) &filter);
+
+	// Create filter kernel
+	const float gaussian_width = 1.0f;
+
+	float sum = 0.0f;
+
+	for (int64_t x = -filter_radius; x <= filter_radius; x++)
+	{
+		for (int64_t y = -filter_radius; y <= filter_radius; y++)
+		{
+			// https://homepages.inf.ed.ac.uk/rbf/HIPR2/log.htm
+			float t = -((x * x + y * y) / (2.0f * gaussian_width * gaussian_width));
+			float log = -(1 / (glm::pi<float>() * powf(gaussian_width, 4.0f))) * (1.0f + t) * exp(t);
+
+			filter[(y + filter_radius) * filter_side + (x + filter_radius)] = log;
+			sum += log;
+		}
+	}
+
+	// Normalize filter
+	float correction = 1.0f / sum;
+	for (uint64_t i = 0; i < filter_side * filter_side; i++)
+	{
+		filter[i] *= correction;
+	}
+
+	vkUnmapMemory(m_context->get_device(), m_triangle_processing_filter_cpu_buffer.get_memory());
+
+	// Copy buffer to GPU
+	queue.start_recording();
+	queue.cmd_copy_buffer(
+		m_triangle_processing_filter_cpu_buffer.get_buffer(), 
+		m_triangle_processing_filter_gpu_buffer.get_buffer(), 
+		filter_memory_size);
+	queue.end_recording();
+	queue.submit();
+	queue.wait();
+}
+
 
 void Quadtree::intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd)
 {
@@ -245,6 +314,7 @@ void Quadtree::process_triangles(GraphicsQueue& queue, Camera& camera, Window& w
 
 	m_triangle_processing_set.clear();
 	m_triangle_processing_set.add_storage_buffer(get_buffer());
+	m_triangle_processing_set.add_uniform_buffer(m_triangle_processing_filter_gpu_buffer);
 	m_triangle_processing_set.bind();
 
 
@@ -557,6 +627,10 @@ void Quadtree::move_from(Quadtree&& other)
 
 	m_triangle_processing_layout = std::move(other.m_triangle_processing_layout);
 	m_triangle_processing_set = std::move(other.m_triangle_processing_set);
+	m_triangle_processing_filter_cpu_memory = std::move(other.m_triangle_processing_filter_cpu_memory);
+	m_triangle_processing_filter_gpu_memory = std::move(other.m_triangle_processing_filter_gpu_memory);
+	m_triangle_processing_filter_cpu_buffer = std::move(other.m_triangle_processing_filter_cpu_buffer);
+	m_triangle_processing_filter_gpu_buffer = std::move(other.m_triangle_processing_filter_gpu_buffer);
 	m_triangle_processing_pipeline_layout = std::move(other.m_triangle_processing_pipeline_layout);
 	m_triangle_processing_compute_pipeline = std::move(other.m_triangle_processing_compute_pipeline);
 }

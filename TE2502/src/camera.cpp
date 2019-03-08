@@ -1,16 +1,18 @@
+#define NOMINMAX
 #include "camera.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <algorithm>
 #include "imgui/imgui.h"
 
 Camera::Camera(GLFWwindow* window)
 {
 	m_window = window;
 	glfwGetWindowSize(m_window, &m_window_width, &m_window_height);
-	m_perspective = calculate_perspective(90.0f, m_near, m_far, (float)m_window_width, (float)m_window_height);
+	m_perspective = calculate_perspective(m_fov, m_near, m_far, (float)m_window_width, (float)m_window_height);
 	get_camera_planes();
 }
 
@@ -78,8 +80,12 @@ void Camera::update(const float dt, bool mouse_locked, DebugDrawer& dd)
 
 	m_view = glm::translate(camera_rotation, glm::vec3{ -m_position });
 
-	m_perspective = calculate_perspective(90.0f, m_near, m_far, (float)m_window_width, (float)m_window_height);
+	m_perspective = calculate_perspective(m_fov, m_near, m_far, (float)m_window_width, (float)m_window_height);
 	m_vp = m_perspective * m_view;
+
+	float big_fov = std::min(m_fov * m_fov_multiplier, 179.0f);
+	m_big_perspective = calculate_perspective(big_fov, m_near * 0.5f, m_far + 40.0f, (float)m_window_width, (float)m_window_height);
+	m_big_vp = m_big_perspective * m_view;
 
 	m_ray_march_view = glm::inverse(camera_rotation);
 
@@ -115,6 +121,17 @@ void Camera::set_pos(const glm::vec3& new_pos)
 {
 	m_position = new_pos;
 }
+
+const glm::mat4& Camera::get_big_vp() const
+{
+	return m_big_vp;
+}
+
+const glm::mat4& Camera::get_big_perspective() const
+{
+	return m_big_perspective;
+}
+
 
 void Camera::set_yaw_pitch(float yaw, float pitch)
 {

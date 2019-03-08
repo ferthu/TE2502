@@ -14,23 +14,24 @@ layout(push_constant) uniform frame_data_t
 	uint node_index;
 } frame_data;
 
-
-
 struct Edge
 {
 	uint p1;
 	uint p2;
 };
- 
-shared Edge s_edges[200 * 3];
 
-shared uint s_triangles_to_remove[50];
+const uint INDICES_TO_STORE = 300;
+const uint TRIANGLES_TO_STORE = 100;
+ 
+shared Edge s_edges[TRIANGLES_TO_STORE * 3];
+
+shared uint s_triangles_to_remove[TRIANGLES_TO_STORE];
 shared uint s_triangles_removed;
 
 shared uint s_index_count;
 shared uint s_triangle_count;
 shared uint s_vertex_count;
-shared float s_circumradius_offset;
+shared uint s_new_triangle_count;
 
 // Border stuff
 shared float s_proximity[4 * border_zones];
@@ -61,7 +62,6 @@ void main(void)
 		s_triangle_count = s_index_count / 3;
 		s_triangles_removed = 0;
 		s_vertex_count = terrain_buffer.data[node_index].vertex_count;
-		s_circumradius_offset = 0.f;
 	}
 
 	// Loading border stuff to shared memory
@@ -82,29 +82,8 @@ void main(void)
 	{
 		vec4 current_point = terrain_buffer.data[node_index].new_points[n];
 
-		
-		// If a circumcircle's perimeter is close to the point, add an offset to all radii
-		i = thid;
-		while (i < s_triangle_count)
-		{
-			vec2 circumcentre = terrain_buffer.data[node_index].triangles[i].circumcentre;
-			float circumradius = terrain_buffer.data[node_index].triangles[i].circumradius;
-
-			float dx = current_point.x - circumcentre.x;
-			float dy = current_point.z - circumcentre.y;
-			if (abs(dx * dx + dy * dy - circumradius) < circumradius * 0.01f)
-			{
-				s_circumradius_offset = 0.01f * circumradius;
-			}
-
-			i += WORK_GROUP_SIZE;
-		}
-
-		barrier();
-		memoryBarrierShared();
-
 		// Check distance from circumcircles to new point
-		i = thid;
+		uint i = thid;
 		while (i < s_triangle_count)
 		{
 			vec2 circumcentre = terrain_buffer.data[node_index].triangles[i].circumcentre;
@@ -116,23 +95,27 @@ void main(void)
 			{
 				// Add triangle edges to edge buffer
 				uint tr = atomicAdd(s_triangles_removed, 1);
-				uint ec = tr * 3; //atomicAdd(s_edge_count, 3);
-				uint index_offset = i * 3;
-				uint index0 = terrain_buffer.data[node_index].indices[index_offset + 0];
-				uint index1 = terrain_buffer.data[node_index].indices[index_offset + 1];
-				uint index2 = terrain_buffer.data[node_index].indices[index_offset + 2];
-				// Edge 1
-				s_edges[ec + 0].p1 = min(index0, index1);
-				s_edges[ec + 0].p2 = max(index0, index1);
-				// Edge 2
-				s_edges[ec + 1].p1 = min(index1, index2);
-				s_edges[ec + 1].p2 = max(index1, index2);
-				// Edge 3
-				s_edges[ec + 2].p1 = min(index2, index0);
-				s_edges[ec + 2].p2 = max(index2, index0);
 
-				// Mark the triangle to be removed later
-				s_triangles_to_remove[tr] = i;
+				if (tr < TRIANGLES_TO_STORE)
+				{
+					uint ec = tr * 3; //atomicAdd(s_edge_count, 3);
+					uint index_offset = i * 3;
+					uint index0 = terrain_buffer.data[node_index].indices[index_offset + 0];
+					uint index1 = terrain_buffer.data[node_index].indices[index_offset + 1];
+					uint index2 = terrain_buffer.data[node_index].indices[index_offset + 2];
+					// Edge 1
+					s_edges[ec + 0].p1 = min(index0, index1);
+					s_edges[ec + 0].p2 = max(index0, index1);
+					// Edge 2
+					s_edges[ec + 1].p1 = min(index1, index2);
+					s_edges[ec + 1].p2 = max(index1, index2);
+					// Edge 3
+					s_edges[ec + 2].p1 = min(index2, index0);
+					s_edges[ec + 2].p2 = max(index2, index0);
+
+					// Mark the triangle to be removed later
+					s_triangles_to_remove[tr] = i;
+				}
 			}
 
 			i += WORK_GROUP_SIZE;
@@ -149,7 +132,7 @@ void main(void)
 		// Delete all doubly specified edges from edge buffer (this leaves the edges of the enclosing polygon only)
 		const uint edge_count = s_triangles_removed * 3;
 		i = thid;
-		while (i < edge_count)
+		while (i < edge_count && i < TRIANGLES_TO_STORE * 3)
 		{
 			bool found = false;
 			for (uint j = 0; j < edge_count; ++j)
@@ -171,6 +154,27 @@ void main(void)
 		barrier();
 		memoryBarrierShared();
 
+		// Count the number of new triangles to create
+		if (thid == 0)
+		{
+			s_new_triangle_count = 0;
+
+ 			for (uint j = 0; j < edge_count && j < TRIANGLES_TO_STORE * 3; ++j)
+			{
+				if (s_edges[j].p1 != INVALID)
+				{
+					++s_new_triangle_count;
+				}
+			}
+		}
+
+ 		// If new triangles will not fit in index buffer, quit
+		if (s_index_count + (s_new_triangle_count * 3) >= num_indices)
+		{
+			finish = true;
+			break;
+		}
+
 		if (thid == 0)
 		{
 			uint old_index_count = s_index_count;
@@ -178,7 +182,7 @@ void main(void)
 			bool all_valid = true;
 
 			// Add to the triangle list all triangles formed between the point and the edges of the enclosing polygon
-			for (uint i = 0; i < edge_count; ++i)
+			for (uint i = 0; i < edge_count && i < TRIANGLES_TO_STORE * 3; ++i)
 			{
 				if (s_edges[i].p1 != INVALID)
 				{

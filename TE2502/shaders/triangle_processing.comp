@@ -166,6 +166,7 @@ void main(void)
 	memoryBarrierShared();
 
 	uint prev_count = terrain_buffer.data[node_index].new_points_count;
+	prev_count = 0;
 
 	barrier();
 	memoryBarrierShared();

@@ -16,6 +16,7 @@
 #include "graphics/framebuffer.hpp"
 #include "graphics/window.hpp"
 #include "camera.hpp"
+#include "tfile.hpp"
 
 class Quadtree
 {
@@ -34,7 +35,8 @@ public:
 		VkDeviceSize max_node_vertices, 
 		VkDeviceSize max_node_new_points, 
 		Window& window,
-		GraphicsQueue& queue);
+		GraphicsQueue& queue,
+		TFile& tfile);
 
 	// Recursive intersection that gathers data on what needs to be generated or drawn
 	void intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd);
@@ -143,6 +145,8 @@ private:
 	// Set up error metric objects
 	void error_metric_setup(Window& window, GraphicsQueue& queue);
 
+	void terrain_processing_filter_setup(GraphicsQueue& queue, TFile& tfile);
+
 	// Get offset for indices for index i in m_buffer
 	VkDeviceSize get_index_offset_of_node(uint32_t i);
 
@@ -191,6 +195,10 @@ private:
 	std::unique_ptr<Pipeline> m_em_wireframe_pipeline;
 
 	// Triangle processing
+	GPUMemory m_triangle_processing_filter_cpu_memory;
+	GPUMemory m_triangle_processing_filter_gpu_memory;
+	GPUBuffer m_triangle_processing_filter_cpu_buffer;
+	GPUBuffer m_triangle_processing_filter_gpu_buffer;
 	DescriptorSetLayout m_triangle_processing_layout;
 	DescriptorSet m_triangle_processing_set;
 	PipelineLayout m_triangle_processing_pipeline_layout;

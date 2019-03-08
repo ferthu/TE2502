@@ -19,6 +19,10 @@ layout(push_constant) uniform frame_data_t
 	uint node_index;
 } frame_data;
 
+layout(set = 0, binding = 1) uniform curvature_filter_t
+{
+	float log_filter[CURVATURE_FILTER_RADIUS * 2 + 1];
+} curvature_filter;
 
 
 
@@ -32,38 +36,11 @@ bool clip(in vec4 p)
 
 float curvature(in vec3 p)
 {
-	const float pi = 3.1415;
+	const int filter_radius = CURVATURE_FILTER_RADIUS;
+	const int filter_side = CURVATURE_FILTER_RADIUS * 2 + 1;
 
 	float camera_distance = distance(p, frame_data.camera_position.xyz);
-
 	float sample_step = 5.5 + pow(camera_distance * 0.5, 0.6);
-	const float gaussian_width = 1.0;
-	const int filter_radius = 2;	// Side length of grid is filter_radius * 2 + 1
-	const int filter_side = filter_radius * 2 + 1;
-	float log_filter[filter_side * filter_side];
-
-	/////////////////////////////////////////
-	float sum = 0.0;
-
-	for (int x = -filter_radius; x <= filter_radius; x++)
-	{
-		for (int y = -filter_radius; y <= filter_radius; y++)
-		{
-			// https://homepages.inf.ed.ac.uk/rbf/HIPR2/log.htm
-			float t = -((x * x + y * y) / (2.0 * gaussian_width * gaussian_width));
-			float log = -(1 / (pi * pow(gaussian_width, 4.0))) * (1.0 + t) * exp(t);
-
-			log_filter[(y + filter_radius) * filter_side + (x + filter_radius)] = log;
-			sum += log;
-		}
-	}
-
-	// Normalize filter
-	float correction = 1.0 / sum;
-	for (uint i = 0; i < filter_side * filter_side; i++)
-	{
-		log_filter[i] *= correction;
-	}
 
 	float curvature = 0.0;
 
@@ -71,7 +48,7 @@ float curvature(in vec3 p)
 	{
 		for (int y = -filter_radius; y <= filter_radius; y++)
 		{
-			curvature += terrain(p.xz + vec2(sample_step * x, sample_step * y)) * log_filter[(y + filter_radius) * filter_side + (x + filter_radius)];
+			curvature += terrain(p.xz + vec2(sample_step * x, sample_step * y)) * curvature_filter.log_filter[(y + filter_radius) * filter_side + (x + filter_radius)];
 		}
 	}
 

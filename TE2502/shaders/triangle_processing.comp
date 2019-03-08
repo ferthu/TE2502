@@ -81,21 +81,58 @@ float curvature(in vec3 p)
 	return abs(curvature);
 }
 
-const uint max_new_points = TRIANGULATE_MAX_NEW_POINTS / WORK_GROUP_SIZE;
-vec2 new_points[max_new_points + 1];
+const uint max_new_normal_points = TRIANGULATE_MAX_NEW_NORMAL_POINTS / WORK_GROUP_SIZE;
+vec4 new_points[max_new_normal_points + 1];
 shared uint s_counts[WORK_GROUP_SIZE];
 shared uint s_total;
+
+shared float s_border_max[4];
 
 void main(void)
 {
 	const uint thid = gl_GlobalInvocationID.x;
 	const uint node_index = frame_data.node_index;
+
+	const vec2 node_min = terrain_buffer.data[node_index].min;
+	const vec2 node_max = terrain_buffer.data[node_index].max;
+	const float side = node_max.x - node_min.x;
+
+	const int neighbur_indexing_x[4] = { 0, 1, 0, -1 };
+	const int neighbur_indexing_y[4] = { 1, 0, -1, 0 };
+
+	const int cx = int((node_min.x - terrain_buffer.quadtree_min.x + 1) / side);  // current node x
+	const int cy = int((node_min.y - terrain_buffer.quadtree_min.y + 1) / side);  // current node z/y
+
+	const int nodes_per_side = 1 << quadtree_levels;
+
+	if (thid == 0)  // TODO: Optimize to multiple threads
+	{
+		for (uint bb = 0; bb < 4; ++bb)  // TODO: Go through corner neighbour nodes as well
+		{
+			int nx = cx + neighbur_indexing_x[bb];
+			int ny = cy + neighbur_indexing_y[bb];
+
+			bool valid_neighbour = ny >= 0 && ny < nodes_per_side && nx >= 0 && nx < nodes_per_side;
+			uint neighbour_index = 0;
+			if (valid_neighbour)
+			{
+				neighbour_index = terrain_buffer.quadtree_index_map[ny * nodes_per_side + nx];
+				uint neighbour_border = (bb + 2) % 4;
+
+				s_border_max[bb] = terrain_buffer.data[neighbour_index].border_max[neighbour_border];
+			}
+		}
+	}
+
+	barrier();
+	memoryBarrierShared();
+
 	const uint index_count = terrain_buffer.data[node_index].index_count;
 
 	uint new_point_count = 0;
 
 	// For every triangle
-	for (uint i = thid * 3; i + 3 <= index_count && new_point_count < max_new_points; i += WORK_GROUP_SIZE * 3)
+	for (uint i = thid * 3; i + 3 <= index_count && new_point_count < max_new_normal_points; i += WORK_GROUP_SIZE * 3)
 	{
 		// Get vertices
 		vec4 v0 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i    ]];
@@ -129,10 +166,52 @@ void main(void)
 			vec3 mid = (v0.xyz + v1.xyz + v2.xyz) / 3.0;
 			float curv = pow(curvature(mid), frame_data.curvature_multiplier);
 
+			// A new point should be added
 			if (curv * area >= frame_data.threshold)
 			{
-				new_points[new_point_count] = mid.xz;
-				++new_point_count;
+				// Check if the point could be a border point
+				const vec4 point = vec4(mid.x, -terrain(mid.xz) - 0.5, mid.z, 1.0);
+				// TODO: Check against corner neighbour nodes as well
+				bool border = false;
+				// Left
+				uint count = terrain_buffer.data[node_index].new_border_point_count[3];
+				if (point.x < node_min.x + s_border_max[3] && count < max_border_triangle_count)
+				{
+					terrain_buffer.data[node_index].new_border_points[3 * max_new_border_points + count] = point;
+					terrain_buffer.data[node_index].new_border_point_count[3]++;
+					border = true;
+				}
+				// Right
+				count = terrain_buffer.data[node_index].new_border_point_count[1];
+				if (point.x > node_max.x - s_border_max[1] && count < max_border_triangle_count)
+				{
+					terrain_buffer.data[node_index].new_border_points[1 * max_new_border_points + count] = point;
+					terrain_buffer.data[node_index].new_border_point_count[1]++;
+					border = true;
+				}
+				// Top
+				count = terrain_buffer.data[node_index].new_border_point_count[0];
+				if (point.z > node_max.y - s_border_max[0] && count < max_border_triangle_count)
+				{
+					terrain_buffer.data[node_index].new_border_points[0 * max_new_border_points + count] = point;
+					terrain_buffer.data[node_index].new_border_point_count[0]++;
+					border = true;
+				}
+				// Bottom
+				count = terrain_buffer.data[node_index].new_border_point_count[2];
+				if (point.z < node_min.y + s_border_max[2] && count < max_border_triangle_count)
+				{
+					terrain_buffer.data[node_index].new_border_points[2 * max_new_border_points + count] = point;
+					terrain_buffer.data[node_index].new_border_point_count[2]++;
+					border = true;
+				}
+
+				// Not a border point
+				if (!border)
+				{
+					new_points[new_point_count] = point;
+					++new_point_count;
+				}
 			}
 		}
 	}
@@ -190,6 +269,7 @@ void main(void)
 
 	uint prev_count = terrain_buffer.data[node_index].new_points_count;
 
+
 	barrier();
 	memoryBarrierShared();
 	memoryBarrierBuffer();
@@ -201,11 +281,11 @@ void main(void)
 		terrain_buffer.data[node_index].new_points_count += s_total;
 		terrain_buffer.data[node_index].new_points_count = min(terrain_buffer.data[node_index].new_points_count, num_new_points);
 	}
-
+	
 	// Write points to output storage buffer
 	const uint base_offset = prev_count + s_counts[thid];
 	for (uint i = 0; i < new_point_count && base_offset + i < num_new_points; ++i)
 	{
-		terrain_buffer.data[node_index].new_points[base_offset + i] = vec4(new_points[i].x, -terrain(new_points[i].xy) - 0.5, new_points[i].y, 1.0);
+		terrain_buffer.data[node_index].new_points[base_offset + i] = new_points[i];
 	}
 }

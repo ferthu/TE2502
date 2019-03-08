@@ -219,9 +219,9 @@ void main(void)
 					if (diff > 0 && count < max_border_triangle_count)
 					{
 						terrain_buffer.data[node_index].border_triangle_indices[3 * max_border_triangle_count + count] = s_triangle_count;
-						++terrain_buffer.data[node_index].border_count[3];
-						terrain_buffer.data[node_index].border_max[3] = max(terrain_buffer.data[node_index].border_max[3], diff);
 						terrain_buffer.data[node_index].border_diffs[3 * max_border_triangle_count + count] = diff;
+						terrain_buffer.data[node_index].border_max[3] = max(terrain_buffer.data[node_index].border_max[3], diff);
+						++terrain_buffer.data[node_index].border_count[3];
 					}
 					// Right
 					count = terrain_buffer.data[node_index].border_count[1];
@@ -229,9 +229,9 @@ void main(void)
 					if (diff > 0 && count < max_border_triangle_count)
 					{
 						terrain_buffer.data[node_index].border_triangle_indices[1 * max_border_triangle_count + count] = s_triangle_count;
-						++terrain_buffer.data[node_index].border_count[1];
-						terrain_buffer.data[node_index].border_max[1] = max(terrain_buffer.data[node_index].border_max[1], diff);
 						terrain_buffer.data[node_index].border_diffs[1 * max_border_triangle_count + count] = diff;
+						terrain_buffer.data[node_index].border_max[1] = max(terrain_buffer.data[node_index].border_max[1], diff);
+						++terrain_buffer.data[node_index].border_count[1];
 					}
 					// Top
 					count = terrain_buffer.data[node_index].border_count[0];
@@ -239,9 +239,9 @@ void main(void)
 					if (diff > 0 && count < max_border_triangle_count)
 					{
 						terrain_buffer.data[node_index].border_triangle_indices[0 * max_border_triangle_count + count] = s_triangle_count;
-						++terrain_buffer.data[node_index].border_count[0];
-						terrain_buffer.data[node_index].border_max[0] = max(terrain_buffer.data[node_index].border_max[0], diff);
 						terrain_buffer.data[node_index].border_diffs[0 * max_border_triangle_count + count] = diff;
+						terrain_buffer.data[node_index].border_max[0] = max(terrain_buffer.data[node_index].border_max[0], diff);
+						++terrain_buffer.data[node_index].border_count[0];
 					}
 					// Bottom
 					count = terrain_buffer.data[node_index].border_count[2];
@@ -249,9 +249,9 @@ void main(void)
 					if (diff > 0 && count < max_border_triangle_count)
 					{
 						terrain_buffer.data[node_index].border_triangle_indices[2 * max_border_triangle_count + count] = s_triangle_count;
-						++terrain_buffer.data[node_index].border_count[2];
-						terrain_buffer.data[node_index].border_max[2] = max(terrain_buffer.data[node_index].border_max[2], diff);
 						terrain_buffer.data[node_index].border_diffs[2 * max_border_triangle_count + count] = diff;
+						terrain_buffer.data[node_index].border_max[2] = max(terrain_buffer.data[node_index].border_max[2], diff);
+						++terrain_buffer.data[node_index].border_count[2];
 					}
 
 					s_index_count += 3;

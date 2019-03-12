@@ -14,8 +14,8 @@ bool frustum_aabbxz_intersection(Frustum& frustum, AabbXZ& aabb)
 	// Check if AABB is inside frustum planes
 	for (int i = 0; i < 6; i++)
 	{
-		float min_y = -200.0f;
-		float max_y =  200.0f;
+		float min_y = -300.0f;
+		float max_y =  100.0f;
 
 		// Number of points on the negative halfspace
 		int num_out = 0;

@@ -363,7 +363,7 @@ void Application::update(const float dt)
 		ImGui::Checkbox("Refine", &m_triangulate);
 		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.0f, 0.0f, 3.0f);
 		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.01f, 0.0f, 3.0f);
-		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.1f, 10.0f);
+		ImGui::DragFloat("Threshold", &m_em_threshold, 0.0001f, 0.0001f, 100.0f);
 		if (ImGui::Button("Clear Terrain"))
 			m_quadtree.clear_terrain();
 

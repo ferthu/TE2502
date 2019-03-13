@@ -197,7 +197,7 @@ Application::~Application()
 	glfwTerminate();
 }
 
-void Application::run()
+void Application::run(bool auto_triangulate)
 {
 	bool right_mouse_clicked = false;
 	bool f_pressed = false;
@@ -305,7 +305,7 @@ void Application::run()
 			   		 	  	  
 		update(delta_time.count());
 
-		draw();
+		draw(auto_triangulate);
 	}
 
 	m_quit = true; 
@@ -381,7 +381,7 @@ void Application::update(const float dt)
 	}
 }
 
-void Application::draw()
+void Application::draw(bool auto_triangulate)
 {
 #ifdef RAY_MARCH_WINDOW
 	// Start ray march thread
@@ -392,7 +392,7 @@ void Application::draw()
 	m_cv.notify_all();
 #endif
 
-	draw_main();
+	draw_main(auto_triangulate);
 
 #ifdef RAY_MARCH_WINDOW
 	// Wait for ray march thread
@@ -404,7 +404,7 @@ void Application::draw()
 #endif
 }
 
-void Application::draw_main()
+void Application::draw_main(bool auto_triangulate)
 {
 	const uint32_t index = m_window->get_next_image();
 	VkImage image = m_window->get_swapchain_image(index);
@@ -465,7 +465,7 @@ void Application::draw_main()
 	m_quadtree.derp();
 
 	// Fritjof stuff
-	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held)
+	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held || auto_triangulate)
 	{
 		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold, m_em_area_multiplier, m_em_curvature_multiplier);
 	}

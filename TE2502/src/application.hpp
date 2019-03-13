@@ -28,16 +28,16 @@ public:
 	virtual ~Application();
 	
 	// Start the "game"-loop
-	void run();
+	void run(bool auto_triangulate = false);
 	
 private:
 	// Update
 	void update(const float dt);
 	
 	// Draw
-	void draw();
+	void draw(bool auto_triangulate = false);
 
-	void draw_main();
+	void draw_main(bool auto_triangulate = false);
 
 	void draw_ray_march();
 

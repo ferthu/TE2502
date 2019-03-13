@@ -107,19 +107,22 @@ void main(void)
 
 	if (thid == 0)  // TODO: Optimize to multiple threads
 	{
-		for (uint bb = 0; bb < 4; ++bb)  // TODO: Go through corner neighbour nodes as well
+		for (int bb = 0; bb < 4; ++bb)  // TODO: Go through corner neighbour nodes as well
 		{
 			int nx = cx + neighbur_indexing_x[bb];
 			int ny = cy + neighbur_indexing_y[bb];
-
-			bool valid_neighbour = ny >= 0 && ny < nodes_per_side && nx >= 0 && nx < nodes_per_side;
-			uint neighbour_index = 0;
-			if (valid_neighbour)
+			
+			// Check if valid neighbour
+			if (ny >= 0 && ny < nodes_per_side && nx >= 0 && nx < nodes_per_side)
 			{
-				neighbour_index = terrain_buffer.quadtree_index_map[ny * nodes_per_side + nx];
-				uint neighbour_border = (bb + 2) % 4;
-
+				uint neighbour_index = terrain_buffer.quadtree_index_map[ny * nodes_per_side + nx];
+				int neighbour_border = (bb + 2) % 4;
+				
 				s_border_max[bb] = terrain_buffer.data[neighbour_index].border_max[neighbour_border];
+			}
+			else
+			{
+				s_border_max[bb] = 0;
 			}
 		}
 	}

@@ -34,8 +34,8 @@ struct terrain_data_t
 		uint new_border_point_count[4];
 		vec4 new_border_points[4 * max_new_border_points];
 		uint border_count[4];
-		float border_max[4];
 		uint border_triangle_indices[4 * max_border_triangle_count];
+		float border_max[4];
 		float border_diffs[4 * max_border_triangle_count];
 	// }
 

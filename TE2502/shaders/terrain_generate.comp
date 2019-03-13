@@ -45,7 +45,7 @@ void main(void)
 		for (uint i = 0; i < 4; ++i)
 		{
 			terrain_buffer.data[node_index].new_border_point_count[i] = 0;
-			terrain_buffer.data[node_index].border_max[i] = 0.f;
+			terrain_buffer.data[node_index].border_max[i] = 10;
 			terrain_buffer.data[node_index].border_count[i] = 0;
 		}
 	}

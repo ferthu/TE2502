@@ -462,6 +462,8 @@ void Application::draw_main()
 
 	ImGui::Begin("Triangulate");
 
+	m_quadtree.derp();
+
 	// Fritjof stuff
 	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held)
 	{

@@ -73,6 +73,8 @@ public:
 
 	RenderPass& get_render_pass();
 
+	void derp();
+
 private:
 	struct GenerationData
 	{
@@ -120,9 +122,9 @@ private:
 
 		uint32_t new_border_point_count[4];
 		glm::vec4 new_border_points[4 * TRIANGULATE_MAX_NEW_BORDER_POINTS];
-		float border_max[4];
 		uint32_t border_count[4];
 		uint32_t border_triangle_indices[4 * MAX_BORDER_TRIANGLE_COUNT];
+		float border_max[4];
 		float border_diffs[4 * MAX_BORDER_TRIANGLE_COUNT];
 	};
 	struct Triangle

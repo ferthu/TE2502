@@ -176,37 +176,49 @@ void main(void)
 				const vec4 point = vec4(mid.x, -terrain(mid.xz) - 0.5, mid.z, 1.0);
 				// TODO: Check against corner neighbour nodes as well
 				bool border = false;
+
 				// Left
-				uint count = terrain_buffer.data[node_index].new_border_point_count[3];
-				if (point.x < node_min.x + s_border_max[3] && count < max_border_triangle_count)
+				if (point.x < node_min.x + s_border_max[3])
 				{
-					terrain_buffer.data[node_index].new_border_points[3 * max_new_border_points + count] = point;
-					terrain_buffer.data[node_index].new_border_point_count[3]++;
-					border = true;
+					uint count = atomicAdd(terrain_buffer.data[node_index].new_border_point_count[3], 1);	// TODO: Don't increment if number of points exceed max border points 
+					if (count < max_new_border_points)
+					{
+						terrain_buffer.data[node_index].new_border_points[3 * max_new_border_points + count] = point;
+						border = true;
+					}
 				}
 				// Right
-				count = terrain_buffer.data[node_index].new_border_point_count[1];
-				if (point.x > node_max.x - s_border_max[1] && count < max_border_triangle_count)
+				if (point.x > node_max.x - s_border_max[1])
 				{
-					terrain_buffer.data[node_index].new_border_points[1 * max_new_border_points + count] = point;
-					terrain_buffer.data[node_index].new_border_point_count[1]++;
-					border = true;
+					uint count = atomicAdd(terrain_buffer.data[node_index].new_border_point_count[1], 1);	// TODO: Don't increment if number of points exceed max border points 
+
+					if (count < max_new_border_points)
+					{
+						terrain_buffer.data[node_index].new_border_points[1 * max_new_border_points + count] = point;
+						border = true;
+					}
 				}
 				// Top
-				count = terrain_buffer.data[node_index].new_border_point_count[0];
-				if (point.z > node_max.y - s_border_max[0] && count < max_border_triangle_count)
+				if (point.z > node_max.y - s_border_max[0])
 				{
-					terrain_buffer.data[node_index].new_border_points[0 * max_new_border_points + count] = point;
-					terrain_buffer.data[node_index].new_border_point_count[0]++;
-					border = true;
+					uint count = atomicAdd(terrain_buffer.data[node_index].new_border_point_count[0], 1);	// TODO: Don't increment if number of points exceed max border points 
+
+					if (count < max_new_border_points)
+					{
+						terrain_buffer.data[node_index].new_border_points[0 * max_new_border_points + count] = point;
+						border = true;
+					}
 				}
 				// Bottom
-				count = terrain_buffer.data[node_index].new_border_point_count[2];
-				if (point.z < node_min.y + s_border_max[2] && count < max_border_triangle_count)
+				if (point.z < node_min.y + s_border_max[2])
 				{
-					terrain_buffer.data[node_index].new_border_points[2 * max_new_border_points + count] = point;
-					terrain_buffer.data[node_index].new_border_point_count[2]++;
-					border = true;
+					uint count = atomicAdd(terrain_buffer.data[node_index].new_border_point_count[2], 1);	// TODO: Don't increment if number of points exceed max border points 
+
+					if (count < max_new_border_points)
+					{
+						terrain_buffer.data[node_index].new_border_points[2 * max_new_border_points + count] = point;
+						border = true;
+					}
 				}
 
 				// Not a border point

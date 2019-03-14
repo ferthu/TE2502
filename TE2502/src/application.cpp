@@ -468,6 +468,8 @@ void Application::draw_main(bool auto_triangulate)
 	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held || auto_triangulate)
 	{
 		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold, m_em_area_multiplier, m_em_curvature_multiplier);
+
+		m_main_queue.cmd_pipeline_barrier();
 	}
 	ImGui::End();
 
@@ -476,11 +478,11 @@ void Application::draw_main(bool auto_triangulate)
 	//m_quadtree.handle_borders(m_main_queue);
 
 	// Memory barrier for GPU buffer
-	m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
-		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	//m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
+	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
 	// Run border handling a second time to make sure the order does not make a crack appear during 1 frame
 	//m_quadtree.handle_borders(m_main_queue);

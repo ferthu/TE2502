@@ -183,40 +183,40 @@ void main(void)
 					uint count = atomicAdd(terrain_buffer.data[node_index].new_border_point_count[3], 1);	// TODO: Don't increment if number of points exceed max border points 
 					if (count < max_new_border_points)
 					{
-						terrain_buffer.data[node_index].new_border_points[3 * max_new_border_points + count] = point;
+						terrain_buffer.data[node_index].new_border_points[3 * max_new_border_points + count] = vec4(3, 2, 3, 4);
 						border = true;
 					}
 				}
 				// Right
-				if (point.x > node_max.x - s_border_max[1])
+				else if (point.x > node_max.x - s_border_max[1])
 				{
 					uint count = atomicAdd(terrain_buffer.data[node_index].new_border_point_count[1], 1);	// TODO: Don't increment if number of points exceed max border points 
 
 					if (count < max_new_border_points)
 					{
-						terrain_buffer.data[node_index].new_border_points[1 * max_new_border_points + count] = point;
+						terrain_buffer.data[node_index].new_border_points[1 * max_new_border_points + count] = vec4(1, 2, 3, 4);
 						border = true;
 					}
 				}
 				// Top
-				if (point.z > node_max.y - s_border_max[0])
+				else if (point.z > node_max.y - s_border_max[0])
 				{
 					uint count = atomicAdd(terrain_buffer.data[node_index].new_border_point_count[0], 1);	// TODO: Don't increment if number of points exceed max border points 
 
 					if (count < max_new_border_points)
 					{
-						terrain_buffer.data[node_index].new_border_points[0 * max_new_border_points + count] = point;
+						terrain_buffer.data[node_index].new_border_points[0 * max_new_border_points + count] = vec4(0, 2, 3, 4);
 						border = true;
 					}
 				}
 				// Bottom
-				if (point.z < node_min.y + s_border_max[2])
+				else if (point.z < node_min.y + s_border_max[2])
 				{
 					uint count = atomicAdd(terrain_buffer.data[node_index].new_border_point_count[2], 1);	// TODO: Don't increment if number of points exceed max border points 
 
 					if (count < max_new_border_points)
 					{
-						terrain_buffer.data[node_index].new_border_points[2 * max_new_border_points + count] = point;
+						terrain_buffer.data[node_index].new_border_points[2 * max_new_border_points + count] = vec4(2, 2, 3, 4);
 						border = true;
 					}
 				}

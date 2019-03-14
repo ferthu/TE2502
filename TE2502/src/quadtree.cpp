@@ -427,6 +427,17 @@ void Quadtree::triangulate(GraphicsQueue& queue)
 		queue.cmd_dispatch(1, 1, 1);
 	}
 
+	for (unsigned i = 0; i < m_num_generate_nodes; ++i)
+	{
+		m_triangulation_push_data.node_index = m_generate_nodes[i].index;
+		queue.cmd_push_constants(
+			m_triangulation_pipeline_layout.get_pipeline_layout(),
+			VK_SHADER_STAGE_COMPUTE_BIT,
+			sizeof(TriangulationData),
+			&m_triangulation_push_data);
+		queue.cmd_dispatch(1, 1, 1);
+	}
+
 	// Memory barrier for GPU buffer
 	queue.cmd_buffer_barrier(get_buffer().get_buffer(),
 		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,

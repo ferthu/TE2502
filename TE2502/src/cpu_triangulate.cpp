@@ -12,14 +12,14 @@
 namespace cputri
 {
 	#define TERRAIN_GENERATE_TOTAL_SIDE_LENGTH 1000
-	#define TERRAIN_GENERATE_NUM_INDICES 8000
-	#define TERRAIN_GENERATE_NUM_VERTICES 2000
+	#define TERRAIN_GENERATE_NUM_INDICES 200
+	#define TERRAIN_GENERATE_NUM_VERTICES 100
 	#define TERRAIN_GENERATE_NUM_NODES 4
 	#define TERRAIN_GENERATE_GRID_SIDE 3
-	#define TRIANGULATE_MAX_NEW_NORMAL_POINTS 3000
-	#define TRIANGULATE_MAX_NEW_BORDER_POINTS 500
+	#define TRIANGULATE_MAX_NEW_NORMAL_POINTS 1024
+	#define TRIANGULATE_MAX_NEW_BORDER_POINTS 50
 	#define QUADTREE_LEVELS 1
-	#define MAX_BORDER_TRIANGLE_COUNT 500
+	#define MAX_BORDER_TRIANGLE_COUNT 50
 
 	#define WORK_GROUP_SIZE 1
 
@@ -551,10 +551,12 @@ namespace cputri
 
 		ImGui::Begin("cputri");
 		if (ImGui::Button("Refine"))
+		{
 			process_triangles(camera, window, threshold, area_mult, curv_mult);
+			triangulate();
+		}
 		ImGui::End();
 
-		triangulate();
 	}
 
 	uint32_t find_chunk()
@@ -948,7 +950,7 @@ namespace cputri
 						++terrain_buffer->data[node_index].new_border_point_count[3];
 						if (count < max_new_border_points)
 						{
-							terrain_buffer->data[node_index].new_border_points[3 * max_new_border_points + count] = glm::vec4(3, 2, 3, 4);
+							terrain_buffer->data[node_index].new_border_points[3 * max_new_border_points + count] = point;
 							border = true;
 						}
 					}
@@ -961,7 +963,7 @@ namespace cputri
 
 						if (count < max_new_border_points)
 						{
-							terrain_buffer->data[node_index].new_border_points[1 * max_new_border_points + count] = glm::vec4(1, 2, 3, 4);
+							terrain_buffer->data[node_index].new_border_points[1 * max_new_border_points + count] = point;
 							border = true;
 						}
 					}
@@ -974,7 +976,7 @@ namespace cputri
 
 						if (count < max_new_border_points)
 						{
-							terrain_buffer->data[node_index].new_border_points[0 * max_new_border_points + count] = glm::vec4(0, 2, 3, 4);
+							terrain_buffer->data[node_index].new_border_points[0 * max_new_border_points + count] = point;
 							border = true;
 						}
 					}
@@ -987,7 +989,7 @@ namespace cputri
 
 						if (count < max_new_border_points)
 						{
-							terrain_buffer->data[node_index].new_border_points[2 * max_new_border_points + count] = glm::vec4(2, 2, 3, 4);
+							terrain_buffer->data[node_index].new_border_points[2 * max_new_border_points + count] = point;
 							border = true;
 						}
 					}
@@ -1132,12 +1134,13 @@ namespace cputri
 					const uint32_t triangle_index = bb * max_border_triangle_count + tt;
 					if (terrain_buffer->data[node_index].border_triangle_indices[triangle_index] == index)
 					{
+						--count;
 						// Replace the found index with data from the back of the array
 						terrain_buffer->data[node_index].border_triangle_indices[triangle_index]
-							= terrain_buffer->data[node_index].border_triangle_indices[--count];
+							= terrain_buffer->data[node_index].border_triangle_indices[bb * max_border_triangle_count + count];
 
 						terrain_buffer->data[node_index].border_diffs[triangle_index]
-							= terrain_buffer->data[node_index].border_diffs[count];
+							= terrain_buffer->data[node_index].border_diffs[bb * max_border_triangle_count + count];
 
 						// Find the new max border diff
 						float biggest = terrain_buffer->data[node_index].border_diffs[bb * max_border_triangle_count + 0];
@@ -1150,6 +1153,7 @@ namespace cputri
 							}
 						}
 						terrain_buffer->data[node_index].border_max[bb] = biggest;
+						--terrain_buffer->data[node_index].border_count[bb];
 						break; // TODO: Add one more early exit for the other/outer for-loop?
 					}
 				}

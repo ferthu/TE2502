@@ -8,6 +8,8 @@
 #include "graphics/pipeline_layout.hpp"
 #include "quadtree.hpp"
 
+#include "cpu_triangulate.hpp"
+
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_vulkan.h"
@@ -17,6 +19,7 @@
 #include <array>
 
 //#define RAY_MARCH_WINDOW
+#define CPUTRI
 
 void error_callback(int error, const char* description)
 {
@@ -173,6 +176,10 @@ Application::Application() :
 	// Start ray march thread
 	m_ray_march_thread = std::thread(&Application::draw_ray_march, this);
 #endif
+
+#ifdef CPUTRI
+	cputri::setup(m_tfile);
+#endif
 }
 
 Application::~Application()
@@ -195,6 +202,10 @@ Application::~Application()
 	delete m_window;
 
 	glfwTerminate();
+
+#ifdef CPUTRI
+	cputri::destroy();
+#endif
 }
 
 void Application::run(bool auto_triangulate)
@@ -304,6 +315,10 @@ void Application::run(bool auto_triangulate)
 		m_debug_drawer.new_frame();
 			   		 	  	  
 		update(delta_time.count());
+
+#ifdef CPUTRI
+		cputri::run(m_debug_drawer, *m_main_camera, *m_window);
+#endif
 
 		draw(auto_triangulate);
 	}

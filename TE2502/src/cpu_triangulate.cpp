@@ -730,7 +730,7 @@ namespace cputri
 			{
 				for (uint64_t ind = 0; ind < terrain_buffer->data[ii].index_count; ind += 3)
 				{
-					const float height = -500.0f;
+					const float height = -100.0f;
 
 					glm::vec3 p0 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 0]]) + glm::vec3(0.0f, height, 0.0f);
 					glm::vec3 p1 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 1]]) + glm::vec3(0.0f, height, 0.0f);

@@ -12,14 +12,14 @@
 namespace cputri
 {
 	#define TERRAIN_GENERATE_TOTAL_SIDE_LENGTH 1000
-	#define TERRAIN_GENERATE_NUM_INDICES 200
-	#define TERRAIN_GENERATE_NUM_VERTICES 100
+	#define TERRAIN_GENERATE_NUM_INDICES 10000
+	#define TERRAIN_GENERATE_NUM_VERTICES 5000
 	#define TERRAIN_GENERATE_NUM_NODES 4
-	#define TERRAIN_GENERATE_GRID_SIDE 3
+	#define TERRAIN_GENERATE_GRID_SIDE 10
 	#define TRIANGULATE_MAX_NEW_NORMAL_POINTS 1024
-	#define TRIANGULATE_MAX_NEW_BORDER_POINTS 50
+	#define TRIANGULATE_MAX_NEW_BORDER_POINTS 200
 	#define QUADTREE_LEVELS 1
-	#define MAX_BORDER_TRIANGLE_COUNT 50
+	#define MAX_BORDER_TRIANGLE_COUNT 2000
 
 	#define WORK_GROUP_SIZE 1
 
@@ -32,6 +32,11 @@ namespace cputri
 	uint32_t quadtree_levels;
 	uint32_t max_new_border_points;
 	uint32_t max_border_triangle_count;
+
+	int max_points_per_refine = 9999999;
+	int vistris_start = 0;
+	int vistris_end = 99999999;
+	bool show_cc = false;
 
 	struct Triangle
 	{
@@ -545,7 +550,7 @@ namespace cputri
 
 		draw_terrain(fr, dd, camera);
 
-		static float threshold = 0.01f;
+		static float threshold = 0.0f;
 		static float area_mult = 1.0f;
 		static float curv_mult = 1.0f;
 
@@ -555,6 +560,20 @@ namespace cputri
 			process_triangles(camera, window, threshold, area_mult, curv_mult);
 			triangulate();
 		}
+		if (ImGui::Button("Clear Terrain"))
+		{
+			clear_terrain();
+		}
+
+		ImGui::DragFloat("Area mult", &area_mult, 0.01f, 0.0f, 50.0f);
+		ImGui::DragFloat("Curv mult", &curv_mult, 0.01f, 0.0f, 50.0f);
+		ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 50.0f);
+
+		ImGui::Checkbox("Show CC", &show_cc);
+
+		ImGui::DragInt("Max Points", &max_points_per_refine);
+		ImGui::DragInt("Vistris Start", &vistris_start, 0.1f);
+		ImGui::DragInt("Vistris End", &vistris_end, 0.1f);
 		ImGui::End();
 
 	}
@@ -730,7 +749,7 @@ namespace cputri
 		{
 			if (quadtree.buffer_index_filled[ii])
 			{
-				for (uint64_t ind = 0; ind < terrain_buffer->data[ii].index_count; ind += 3)
+				for (int ind = vistris_start * 3; ind < terrain_buffer->data[ii].index_count && ind < vistris_end * 3; ind += 3)
 				{
 					const float height = -100.0f;
 
@@ -747,6 +766,22 @@ namespace cputri
 					dd.draw_line(mid, p0, { 0, 1, 0 });
 					dd.draw_line(mid, p1, { 0, 1, 0 });
 					dd.draw_line(mid, p2, { 0, 1, 0 });
+
+					if (show_cc)
+					{
+						const uint32_t tri_index = ind / 3;
+						const uint32_t steps = 20;
+						const float angle = 3.14159265f * 2.0f / steps;
+						for (uint32_t jj = 0; jj < steps + 1; ++jj)
+						{
+							float cc_radius = terrain_buffer->data[ii].triangles[tri_index].circumradius;
+							glm::vec3 cc_mid = { terrain_buffer->data[ii].triangles[tri_index].circumcentre.x, mid.y, terrain_buffer->data[ii].triangles[tri_index].circumcentre.y };
+
+							dd.draw_line(cc_mid + glm::vec3(sinf(angle * jj) * cc_radius, 0.0f, cosf(angle * jj) * cc_radius),
+								cc_mid + glm::vec3(sinf(angle * (jj + 1)) * cc_radius, 0.0f, cosf(angle * (jj + 1)) * cc_radius),
+								{ 0, 0, 1 });
+						}
+					}
 				}
 			}
 		}
@@ -786,7 +821,6 @@ namespace cputri
 			float z = min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * (max.y - min.y);
 
 			terrain_buffer->data[node_index].positions[i] = glm::vec4(x, -terrain(glm::vec2(x, z)) - 0.5f, z, 1.0f);
-
 
 			i += WORK_GROUP_SIZE;
 		}
@@ -1124,6 +1158,42 @@ namespace cputri
 		for (int j = int(s_triangles_removed) - 1; j >= 0; --j)
 		{
 			const uint32_t index = s_triangles_to_remove[j];
+
+			// Remove triangle
+			if (index < last_valid_triangle)
+			{
+				terrain_buffer->data[node_index].indices[index * 3 + 0] = terrain_buffer->data[node_index].indices[last_valid_triangle * 3 + 0];
+				terrain_buffer->data[node_index].indices[index * 3 + 1] = terrain_buffer->data[node_index].indices[last_valid_triangle * 3 + 1];
+				terrain_buffer->data[node_index].indices[index * 3 + 2] = terrain_buffer->data[node_index].indices[last_valid_triangle * 3 + 2];
+				terrain_buffer->data[node_index].triangles[index].circumcentre = terrain_buffer->data[node_index].triangles[last_valid_triangle].circumcentre;
+				terrain_buffer->data[node_index].triangles[index].circumradius = terrain_buffer->data[node_index].triangles[last_valid_triangle].circumradius;
+				terrain_buffer->data[node_index].triangles[index].circumradius2 = terrain_buffer->data[node_index].triangles[last_valid_triangle].circumradius2;
+
+				// Move triangle indices
+				for (uint32_t bb = 0; bb < 4; ++bb)
+				{
+					uint32_t count = terrain_buffer->data[node_index].border_count[bb];
+					for (uint32_t tt = 0; tt < count; ++tt)
+					{
+						if (terrain_buffer->data[node_index].border_triangle_indices[bb * max_border_triangle_count + tt] == last_valid_triangle)
+							terrain_buffer->data[node_index].border_triangle_indices[bb * max_border_triangle_count + tt] = index;
+					}
+				}
+			}
+
+			--last_valid_triangle;
+		}
+
+		s_triangle_count -= s_triangles_removed;
+		s_index_count = s_triangle_count * 3;
+	}
+
+	void remove_border_triangle_indices(uint32_t node_index)
+	{
+		for (int j = int(s_triangles_removed) - 1; j >= 0; --j)
+		{
+			const uint32_t index = s_triangles_to_remove[j];
+
 			// Check border triangles
 			// TODO: Check if the cc for the triangle goes over a border, THEN find the correct index
 			for (uint32_t bb = 0; bb < 4; ++bb)
@@ -1158,23 +1228,7 @@ namespace cputri
 					}
 				}
 			}
-
-			// Remove triangle
-			if (index < last_valid_triangle)
-			{
-				terrain_buffer->data[node_index].indices[index * 3 + 0] = terrain_buffer->data[node_index].indices[last_valid_triangle * 3 + 0];
-				terrain_buffer->data[node_index].indices[index * 3 + 1] = terrain_buffer->data[node_index].indices[last_valid_triangle * 3 + 1];
-				terrain_buffer->data[node_index].indices[index * 3 + 2] = terrain_buffer->data[node_index].indices[last_valid_triangle * 3 + 2];
-				terrain_buffer->data[node_index].triangles[index].circumcentre = terrain_buffer->data[node_index].triangles[last_valid_triangle].circumcentre;
-				terrain_buffer->data[node_index].triangles[index].circumradius = terrain_buffer->data[node_index].triangles[last_valid_triangle].circumradius;
-				terrain_buffer->data[node_index].triangles[index].circumradius2 = terrain_buffer->data[node_index].triangles[last_valid_triangle].circumradius2;
-			}
-
-			--last_valid_triangle;
 		}
-
-		s_triangle_count -= s_triangles_removed;
-		s_index_count = s_triangle_count * 3;
 	}
 
 	void add_triangle_to_border(uint32_t node_index, uint32_t border_index, uint32_t count, float diff)
@@ -1212,7 +1266,7 @@ namespace cputri
 		for (uint32_t bb = 0; bb < 4; ++bb)
 		{
 			const uint32_t new_points_count = terrain_buffer->data[node_index].new_border_point_count[bb];
-			for (uint32_t n = 0; n < new_points_count && n < 1 && bb * max_new_border_points + n < 4 * max_new_border_points; ++n)
+			for (uint32_t n = 0; n < new_points_count && n < max_points_per_refine && bb * max_new_border_points + n < 4 * max_new_border_points; ++n)
 			{
 				const glm::vec4 current_point = terrain_buffer->data[node_index].new_border_points[bb * max_new_border_points + n];
 
@@ -1286,13 +1340,16 @@ namespace cputri
 					{
 						test = true;
 						if (terrain_buffer->data[node_index].new_points_count < num_new_points)
-							terrain_buffer->data[node_index].new_points[terrain_buffer->data[node_index].new_points_count++] = glm::vec4(6);
+							terrain_buffer->data[node_index].new_points[terrain_buffer->data[node_index].new_points_count++] = current_point;
 						//continue;  // TODO: Fix this
 					}
 				}
-
+				
 				//barrier();
 				//memoryBarrierShared();
+
+				// Remove triangles from border triangle indices
+				remove_border_triangle_indices(node_index);
 
 				if (!test)
 				{
@@ -1505,7 +1562,7 @@ namespace cputri
 		bool finish = false;
 
 		uint32_t new_points_count = terrain_buffer->data[node_index].new_points_count;
-		for (uint32_t n = 0; n < new_points_count && s_vertex_count < num_vertices && !finish; ++n)
+		for (uint32_t n = 0; n < new_points_count && n < max_points_per_refine && s_vertex_count < num_vertices && !finish; ++n)
 		{
 			glm::vec4 current_point = terrain_buffer->data[node_index].new_points[n];
 

@@ -1270,14 +1270,14 @@ namespace cputri
 			{
 				const glm::vec4 current_point = terrain_buffer->data[node_index].new_border_points[bb * max_new_border_points + n];
 
-				const uint32_t triangle_count = terrain_buffer->data[node_index].border_count[bb];
+				const uint32_t triangle_count = s_triangle_count;
 
 				uint32_t i = thid;
 				while (i < triangle_count)
 				{
-					const uint32_t triangle_index = terrain_buffer->data[node_index].border_triangle_indices[bb * max_border_triangle_count + i];
-					const glm::vec2 circumcentre = terrain_buffer->data[node_index].triangles[triangle_index].circumcentre;
-					const float circumradius2 = terrain_buffer->data[node_index].triangles[triangle_index].circumradius2;
+					//const uint32_t triangle_index = terrain_buffer->data[node_index].border_triangle_indices[bb * max_border_triangle_count + i];
+					const glm::vec2 circumcentre = terrain_buffer->data[node_index].triangles[i].circumcentre;
+					const float circumradius2 = terrain_buffer->data[node_index].triangles[i].circumradius2;
 
 					const float dx = current_point.x - circumcentre.x;
 					const float dy = current_point.z - circumcentre.y;
@@ -1285,9 +1285,9 @@ namespace cputri
 					if (dx * dx + dy * dy < circumradius2)
 					{
 						// Add triangle edges to edge buffer
-						const uint32_t index0 = terrain_buffer->data[node_index].indices[triangle_index * 3 + 0];
-						const uint32_t index1 = terrain_buffer->data[node_index].indices[triangle_index * 3 + 1];
-						const uint32_t index2 = terrain_buffer->data[node_index].indices[triangle_index * 3 + 2];
+						const uint32_t index0 = terrain_buffer->data[node_index].indices[i * 3 + 0];
+						const uint32_t index1 = terrain_buffer->data[node_index].indices[i * 3 + 1];
+						const uint32_t index2 = terrain_buffer->data[node_index].indices[i * 3 + 2];
 						const glm::vec4 p0 = terrain_buffer->data[node_index].positions[index0];
 						const glm::vec4 p1 = terrain_buffer->data[node_index].positions[index1];
 						const glm::vec4 p2 = terrain_buffer->data[node_index].positions[index2];
@@ -1324,7 +1324,7 @@ namespace cputri
 						s_border_edges[ec + 2].node_index = node_index;
 
 						// Mark the triangle to be removed later
-						s_triangles_to_remove[tr] = triangle_index;
+						s_triangles_to_remove[tr] = i;
 					}
 
 					i += WORK_GROUP_SIZE;
@@ -1495,7 +1495,7 @@ namespace cputri
 						remove_old_triangles(node_index);
 
 						// Insert new point
-						terrain_buffer->data[s_border_edges[i].node_index].positions[s_vertex_count] = current_point;
+						terrain_buffer->data[node_index].positions[s_vertex_count] = current_point;
 						++s_vertex_count;
 
 						s_triangles_removed = 0;
@@ -1659,6 +1659,9 @@ namespace cputri
 				finish = true;
 				break;
 			}
+
+			// Remove triangles from border triangle indices
+			remove_border_triangle_indices(node_index);
 
 			if (thid == 0)
 			{

@@ -168,7 +168,7 @@ Application::Application() :
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-	m_debug_drawer = DebugDrawer(m_vulkan_context, 11000);
+	m_debug_drawer = DebugDrawer(m_vulkan_context, 110000);
 
 	create_pipelines();
 

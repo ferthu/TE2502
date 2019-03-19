@@ -82,9 +82,6 @@ Application::Application() :
 	// !Ray marching
 #endif
 
-	// Point generation
-	m_em_group_size = m_tfile.get_u32("ERROR_METRIC_GROUP_SIZE");
-
 	m_main_queue = m_vulkan_context.create_graphics_queue();
 
 	glfwSetKeyCallback(m_window->get_glfw_window(), key_callback);
@@ -483,8 +480,6 @@ void Application::draw_main(bool auto_triangulate)
 	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held || auto_triangulate)
 	{
 		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold, m_em_area_multiplier, m_em_curvature_multiplier);
-
-		m_main_queue.cmd_pipeline_barrier();
 	}
 	ImGui::End();
 

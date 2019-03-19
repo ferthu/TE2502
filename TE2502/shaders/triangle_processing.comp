@@ -183,7 +183,7 @@ void main(void)
 					uint count = atomicAdd(terrain_buffer.data[node_index].new_border_point_count[3], 1);	// TODO: Don't increment if number of points exceed max border points 
 					if (count < max_new_border_points)
 					{
-						terrain_buffer.data[node_index].new_border_points[3 * max_new_border_points + count] = vec4(3, 2, 3, 4);
+						terrain_buffer.data[node_index].new_border_points[3 * max_new_border_points + count] = point;
 						border = true;
 					}
 				}
@@ -194,7 +194,7 @@ void main(void)
 
 					if (count < max_new_border_points)
 					{
-						terrain_buffer.data[node_index].new_border_points[1 * max_new_border_points + count] = vec4(1, 2, 3, 4);
+						terrain_buffer.data[node_index].new_border_points[1 * max_new_border_points + count] = point;
 						border = true;
 					}
 				}
@@ -205,7 +205,7 @@ void main(void)
 
 					if (count < max_new_border_points)
 					{
-						terrain_buffer.data[node_index].new_border_points[0 * max_new_border_points + count] = vec4(0, 2, 3, 4);
+						terrain_buffer.data[node_index].new_border_points[0 * max_new_border_points + count] = point;
 						border = true;
 					}
 				}
@@ -216,7 +216,7 @@ void main(void)
 
 					if (count < max_new_border_points)
 					{
-						terrain_buffer.data[node_index].new_border_points[2 * max_new_border_points + count] = vec4(2, 2, 3, 4);
+						terrain_buffer.data[node_index].new_border_points[2 * max_new_border_points + count] = point;
 						border = true;
 					}
 				}

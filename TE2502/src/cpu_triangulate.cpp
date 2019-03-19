@@ -12,15 +12,15 @@
 namespace cputri
 {
 	#define TERRAIN_GENERATE_TOTAL_SIDE_LENGTH 1000
-	#define TERRAIN_GENERATE_NUM_INDICES 10000
-	#define TERRAIN_GENERATE_NUM_VERTICES 5000
+	#define TERRAIN_GENERATE_NUM_INDICES 8000
+	#define TERRAIN_GENERATE_NUM_VERTICES 2000
 	#define TERRAIN_GENERATE_NUM_NODES 4
-	#define TERRAIN_GENERATE_GRID_SIDE 10
+	#define TERRAIN_GENERATE_GRID_SIDE 3
 	#define TRIANGULATE_MAX_NEW_NORMAL_POINTS 1024
-	#define TRIANGULATE_MAX_NEW_BORDER_POINTS 200
+	#define TRIANGULATE_MAX_NEW_BORDER_POINTS 500
 	#define QUADTREE_LEVELS 1
-	#define MAX_BORDER_TRIANGLE_COUNT 2000
-
+	#define MAX_BORDER_TRIANGLE_COUNT 500
+	
 	#define WORK_GROUP_SIZE 1
 
 	const glm::uvec3 gl_GlobalInvocationID{ 0, 0, 0 };
@@ -37,6 +37,7 @@ namespace cputri
 	int vistris_start = 0;
 	int vistris_end = 99999999;
 	bool show_cc = false;
+	bool show = false;
 
 	struct Triangle
 	{
@@ -569,6 +570,7 @@ namespace cputri
 		ImGui::DragFloat("Curv mult", &curv_mult, 0.01f, 0.0f, 50.0f);
 		ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 50.0f);
 
+		ImGui::Checkbox("Show", &show);
 		ImGui::Checkbox("Show CC", &show_cc);
 
 		ImGui::DragInt("Max Points", &max_points_per_refine);
@@ -745,41 +747,44 @@ namespace cputri
 
 	void draw_terrain(Frustum& frustum, DebugDrawer& dd, Camera& camera)
 	{
-		for (size_t ii = 0; ii < num_nodes; ii++)
+		if (show)
 		{
-			if (quadtree.buffer_index_filled[ii])
+			for (size_t ii = 0; ii < num_nodes; ii++)
 			{
-				for (int ind = vistris_start * 3; ind < terrain_buffer->data[ii].index_count && ind < vistris_end * 3; ind += 3)
+				if (quadtree.buffer_index_filled[ii])
 				{
-					const float height = -100.0f;
-
-					glm::vec3 p0 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 0]]) + glm::vec3(0.0f, height, 0.0f);
-					glm::vec3 p1 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 1]]) + glm::vec3(0.0f, height, 0.0f);
-					glm::vec3 p2 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 2]]) + glm::vec3(0.0f, height, 0.0f);
-
-					glm::vec3 mid = (p0 + p1 + p2) / 3.0f;
-
-					dd.draw_line(p0, p1, { 1, 0, 0 });
-					dd.draw_line(p1, p2, { 1, 0, 0 });
-					dd.draw_line(p2, p0, { 1, 0, 0 });
-
-					dd.draw_line(mid, p0, { 0, 1, 0 });
-					dd.draw_line(mid, p1, { 0, 1, 0 });
-					dd.draw_line(mid, p2, { 0, 1, 0 });
-
-					if (show_cc)
+					for (int ind = vistris_start * 3; ind < terrain_buffer->data[ii].index_count && ind < vistris_end * 3; ind += 3)
 					{
-						const uint32_t tri_index = ind / 3;
-						const uint32_t steps = 20;
-						const float angle = 3.14159265f * 2.0f / steps;
-						for (uint32_t jj = 0; jj < steps + 1; ++jj)
-						{
-							float cc_radius = terrain_buffer->data[ii].triangles[tri_index].circumradius;
-							glm::vec3 cc_mid = { terrain_buffer->data[ii].triangles[tri_index].circumcentre.x, mid.y, terrain_buffer->data[ii].triangles[tri_index].circumcentre.y };
+						const float height = -100.0f;
 
-							dd.draw_line(cc_mid + glm::vec3(sinf(angle * jj) * cc_radius, 0.0f, cosf(angle * jj) * cc_radius),
-								cc_mid + glm::vec3(sinf(angle * (jj + 1)) * cc_radius, 0.0f, cosf(angle * (jj + 1)) * cc_radius),
-								{ 0, 0, 1 });
+						glm::vec3 p0 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 0]]) + glm::vec3(0.0f, height, 0.0f);
+						glm::vec3 p1 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 1]]) + glm::vec3(0.0f, height, 0.0f);
+						glm::vec3 p2 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 2]]) + glm::vec3(0.0f, height, 0.0f);
+
+						glm::vec3 mid = (p0 + p1 + p2) / 3.0f;
+
+						dd.draw_line(p0, p1, { 1, 0, 0 });
+						dd.draw_line(p1, p2, { 1, 0, 0 });
+						dd.draw_line(p2, p0, { 1, 0, 0 });
+
+						dd.draw_line(mid, p0, { 0, 1, 0 });
+						dd.draw_line(mid, p1, { 0, 1, 0 });
+						dd.draw_line(mid, p2, { 0, 1, 0 });
+
+						if (show_cc)
+						{
+							const uint32_t tri_index = ind / 3;
+							const uint32_t steps = 20;
+							const float angle = 3.14159265f * 2.0f / steps;
+							for (uint32_t jj = 0; jj < steps + 1; ++jj)
+							{
+								float cc_radius = terrain_buffer->data[ii].triangles[tri_index].circumradius;
+								glm::vec3 cc_mid = { terrain_buffer->data[ii].triangles[tri_index].circumcentre.x, mid.y, terrain_buffer->data[ii].triangles[tri_index].circumcentre.y };
+
+								dd.draw_line(cc_mid + glm::vec3(sinf(angle * jj) * cc_radius, 0.0f, cosf(angle * jj) * cc_radius),
+									cc_mid + glm::vec3(sinf(angle * (jj + 1)) * cc_radius, 0.0f, cosf(angle * (jj + 1)) * cc_radius),
+									{ 0, 0, 1 });
+							}
 						}
 					}
 				}
@@ -1235,7 +1240,7 @@ namespace cputri
 	{
 		terrain_buffer->data[node_index].border_triangle_indices[border_index * max_border_triangle_count + count] = s_triangle_count;
 		terrain_buffer->data[node_index].border_diffs[border_index * max_border_triangle_count + count] = diff;
-		terrain_buffer->data[node_index].border_max[border_index] = std:: max(terrain_buffer->data[node_index].border_max[border_index], diff);
+		terrain_buffer->data[node_index].border_max[border_index] = std::max(terrain_buffer->data[node_index].border_max[border_index], diff);
 		++terrain_buffer->data[node_index].border_count[border_index];
 	}
 
@@ -1265,7 +1270,7 @@ namespace cputri
 
 		for (uint32_t bb = 0; bb < 4; ++bb)
 		{
-			const uint32_t new_points_count = terrain_buffer->data[node_index].new_border_point_count[bb];
+			const uint32_t new_points_count = std::min(terrain_buffer->data[node_index].new_border_point_count[bb], max_new_border_points);
 			for (uint32_t n = 0; n < new_points_count && n < max_points_per_refine && bb * max_new_border_points + n < 4 * max_new_border_points; ++n)
 			{
 				const glm::vec4 current_point = terrain_buffer->data[node_index].new_border_points[bb * max_new_border_points + n];
@@ -1348,8 +1353,6 @@ namespace cputri
 				//barrier();
 				//memoryBarrierShared();
 
-				// Remove triangles from border triangle indices
-				remove_border_triangle_indices(node_index);
 
 				if (!test)
 				{
@@ -1404,6 +1407,9 @@ namespace cputri
 
 					if (thid == 0)
 					{
+						// Remove triangles from border triangle indices
+						remove_border_triangle_indices(node_index);
+
 						// Add to the triangle list all triangles formed between the point and the edges of the enclosing polygon
 						for (uint32_t i = 0; i < edge_count; ++i)
 						{

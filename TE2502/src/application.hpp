@@ -118,9 +118,6 @@ private:
 	float m_em_curvature_multiplier = 0.f;
 	float m_em_threshold = 0.1f;
 
-	// Group size of error metric dispatch
-	uint32_t m_em_group_size = 0;
-
 	// Terrain generation/drawing
 	Quadtree m_quadtree;
 

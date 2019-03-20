@@ -47,22 +47,6 @@ void GraphicsQueue::cmd_image_barrier(
 	vkCmdPipelineBarrier(m_command_buffer, src_stage_mask, dst_stage_mask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
-void GraphicsQueue::cmd_buffer_barrier(VkBuffer buffer, VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask, VkPipelineStageFlags src_stage_mask, VkPipelineStageFlags dst_stage_mask, VkDeviceSize offset, VkDeviceSize size)
-{
-	VkBufferMemoryBarrier barrier;
-	barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-	barrier.pNext = nullptr;
-	barrier.srcAccessMask = src_access_mask;
-	barrier.dstAccessMask = dst_access_mask;
-	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.buffer = buffer;
-	barrier.offset = 0;
-	barrier.size = VK_WHOLE_SIZE;
-
-	vkCmdPipelineBarrier(m_command_buffer, src_stage_mask, dst_stage_mask, 0, 0, nullptr, 1, &barrier, 0, nullptr);
-}
-
 void GraphicsQueue::cmd_clear_color(VkImage image, VkImageLayout current_layout, float r, float g, float b)
 {
 	VkImageSubresourceRange range;
@@ -160,60 +144,6 @@ void GraphicsQueue::cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& 
 void GraphicsQueue::cmd_end_render_pass()
 {
 	vkCmdEndRenderPass(m_command_buffer);
-}
-
-void GraphicsQueue::cmd_copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size, VkDeviceSize src_offset, VkDeviceSize dst_offset)
-{
-	VkBufferCopy buffer_copy;
-	buffer_copy.size = size;
-	buffer_copy.srcOffset = src_offset;
-	buffer_copy.dstOffset = dst_offset;
-
-	vkCmdCopyBuffer(m_command_buffer, src, dst, 1, &buffer_copy);
-}
-
-void GraphicsQueue::cmd_pipeline_barrier()
-{
-	VkMemoryBarrier barrier;
-	barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-	barrier.pNext = nullptr;
-	barrier.srcAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT |
-		VK_ACCESS_INDEX_READ_BIT |
-		VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT |
-		VK_ACCESS_UNIFORM_READ_BIT |
-		VK_ACCESS_INPUT_ATTACHMENT_READ_BIT |
-		VK_ACCESS_SHADER_READ_BIT |
-		VK_ACCESS_SHADER_WRITE_BIT |
-		VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |
-		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
-		VK_ACCESS_TRANSFER_READ_BIT |
-		VK_ACCESS_TRANSFER_WRITE_BIT |
-		VK_ACCESS_HOST_READ_BIT |
-		VK_ACCESS_HOST_WRITE_BIT |
-		VK_ACCESS_MEMORY_READ_BIT |
-		VK_ACCESS_MEMORY_WRITE_BIT;
-	barrier.dstAccessMask = barrier.srcAccessMask;
-
-	VkPipelineStageFlags src_stage_mask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT |
-		VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT |
-		VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
-		VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
-		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT |
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
-		VK_PIPELINE_STAGE_TRANSFER_BIT |
-		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT |
-		VK_PIPELINE_STAGE_HOST_BIT |
-		VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT |
-		VK_PIPELINE_STAGE_ALL_COMMANDS_BIT |
-		VK_PIPELINE_STAGE_CONDITIONAL_RENDERING_BIT_EXT;
-	VkPipelineStageFlags dst_stage_mask = src_stage_mask;
-
-	vkCmdPipelineBarrier(m_command_buffer, src_stage_mask, dst_stage_mask, 0, 1, &barrier, 0, nullptr, 0, nullptr);
 }
 
 GraphicsQueue::GraphicsQueue(GraphicsQueue&& other)

@@ -37,13 +37,12 @@ public:
 		GraphicsQueue& queue);
 
 	// Recursive intersection that gathers data on what needs to be generated or drawn
-	void intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd);
+	// Copies triangulate buffer to render buffer if needed
+	void intersect(Frustum& frustum, DebugDrawer& dd);
 
 	// Performs frustum culling and draws/generates visible terrain
 	void draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool wireframe);
 
-	// Adds new vertices to terrain buffer when needed
-	void process_triangles(GraphicsQueue& queue, Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);
 
 	// Performs frustum culling and draws/generates visible terrain to error metric image
 	void draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool draw_to_screen, float area_multiplier, float curvature_multiplier, bool wireframe);
@@ -55,7 +54,8 @@ public:
 	void create_pipelines(Window& window);
 
 	// Re-triangulate the terrain using the new points that have been previously added
-	void triangulate(GraphicsQueue& queue);
+	void triangulate(Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier, bool refine, DebugDrawer& dd);
+
 
 	// Handle borders
 	void handle_borders(GraphicsQueue& queue);
@@ -76,6 +76,18 @@ public:
 	void derp();
 
 private:
+	// Adds new vertices to terrain buffer when needed
+	void process_triangles(Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);
+
+	// Re-triangulate the terrain using the new points that have been previously added
+	void triangulate();
+
+	// Generates new terrain
+	void generate();
+
+	// Copies triangulate buffer to render buffer if necessary
+	void copy_triangulate_buffer();
+
 	struct GenerationData
 	{
 		glm::mat4 vp;
@@ -171,6 +183,15 @@ private:
 
 	// Contains terrain indices + vertices for quadtree nodes
 	GPUBuffer m_buffer;
+
+
+
+	// Rendered buffer
+	GPUBuffer m_render_buffer;
+	GPUMemory m_render_memory;
+	ComputeQueue m_triangulation_queue;
+	uint32_t* m_render_node_index_to_buffer_index;
+	VkSemaphore m_triangulation_semaphore = VK_NULL_HANDLE;
 
 	TriangleProcessingFrameData m_triangle_processing_frame_data;
 

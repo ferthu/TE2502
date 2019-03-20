@@ -448,9 +448,27 @@ void Application::draw_main(bool auto_triangulate)
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
 
 
-	// Perform terrain generation/drawing
+	bool tri_button = false;
+	if (m_show_imgui)
+	{
+		ImGui::Begin("Triangulate");
+		if (ImGui::Button("Set"))
+			tri_button = true;
+		ImGui::End();
+	}
+
+	// Fritjof stuff
+	m_quadtree.triangulate(
+		*m_main_camera, 
+		*m_window, 
+		m_em_threshold, 
+		m_em_area_multiplier,
+		m_em_curvature_multiplier, 
+		tri_button || m_triangulate || m_triangulate_button_held || auto_triangulate,
+		m_debug_drawer);
+
+	// Draw
 	Frustum fr = m_main_camera->get_frustum();
-	m_quadtree.intersect(m_main_queue, fr, m_debug_drawer);
 	m_quadtree.draw_terrain(m_main_queue, fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_current_camera, m_draw_wireframe);
 
 	m_main_queue.cmd_image_barrier(
@@ -471,37 +489,6 @@ void Application::draw_main(bool auto_triangulate)
 		VK_IMAGE_ASPECT_DEPTH_BIT,
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
-
-	ImGui::Begin("Triangulate");
-
-	m_quadtree.derp();
-
-	// Fritjof stuff
-	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held || auto_triangulate)
-	{
-		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold, m_em_area_multiplier, m_em_curvature_multiplier);
-	}
-	ImGui::End();
-
-	m_quadtree.triangulate(m_main_queue);
-
-	//m_quadtree.handle_borders(m_main_queue);
-
-	// Memory barrier for GPU buffer
-	//m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
-	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-
-	// Run border handling a second time to make sure the order does not make a crack appear during 1 frame
-	//m_quadtree.handle_borders(m_main_queue);
-
-	m_main_queue.cmd_buffer_barrier(m_quadtree.get_buffer().get_buffer(),
-		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-		VK_ACCESS_INDEX_READ_BIT | VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
 
 	// Do debug drawing
 	{

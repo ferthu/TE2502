@@ -544,7 +544,7 @@ namespace cputri
 		delete[] quadtree.buffer_index_filled;
 	}
 
-	void run(DebugDrawer& dd, Camera& camera, Window& window)
+	void run(DebugDrawer& dd, Camera& camera, Window& window, bool show_imgui)
 	{
 		Frustum fr = camera.get_frustum();
 		intersect(fr, dd);
@@ -555,29 +555,31 @@ namespace cputri
 		static float area_mult = 1.0f;
 		static float curv_mult = 1.0f;
 
-		ImGui::Begin("cputri");
-		if (ImGui::Button("Refine"))
+		if (show_imgui)
 		{
-			process_triangles(camera, window, threshold, area_mult, curv_mult);
-			triangulate();
+			ImGui::Begin("cputri");
+			if (ImGui::Button("Refine"))
+			{
+				process_triangles(camera, window, threshold, area_mult, curv_mult);
+				triangulate();
+			}
+			if (ImGui::Button("Clear Terrain"))
+			{
+				clear_terrain();
+			}
+
+			ImGui::DragFloat("Area mult", &area_mult, 0.01f, 0.0f, 50.0f);
+			ImGui::DragFloat("Curv mult", &curv_mult, 0.01f, 0.0f, 50.0f);
+			ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 50.0f);
+
+			ImGui::Checkbox("Show", &show);
+			ImGui::Checkbox("Show CC", &show_cc);
+
+			ImGui::DragInt("Max Points", &max_points_per_refine);
+			ImGui::DragInt("Vistris Start", &vistris_start, 0.1f);
+			ImGui::DragInt("Vistris End", &vistris_end, 0.1f);
+			ImGui::End();
 		}
-		if (ImGui::Button("Clear Terrain"))
-		{
-			clear_terrain();
-		}
-
-		ImGui::DragFloat("Area mult", &area_mult, 0.01f, 0.0f, 50.0f);
-		ImGui::DragFloat("Curv mult", &curv_mult, 0.01f, 0.0f, 50.0f);
-		ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 50.0f);
-
-		ImGui::Checkbox("Show", &show);
-		ImGui::Checkbox("Show CC", &show_cc);
-
-		ImGui::DragInt("Max Points", &max_points_per_refine);
-		ImGui::DragInt("Vistris Start", &vistris_start, 0.1f);
-		ImGui::DragInt("Vistris End", &vistris_end, 0.1f);
-		ImGui::End();
-
 	}
 
 	uint32_t find_chunk()

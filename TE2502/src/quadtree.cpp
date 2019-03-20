@@ -230,7 +230,7 @@ void Quadtree::triangulate(Camera& camera, Window& window, float em_threshold, f
 			process_triangles(camera, window, em_threshold, area_multiplier, curvature_multiplier);
 
 			// Memory barrier for GPU buffer
-			m_triangulation_queue.cmd_buffer_barrier(get_buffer().get_buffer(),
+			m_triangulation_queue.cmd_buffer_barrier(m_buffer.get_buffer(),
 				VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
 				VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
 				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -245,6 +245,7 @@ void Quadtree::triangulate(Camera& camera, Window& window, float em_threshold, f
 	else
 	{
 		int a = 0;
+		printf("%i", a);
 	}
 }
 

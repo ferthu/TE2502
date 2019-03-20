@@ -1131,7 +1131,8 @@ namespace cputri
 #pragma endregion
 
 
-#pragma region TRIANGULATE
+#pragma region TRIANGULATE_BORDERS
+
 	struct BorderEdge
 	{
 		glm::vec4 p1;
@@ -1141,9 +1142,9 @@ namespace cputri
 		uint32_t node_index;
 		uint32_t pad;
 	};
-
 	const uint32_t max_border_edges = 100;
 	/*shared*/ std::array<BorderEdge, max_border_edges * 3> s_border_edges;
+
 
 
 	struct Edge
@@ -1151,7 +1152,6 @@ namespace cputri
 		uint32_t p1;
 		uint32_t p2;
 	};
-
 	const uint32_t max_triangles_to_remove = 50;
 	/*shared*/ std::array<Edge, max_triangles_to_remove * 3> s_edges;
 
@@ -1169,42 +1169,47 @@ namespace cputri
 
 	static /*shared*/ bool test;
 
-	void remove_old_triangles(uint32_t node_index)
+	void remove_old_triangles()
 	{
 		// Remove old triangles
-		uint32_t last_valid_triangle = s_triangle_count - 1;
+		//uint32_t last_valid_triangle = s_triangle_count - 1;
+		uint32_t node_index = 0;
 		for (int j = int(s_triangles_removed) - 1; j >= 0; --j)
 		{
 			const uint32_t index = s_triangles_to_remove[j];
-			//const uint32_t node_index = s_owning_node[j];
+			node_index = s_owning_node[j];
+
+			const uint32_t last_triangle = terrain_buffer->data[node_index].index_count / 3 - 1;
 
 			// Remove triangle
-			if (index < last_valid_triangle)
+			if (index < last_triangle)
 			{
-				terrain_buffer->data[node_index].indices[index * 3 + 0] = terrain_buffer->data[node_index].indices[last_valid_triangle * 3 + 0];
-				terrain_buffer->data[node_index].indices[index * 3 + 1] = terrain_buffer->data[node_index].indices[last_valid_triangle * 3 + 1];
-				terrain_buffer->data[node_index].indices[index * 3 + 2] = terrain_buffer->data[node_index].indices[last_valid_triangle * 3 + 2];
-				terrain_buffer->data[node_index].triangles[index].circumcentre = terrain_buffer->data[node_index].triangles[last_valid_triangle].circumcentre;
-				terrain_buffer->data[node_index].triangles[index].circumradius = terrain_buffer->data[node_index].triangles[last_valid_triangle].circumradius;
-				terrain_buffer->data[node_index].triangles[index].circumradius2 = terrain_buffer->data[node_index].triangles[last_valid_triangle].circumradius2;
+				terrain_buffer->data[node_index].indices[index * 3 + 0] = terrain_buffer->data[node_index].indices[last_triangle * 3 + 0];
+				terrain_buffer->data[node_index].indices[index * 3 + 1] = terrain_buffer->data[node_index].indices[last_triangle * 3 + 1];
+				terrain_buffer->data[node_index].indices[index * 3 + 2] = terrain_buffer->data[node_index].indices[last_triangle * 3 + 2];
+				terrain_buffer->data[node_index].triangles[index].circumcentre = terrain_buffer->data[node_index].triangles[last_triangle].circumcentre;
+				terrain_buffer->data[node_index].triangles[index].circumradius = terrain_buffer->data[node_index].triangles[last_triangle].circumradius;
+				terrain_buffer->data[node_index].triangles[index].circumradius2 = terrain_buffer->data[node_index].triangles[last_triangle].circumradius2;
 
 				// Move triangle indices
 				for (uint32_t bb = 0; bb < 4; ++bb)
 				{
-					uint32_t count = terrain_buffer->data[node_index].border_count[bb];
+					const uint32_t count = terrain_buffer->data[node_index].border_count[bb];
 					for (uint32_t tt = 0; tt < count; ++tt)
 					{
-						if (terrain_buffer->data[node_index].border_triangle_indices[bb * max_border_triangle_count + tt] == last_valid_triangle)
+						if (terrain_buffer->data[node_index].border_triangle_indices[bb * max_border_triangle_count + tt] == last_triangle)
 							terrain_buffer->data[node_index].border_triangle_indices[bb * max_border_triangle_count + tt] = index;
 					}
 				}
 			}
-
-			--last_valid_triangle;
+			terrain_buffer->data[node_index].index_count -= 3;
 		}
 
-		s_triangle_count -= s_triangles_removed;
-		s_index_count = s_triangle_count * 3;
+		//s_triangle_count -= s_triangles_removed;
+		//s_index_count = s_triangle_count * 3;
+
+		if (s_triangles_removed != 1000)
+			terrain_buffer->data[node_index].index_count = terrain_buffer->data[node_index].index_count + 0;
 	}
 
 	void remove_border_triangle_indices()
@@ -1252,7 +1257,7 @@ namespace cputri
 
 	void add_triangle_to_border(uint32_t node_index, uint32_t border_index, uint32_t count, float diff)
 	{
-		terrain_buffer->data[node_index].border_triangle_indices[border_index * max_border_triangle_count + count] = s_triangle_count;
+		terrain_buffer->data[node_index].border_triangle_indices[border_index * max_border_triangle_count + count] = terrain_buffer->data[node_index].index_count / 3;
 		terrain_buffer->data[node_index].border_diffs[border_index * max_border_triangle_count + count] = diff;
 		terrain_buffer->data[node_index].border_max[border_index] = std::max(terrain_buffer->data[node_index].border_max[border_index], diff);
 		++terrain_buffer->data[node_index].border_count[border_index];
@@ -1271,8 +1276,8 @@ namespace cputri
 		// Set shared variables
 		if (thid == 0)
 		{
-			s_index_count = terrain_buffer->data[node_index].index_count;
-			s_triangle_count = s_index_count / 3;
+			//s_index_count = terrain_buffer->data[node_index].index_count;
+			//s_triangle_count = s_index_count / 3;
 			s_triangles_removed = 0;
 			s_vertex_count = terrain_buffer->data[node_index].vertex_count;
 		}
@@ -1288,7 +1293,8 @@ namespace cputri
 				const glm::vec4 current_point = terrain_buffer->data[node_index].new_border_points[bb * max_new_border_points + n];
 
 				uint32_t i = thid;
-				while (i < s_triangle_count)
+				//while (i < s_triangle_count)
+				while (i < terrain_buffer->data[node_index].index_count / 3)
 				{
 					const glm::vec2 circumcentre = terrain_buffer->data[node_index].triangles[i].circumcentre;
 					const float circumradius2 = terrain_buffer->data[node_index].triangles[i].circumradius2;
@@ -1409,11 +1415,11 @@ namespace cputri
 					//memoryBarrierShared();
 
 					// If new triangles will not fit in index buffer, quit
-					if (s_index_count + (s_new_triangle_count * 3) >= num_indices)
-					{
-						//finish = true;
-						break;
-					}
+					//if (s_index_count + (s_new_triangle_count * 3) >= num_indices)
+					//{
+					//	//finish = true;
+					//	break;
+					//}
 
 					if (thid == 0)
 					{
@@ -1456,9 +1462,10 @@ namespace cputri
 								}
 
 								// Set indices for the new triangle
-								terrain_buffer->data[s_border_edges[i].node_index].indices[s_index_count + 0] = s_border_edges[i].p1_index;
-								terrain_buffer->data[s_border_edges[i].node_index].indices[s_index_count + 1] = s_border_edges[i].p2_index;
-								terrain_buffer->data[s_border_edges[i].node_index].indices[s_index_count + 2] = s_vertex_count;
+								const uint32_t index_count = terrain_buffer->data[node_index].index_count;
+								terrain_buffer->data[s_border_edges[i].node_index].indices[index_count + 0] = s_border_edges[i].p1_index;
+								terrain_buffer->data[s_border_edges[i].node_index].indices[index_count + 1] = s_border_edges[i].p2_index;
+								terrain_buffer->data[s_border_edges[i].node_index].indices[index_count + 2] = s_vertex_count;
 
 								// Set circumcircles for the new triangle
 								float a = distance(glm::vec2(P.x, P.z), glm::vec2(Q.x, Q.z));
@@ -1469,9 +1476,10 @@ namespace cputri
 								const float cc_radius2 = find_circum_radius_squared(a, b, c);
 								const float cc_radius = sqrt(cc_radius2);
 
-								terrain_buffer->data[s_border_edges[i].node_index].triangles[s_triangle_count].circumcentre = cc_center;
-								terrain_buffer->data[s_border_edges[i].node_index].triangles[s_triangle_count].circumradius = cc_radius;
-								terrain_buffer->data[s_border_edges[i].node_index].triangles[s_triangle_count].circumradius2 = cc_radius2;
+								const uint32_t triangle_count = index_count / 3;
+								terrain_buffer->data[s_border_edges[i].node_index].triangles[triangle_count].circumcentre = cc_center;
+								terrain_buffer->data[s_border_edges[i].node_index].triangles[triangle_count].circumradius = cc_radius;
+								terrain_buffer->data[s_border_edges[i].node_index].triangles[triangle_count].circumradius2 = cc_radius2;
 
 								// Check if the triangle is a border triangle
 								// Left
@@ -1503,12 +1511,13 @@ namespace cputri
 									add_triangle_to_border(s_border_edges[i].node_index, 2, count, diff);
 								}
 
-								s_index_count += 3;
-								++s_triangle_count;
+								terrain_buffer->data[node_index].index_count += 3;
+								//s_index_count += 3;
+								//++s_triangle_count;
 							}
 						}
 
-						remove_old_triangles(node_index);
+						remove_old_triangles();
 
 						// Insert new point
 						terrain_buffer->data[node_index].positions[s_vertex_count] = current_point;
@@ -1528,10 +1537,99 @@ namespace cputri
 		if (thid == 0)
 		{
 			terrain_buffer->data[node_index].vertex_count = s_vertex_count;
-			terrain_buffer->data[node_index].index_count = s_index_count;
+			//terrain_buffer->data[node_index].index_count = s_index_count;
 		}
 	}
 
+#pragma endregion
+
+#pragma region NORMAL_TRIANGULATION
+
+	void remove_old_triangles2(uint32_t node_index)
+	{
+		// Remove old triangles
+		uint32_t last_valid_triangle = s_triangle_count - 1;
+		for (int j = int(s_triangles_removed) - 1; j >= 0; --j)
+		{
+			const uint32_t index = s_triangles_to_remove[j];
+
+			// Remove triangle
+			if (index < last_valid_triangle)
+			{
+				terrain_buffer->data[node_index].indices[index * 3 + 0] = terrain_buffer->data[node_index].indices[last_valid_triangle * 3 + 0];
+				terrain_buffer->data[node_index].indices[index * 3 + 1] = terrain_buffer->data[node_index].indices[last_valid_triangle * 3 + 1];
+				terrain_buffer->data[node_index].indices[index * 3 + 2] = terrain_buffer->data[node_index].indices[last_valid_triangle * 3 + 2];
+				terrain_buffer->data[node_index].triangles[index].circumcentre = terrain_buffer->data[node_index].triangles[last_valid_triangle].circumcentre;
+				terrain_buffer->data[node_index].triangles[index].circumradius = terrain_buffer->data[node_index].triangles[last_valid_triangle].circumradius;
+				terrain_buffer->data[node_index].triangles[index].circumradius2 = terrain_buffer->data[node_index].triangles[last_valid_triangle].circumradius2;
+
+				// Move triangle indices
+				for (uint32_t bb = 0; bb < 4; ++bb)
+				{
+					const uint32_t count = terrain_buffer->data[node_index].border_count[bb];
+					for (uint32_t tt = 0; tt < count; ++tt)
+					{
+						if (terrain_buffer->data[node_index].border_triangle_indices[bb * max_border_triangle_count + tt] == last_valid_triangle)
+							terrain_buffer->data[node_index].border_triangle_indices[bb * max_border_triangle_count + tt] = index;
+					}
+				}
+			}
+			last_valid_triangle--;
+		}
+
+		s_triangle_count -= s_triangles_removed;
+		s_index_count = s_triangle_count * 3;
+	}
+
+	void remove_border_triangle_indices2(uint32_t node_index)
+	{
+		for (int j = int(s_triangles_removed) - 1; j >= 0; --j)
+		{
+			const uint32_t index = s_triangles_to_remove[j];
+			// Check border triangles
+			// TODO: Check if the cc for the triangle goes over a border, THEN find the correct index
+			for (uint32_t bb = 0; bb < 4; ++bb)
+			{
+				uint32_t count = terrain_buffer->data[node_index].border_count[bb];
+				for (uint32_t tt = 0; tt < count; ++tt)
+				{
+					const uint32_t triangle_index = bb * max_border_triangle_count + tt;
+					if (terrain_buffer->data[node_index].border_triangle_indices[triangle_index] == index)
+					{
+						--count;
+						// Replace the found index with data from the back of the array
+						terrain_buffer->data[node_index].border_triangle_indices[triangle_index]
+							= terrain_buffer->data[node_index].border_triangle_indices[bb * max_border_triangle_count + count];
+
+						terrain_buffer->data[node_index].border_diffs[triangle_index]
+							= terrain_buffer->data[node_index].border_diffs[bb * max_border_triangle_count + count];
+
+						// Find the new max border diff
+						float biggest = terrain_buffer->data[node_index].border_diffs[bb * max_border_triangle_count + 0];
+						for (uint32_t dd = 1; dd < count; ++dd)
+						{
+							const float temp = terrain_buffer->data[node_index].border_diffs[bb * max_border_triangle_count + dd];
+							if (temp > biggest)
+							{
+								biggest = temp;
+							}
+						}
+						terrain_buffer->data[node_index].border_max[bb] = biggest;
+						--terrain_buffer->data[node_index].border_count[bb];
+						break; // TODO: Add one more early exit for the other/outer for-loop?
+					}
+				}
+			}
+		}
+	}
+
+	void add_triangle_to_border2(uint32_t node_index, uint32_t border_index, uint32_t count, float diff)
+	{
+		terrain_buffer->data[node_index].border_triangle_indices[border_index * max_border_triangle_count + count] = s_triangle_count;
+		terrain_buffer->data[node_index].border_diffs[border_index * max_border_triangle_count + count] = diff;
+		terrain_buffer->data[node_index].border_max[border_index] = std::max(terrain_buffer->data[node_index].border_max[border_index], diff);
+		++terrain_buffer->data[node_index].border_count[border_index];
+	}
 
 
 	void triangulate_shader(uint32_t node_index)
@@ -1604,6 +1702,7 @@ namespace cputri
 
 					// Mark the triangle to be removed later
 					s_triangles_to_remove[tr] = i;
+					s_owning_node[tr] = node_index;
 				}
 
 				i += WORK_GROUP_SIZE;
@@ -1660,11 +1759,11 @@ namespace cputri
 				break;
 			}
 
-			// Remove triangles from border triangle indices
-			remove_border_triangle_indices();
-
 			if (thid == 0)
 			{
+				// Remove triangles from border triangle indices
+				remove_border_triangle_indices2(node_index);
+
 				// Add to the triangle list all triangles formed between the point and the edges of the enclosing polygon
 				for (uint32_t i = 0; i < edge_count; ++i)
 				{
@@ -1721,28 +1820,28 @@ namespace cputri
 						float diff = node_min.x + cc_radius - cc_center.x;
 						if (diff > 0 && count < max_border_triangle_count)
 						{
-							add_triangle_to_border(node_index, 3, count, diff);
+							add_triangle_to_border2(node_index, 3, count, diff);
 						}
 						// Right
 						count = terrain_buffer->data[node_index].border_count[1];
 						diff = cc_center.x + cc_radius - node_max.x;
 						if (diff > 0 && count < max_border_triangle_count)
 						{
-							add_triangle_to_border(node_index, 1, count, diff);
+							add_triangle_to_border2(node_index, 1, count, diff);
 						}
 						// Top
 						count = terrain_buffer->data[node_index].border_count[0];
 						diff = cc_center.y + cc_radius - node_max.y;
 						if (diff > 0 && count < max_border_triangle_count)
 						{
-							add_triangle_to_border(node_index, 0, count, diff);
+							add_triangle_to_border2(node_index, 0, count, diff);
 						}
 						// Bottom
 						count = terrain_buffer->data[node_index].border_count[2];
 						diff = node_min.y + cc_radius - cc_center.y;
 						if (diff > 0 && count < max_border_triangle_count)
 						{
-							add_triangle_to_border(node_index, 2, count, diff);
+							add_triangle_to_border2(node_index, 2, count, diff);
 						}
 
 						s_index_count += 3;
@@ -1750,7 +1849,7 @@ namespace cputri
 					}
 				}
 
-				remove_old_triangles(node_index);
+				remove_old_triangles2(node_index);
 
 				// Insert new point
 				terrain_buffer->data[node_index].positions[s_vertex_count] = current_point;

@@ -38,6 +38,8 @@ namespace cputri
 
 	void triangulate_shader(uint32_t node_index);
 
+	void triangulate_borders_shader(uint32_t node_index);
+
 	void triangulate();
 
 	void clear_terrain();

@@ -406,13 +406,38 @@ void Quadtree::create_pipelines(Window& window)
 
 	m_triangulation_pipeline = m_context->create_compute_pipeline("triangulate", m_triangulation_pipeline_layout, nullptr);
 
-	m_border_handling_pipeline = m_context->create_compute_pipeline("border_handling", m_triangulation_pipeline_layout, nullptr);
+	m_triangulate_borders_pipeline = m_context->create_compute_pipeline("triangulate_borders", m_triangulation_pipeline_layout, nullptr);
 
 	m_triangle_processing_compute_pipeline = m_context->create_compute_pipeline("triangle_processing", m_triangle_processing_pipeline_layout, nullptr);
 }
 
 void Quadtree::triangulate(GraphicsQueue& queue)
 {
+	// Triangulate borders
+	//queue.cmd_bind_compute_pipeline(m_triangulate_borders_pipeline->m_pipeline);
+	//queue.cmd_bind_descriptor_set_compute(m_triangulation_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
+
+	//for (unsigned i = 0; i < m_num_draw_nodes; ++i)
+	//{
+	//	m_triangulation_push_data.node_index = m_draw_nodes[i];
+	//	queue.cmd_push_constants(
+	//		m_triangulation_pipeline_layout.get_pipeline_layout(),
+	//		VK_SHADER_STAGE_COMPUTE_BIT,
+	//		sizeof(TriangulationData),
+	//		&m_triangulation_push_data);
+	//	queue.cmd_dispatch(1, 1, 1);
+	//}
+
+	//// Memory barrier for GPU buffer
+	//queue.cmd_buffer_barrier(get_buffer().get_buffer(),
+	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+	//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	//
+
+
+	// Normal triangulation
 	queue.cmd_bind_compute_pipeline(m_triangulation_pipeline->m_pipeline);
 	queue.cmd_bind_descriptor_set_compute(m_triangulation_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
 
@@ -439,30 +464,6 @@ void Quadtree::triangulate(GraphicsQueue& queue)
 	}
 
 	// Memory barrier for GPU buffer
-	queue.cmd_buffer_barrier(get_buffer().get_buffer(),
-		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-		VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-}
-
-void Quadtree::handle_borders(GraphicsQueue& queue)
-{
-	queue.cmd_bind_compute_pipeline(m_border_handling_pipeline->m_pipeline);
-	queue.cmd_bind_descriptor_set_compute(m_triangulation_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
-
-	for (unsigned i = 0; i < m_num_draw_nodes; ++i)
-	{
-		m_triangulation_push_data.node_index = m_draw_nodes[i];
-		queue.cmd_push_constants(
-			m_triangulation_pipeline_layout.get_pipeline_layout(),
-			VK_SHADER_STAGE_COMPUTE_BIT,
-			sizeof(TriangulationData),
-			&m_triangulation_push_data);
-		queue.cmd_dispatch(1, 1, 1);
-	}
-
-	//// Memory barrier for GPU buffer
 	//queue.cmd_buffer_barrier(get_buffer().get_buffer(),
 	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
 	//	VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
@@ -550,7 +551,7 @@ void Quadtree::move_from(Quadtree&& other)
 	m_triangulation_pipeline_layout = std::move(other.m_triangulation_pipeline_layout);
 	m_triangulation_pipeline = std::move(other.m_triangulation_pipeline);
 
-	m_border_handling_pipeline = std::move(other.m_border_handling_pipeline);
+	m_triangulate_borders_pipeline = std::move(other.m_triangulate_borders_pipeline);
 
 	m_draw_pipeline_layout = std::move(other.m_draw_pipeline_layout);
 	m_draw_pipeline = std::move(other.m_draw_pipeline);

@@ -57,9 +57,6 @@ public:
 	// Re-triangulate the terrain using the new points that have been previously added
 	void triangulate(GraphicsQueue& queue);
 
-	// Handle borders
-	void handle_borders(GraphicsQueue& queue);
-
 	PipelineLayout& get_triangle_processing_layout();
 
 	// Return the image view of the error metric image
@@ -180,7 +177,7 @@ private:
 	PipelineLayout m_triangulation_pipeline_layout;
 	std::unique_ptr<Pipeline> m_generation_pipeline;
 	std::unique_ptr<Pipeline> m_triangulation_pipeline;
-	std::unique_ptr<Pipeline> m_border_handling_pipeline;
+	std::unique_ptr<Pipeline> m_triangulate_borders_pipeline;
 
 	RenderPass m_render_pass;
 	PipelineLayout m_draw_pipeline_layout;

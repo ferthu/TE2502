@@ -480,10 +480,11 @@ void Application::draw_main(bool auto_triangulate)
 	if (ImGui::Button("Set") || m_triangulate || m_triangulate_button_held || auto_triangulate)
 	{
 		m_quadtree.process_triangles(m_main_queue, *m_main_camera, *m_window, m_em_threshold, m_em_area_multiplier, m_em_curvature_multiplier);
+		
+		m_quadtree.triangulate(m_main_queue);
 	}
 	ImGui::End();
 
-	m_quadtree.triangulate(m_main_queue);
 
 	//m_quadtree.handle_borders(m_main_queue);
 

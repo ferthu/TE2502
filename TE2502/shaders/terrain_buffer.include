@@ -1,5 +1,3 @@
-
-
 const uint num_indices = TERRAIN_GENERATE_NUM_INDICES;
 const uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
 const uint num_nodes = TERRAIN_GENERATE_NUM_NODES;
@@ -32,21 +30,21 @@ struct terrain_data_t
 		vec2 max;
 		
 		uint new_border_point_count[4];
-		vec4 new_border_points[4 * max_new_border_points];
+		vec4 new_border_points[4u * max_new_border_points];
 		uint border_count[4];
-		uint border_triangle_indices[4 * max_border_triangle_count];
+		uint border_triangle_indices[4u * max_border_triangle_count];
 		float border_max[4];
-		float border_diffs[4 * max_border_triangle_count];
+		float border_diffs[4u * max_border_triangle_count];
 	// }
 
 	uint indices[num_indices];
 	vec4 positions[num_vertices];
-	Triangle triangles[num_indices / 3];
+	Triangle triangles[num_indices / 3u];
 	vec4 new_points[num_new_points];
 };
 
-const uint quadtree_data_size = (1 << quadtree_levels) * (1 << quadtree_levels) + 4;
-const uint pad_size = 16 - (quadtree_data_size % 16);
+const uint quadtree_data_size = (1u << quadtree_levels) * (1u << quadtree_levels) + 4u;
+const uint pad_size = 16u - (quadtree_data_size % 16u);
 
 coherent layout(set = TERRAIN_SET, binding = TERRAIN_BINDING) buffer terrain_buffer_t
 {

@@ -199,9 +199,12 @@ void Quadtree::draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer&
 	// Render newly generated terrain
 	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
 	{
-		queue.cmd_bind_index_buffer(m_render_buffer.get_buffer(), get_index_offset_of_node(m_generate_nodes[i].index));
-		queue.cmd_bind_vertex_buffer(m_render_buffer.get_buffer(), get_vertex_offset_of_node(m_generate_nodes[i].index));
-		queue.cmd_draw_indexed_indirect(m_render_buffer.get_buffer(), get_offset_of_node(m_generate_nodes[i].index));
+		if (m_generate_nodes[i].buffer_index != INVALID)
+		{
+			queue.cmd_bind_index_buffer(m_render_buffer.get_buffer(), get_index_offset_of_node(m_generate_nodes[i].buffer_index));
+			queue.cmd_bind_vertex_buffer(m_render_buffer.get_buffer(), get_vertex_offset_of_node(m_generate_nodes[i].buffer_index));
+			queue.cmd_draw_indexed_indirect(m_render_buffer.get_buffer(), get_offset_of_node(m_generate_nodes[i].buffer_index));
+		}
 	}
 
 	// End renderpass
@@ -241,11 +244,6 @@ void Quadtree::triangulate(Camera& camera, Window& window, float em_threshold, f
 
 		m_triangulation_queue.end_recording();
 		m_triangulation_queue.submit();
-	}
-	else
-	{
-		int a = 0;
-		printf("%i", a);
 	}
 }
 
@@ -304,15 +302,18 @@ void Quadtree::process_triangles(Camera& camera, Window& window, float em_thresh
 	// Newly generated terrain
 	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
 	{
-		m_triangle_processing_frame_data.node_index = m_generate_nodes[i].index;
-		m_triangulation_queue.cmd_push_constants(
-			m_triangle_processing_pipeline_layout.get_pipeline_layout(),
-			VK_SHADER_STAGE_COMPUTE_BIT,
-			sizeof(TriangleProcessingFrameData),
-			&m_triangle_processing_frame_data);
+		if (m_generate_nodes[i].buffer_index != INVALID)
+		{
+			m_triangle_processing_frame_data.node_index = m_generate_nodes[i].buffer_index;
+			m_triangulation_queue.cmd_push_constants(
+				m_triangle_processing_pipeline_layout.get_pipeline_layout(),
+				VK_SHADER_STAGE_COMPUTE_BIT,
+				sizeof(TriangleProcessingFrameData),
+				&m_triangle_processing_frame_data);
 
-		// Dispatch triangle processing
-		m_triangulation_queue.cmd_dispatch(1, 1, 1);
+			// Dispatch triangle processing
+			m_triangulation_queue.cmd_dispatch(1, 1, 1);
+		}
 	}
 
 
@@ -352,9 +353,12 @@ void Quadtree::draw_error_metric(
 	// Render newly generated terrain
 	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
 	{
-		queue.cmd_bind_index_buffer(m_buffer.get_buffer(), get_index_offset_of_node(m_generate_nodes[i].index));
-		queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), get_vertex_offset_of_node(m_generate_nodes[i].index));
-		queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), get_offset_of_node(m_generate_nodes[i].index));
+		if (m_generate_nodes[i].buffer_index != INVALID)
+		{
+			queue.cmd_bind_index_buffer(m_buffer.get_buffer(), get_index_offset_of_node(m_generate_nodes[i].buffer_index));
+			queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), get_vertex_offset_of_node(m_generate_nodes[i].buffer_index));
+			queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), get_offset_of_node(m_generate_nodes[i].buffer_index));
+		}
 	}
 
 	queue.cmd_end_render_pass();
@@ -385,9 +389,9 @@ void Quadtree::draw_error_metric(
 		// Render newly generated terrain
 		for (uint32_t i = 0; i < m_num_generate_nodes; i++)
 		{
-			queue.cmd_bind_index_buffer(m_buffer.get_buffer(), get_index_offset_of_node(m_generate_nodes[i].index));
-			queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), get_vertex_offset_of_node(m_generate_nodes[i].index));
-			queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), get_offset_of_node(m_generate_nodes[i].index));
+			queue.cmd_bind_index_buffer(m_buffer.get_buffer(), get_index_offset_of_node(m_generate_nodes[i].buffer_index));
+			queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), get_vertex_offset_of_node(m_generate_nodes[i].buffer_index));
+			queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), get_offset_of_node(m_generate_nodes[i].buffer_index));
 		}
 
 		queue.cmd_end_render_pass();
@@ -456,13 +460,16 @@ void Quadtree::triangulate()
 
 	for (unsigned i = 0; i < m_num_generate_nodes; ++i)
 	{
-		m_triangulation_push_data.node_index = m_generate_nodes[i].index;
-		m_triangulation_queue.cmd_push_constants(
-			m_triangulation_pipeline_layout.get_pipeline_layout(),
-			VK_SHADER_STAGE_COMPUTE_BIT,
-			sizeof(TriangulationData),
-			&m_triangulation_push_data);
-		m_triangulation_queue.cmd_dispatch(1, 1, 1);
+		if (m_generate_nodes[i].buffer_index != INVALID)
+		{
+			m_triangulation_push_data.node_index = m_generate_nodes[i].buffer_index;
+			m_triangulation_queue.cmd_push_constants(
+				m_triangulation_pipeline_layout.get_pipeline_layout(),
+				VK_SHADER_STAGE_COMPUTE_BIT,
+				sizeof(TriangulationData),
+				&m_triangulation_push_data);
+			m_triangulation_queue.cmd_dispatch(1, 1, 1);
+		}
 	}
 }
 
@@ -477,17 +484,30 @@ void Quadtree::generate()
 
 	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
 	{
-		m_push_data.node_index = m_generate_nodes[i].index;
-		m_push_data.min = m_generate_nodes[i].min;
-		m_push_data.max = m_generate_nodes[i].max;
+		uint32_t new_index = find_chunk();
+		if (new_index != INVALID)
+		{
+			m_push_data.node_index = new_index;
+			m_push_data.min = m_generate_nodes[i].min;
+			m_push_data.max = m_generate_nodes[i].max;
 
-		m_triangulation_queue.cmd_push_constants(
-			m_generation_pipeline_layout.get_pipeline_layout(),
-			VK_SHADER_STAGE_COMPUTE_BIT,
-			sizeof(GenerationData),
-			&m_push_data);
+			m_generate_nodes[i].buffer_index = new_index;
 
-		m_triangulation_queue.cmd_dispatch(1, 1, 1);
+			m_buffer_index_filled[new_index] = true;
+			m_node_index_to_buffer_index[m_generate_nodes[i].quadtree_index] = new_index;
+
+			m_triangulation_queue.cmd_push_constants(
+				m_generation_pipeline_layout.get_pipeline_layout(),
+				VK_SHADER_STAGE_COMPUTE_BIT,
+				sizeof(GenerationData),
+				&m_push_data);
+
+			m_triangulation_queue.cmd_dispatch(1, 1, 1);
+		}
+		else
+		{
+			// No space left. Ignore
+		}
 	}
 
 	// Copy CPU index buffer to GPU
@@ -503,13 +523,14 @@ void Quadtree::generate()
 	// Memory barriers
 	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
 	{
-		m_triangulation_queue.cmd_buffer_barrier(m_buffer.get_buffer(),
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_TRANSFER_READ_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			m_cpu_index_buffer_size + m_generate_nodes[i].index * m_node_memory_size,
-			m_node_memory_size);
+		if (m_generate_nodes[i].buffer_index != INVALID)
+			m_triangulation_queue.cmd_buffer_barrier(m_buffer.get_buffer(),
+				VK_ACCESS_SHADER_WRITE_BIT,
+				VK_ACCESS_TRANSFER_READ_BIT,
+				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				m_cpu_index_buffer_size + m_generate_nodes[i].buffer_index * m_node_memory_size,
+				m_node_memory_size);
 	}
 }
 
@@ -690,23 +711,12 @@ void Quadtree::intersect(Frustum& frustum, DebugDrawer& dd, AabbXZ aabb, uint32_
 		if (m_node_index_to_buffer_index[index] == INVALID)
 		{
 			// Visible node does not have data
-
-			uint32_t new_index = find_chunk();
-			if (new_index != INVALID)
-			{
-				m_buffer_index_filled[new_index] = true;
-				m_node_index_to_buffer_index[index] = new_index;
-
-				// m_buffer[new_index] needs to be filled with data
-				m_generate_nodes[m_num_generate_nodes].index = new_index;
-				m_generate_nodes[m_num_generate_nodes].min = aabb.m_min;
-				m_generate_nodes[m_num_generate_nodes].max = aabb.m_max;
-				m_num_generate_nodes++;
-			}
-			else
-			{
-				// No space left! Ignore for now...
-			}
+			
+			// m_buffer[new_index] needs to be filled with data
+			m_generate_nodes[m_num_generate_nodes].quadtree_index = index;
+			m_generate_nodes[m_num_generate_nodes].min = aabb.m_min;
+			m_generate_nodes[m_num_generate_nodes].max = aabb.m_max;
+			m_num_generate_nodes++;
 		}
 		else
 		{

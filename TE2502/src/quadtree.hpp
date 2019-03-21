@@ -250,11 +250,14 @@ private:
 	// For chunk i of m_buffer, m_buffer_index_filled[i] is true if that chunk is used by a node
 	bool* m_buffer_index_filled;
 
+	static const uint32_t INVALID = ~0u;
+
 	struct GenerateInfo
 	{
 		glm::vec2 min;
 		glm::vec2 max;
-		uint32_t index;
+		uint32_t buffer_index = INVALID;
+		uint32_t quadtree_index;
 	};
 
 	// Number and array of indices to nodes that needs to generate terrain
@@ -267,7 +270,5 @@ private:
 
 	// Number of bytes in buffer per node
 	VkDeviceSize m_node_memory_size;
-
-	const uint32_t INVALID = ~0u;
 };
 

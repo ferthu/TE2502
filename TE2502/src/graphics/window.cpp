@@ -72,7 +72,7 @@ uint32_t Window::get_next_image()
 {
 	uint32_t index = 0;
 
-	VkResult result = vkAcquireNextImageKHR(m_vulkan_context->get_device(), m_swapchain, 999999999, VK_NULL_HANDLE, m_swapchain_fence, &index);
+	VkResult result = vkAcquireNextImageKHR(m_vulkan_context->get_device(), m_swapchain, ~0ull, VK_NULL_HANDLE, m_swapchain_fence, &index);
 	vkWaitForFences(m_vulkan_context->get_device(), 1, &m_swapchain_fence, VK_FALSE, ~0ull);
 	vkResetFences(m_vulkan_context->get_device(), 1, &m_swapchain_fence);
 

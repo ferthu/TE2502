@@ -6,9 +6,9 @@ DescriptorSet::DescriptorSet(VulkanContext& vulkan_context, DescriptorSetLayout&
 {
 	m_descriptor_set = m_context->allocate_descriptor_set(layout);
 
-	m_descriptors.resize(10);
-	m_image_desc.resize(10);
-	m_buffer_desc.resize(10);
+	//m_descriptors.resize(10);
+	//m_image_desc.resize(10);
+	//m_buffer_desc.resize(10);
 }
 
 
@@ -34,6 +34,12 @@ DescriptorSet& DescriptorSet::operator=(DescriptorSet&& other)
 
 void DescriptorSet::bind()
 {
+	for (size_t ii = 0; ii < m_descriptors.size(); ii++)
+	{
+		m_descriptors[ii].pImageInfo = &m_image_desc[ii];
+		m_descriptors[ii].pBufferInfo = &m_buffer_desc[ii];
+	}
+
 	vkUpdateDescriptorSets(m_context->get_device(), static_cast<uint32_t>(m_descriptors.size()), m_descriptors.data(), 0, nullptr);
 }
 

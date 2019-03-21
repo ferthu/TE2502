@@ -26,6 +26,16 @@ public:
 		VkPipelineStageFlags src_stage_mask,
 		VkPipelineStageFlags dst_stage_mask);
 
+	// Adds a buffer barrier command to the command buffer
+	void cmd_buffer_barrier(
+		VkBuffer buffer,
+		VkAccessFlags src_access_mask,
+		VkAccessFlags dst_access_mask,
+		VkPipelineStageFlags src_stage_mask,
+		VkPipelineStageFlags dst_stage_mask,
+		VkDeviceSize offset = 0,
+		VkDeviceSize size = VK_WHOLE_SIZE);
+
 	// Binds a compute pipeline to the command buffer
 	void cmd_bind_compute_pipeline(VkPipeline pipeline);
 
@@ -37,6 +47,10 @@ public:
 
 	// Upload push constant range to pipeline
 	void cmd_push_constants(VkPipelineLayout layout, VkShaderStageFlags stage_flags, uint32_t size, const void* data_pointer);
+
+	void cmd_copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size, VkDeviceSize src_offset = 0, VkDeviceSize dst_offset = 0);
+
+	void cmd_pipeline_barrier();
 
 protected:
 	// Move other into this

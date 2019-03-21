@@ -29,7 +29,12 @@ public:
 	// Waits until submitted work is complete
 	void wait();
 
+	// Check if submitted work is complete
+	bool is_done();
+
 	VkQueue get_queue() const;
+
+	VkFence get_fence() const;
 
 protected:
 	// Move other into this

@@ -28,16 +28,16 @@ public:
 	virtual ~Application();
 	
 	// Start the "game"-loop
-	void run();
+	void run(bool auto_triangulate = false);
 	
 private:
 	// Update
 	void update(const float dt);
 	
 	// Draw
-	void draw();
+	void draw(bool auto_triangulate = false);
 
-	void draw_main();
+	void draw_main(bool auto_triangulate = false);
 
 	void draw_ray_march();
 
@@ -117,9 +117,6 @@ private:
 	float m_em_area_multiplier = 0.f;
 	float m_em_curvature_multiplier = 0.f;
 	float m_em_threshold = 0.1f;
-
-	// Group size of error metric dispatch
-	uint32_t m_em_group_size = 0;
 
 	// Terrain generation/drawing
 	Quadtree m_quadtree;

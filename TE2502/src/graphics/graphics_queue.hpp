@@ -28,16 +28,6 @@ public:
 		VkPipelineStageFlags src_stage_mask,
 		VkPipelineStageFlags dst_stage_mask);
 
-	// Adds a buffer barrier command to the command buffer
-	void cmd_buffer_barrier(
-		VkBuffer buffer,
-		VkAccessFlags src_access_mask,
-		VkAccessFlags dst_access_mask,
-		VkPipelineStageFlags src_stage_mask,
-		VkPipelineStageFlags dst_stage_mask, 
-		VkDeviceSize offset = 0, 
-		VkDeviceSize size = VK_WHOLE_SIZE);
-
 	void cmd_clear_color(VkImage image, VkImageLayout current_layout, float r, float g, float b);
 
 	void cmd_clear_depth(VkImage image, VkImageLayout current_layout, float val);
@@ -58,9 +48,6 @@ public:
 
 	void cmd_end_render_pass();
 
-	void cmd_copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size, VkDeviceSize src_offset = 0, VkDeviceSize dst_offset = 0);
-	
-	void cmd_pipeline_barrier();
 
 private:
 	// Move other into this

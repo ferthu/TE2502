@@ -42,12 +42,11 @@ void main(void)
 		terrain_buffer.data[node_index].min = frame_data.min;
 		terrain_buffer.data[node_index].max = frame_data.max;
 
-		const float proximity = (frame_data.max.x - frame_data.min.x) * border_proximity / 100.f;
-		for (uint b = 0; b < 4 * border_zones; ++b)
+		for (uint i = 0; i < 4; ++i)
 		{
-			terrain_buffer.data[node_index].proximity[b] = proximity;
-			terrain_buffer.data[node_index].proximity_count[b] = 0;
-			terrain_buffer.data[node_index].border_level[b] = 1;
+			terrain_buffer.data[node_index].new_border_point_count[i] = 0;
+			terrain_buffer.data[node_index].border_max[i] = 10;
+			terrain_buffer.data[node_index].border_count[i] = 0;
 		}
 	}
 
@@ -111,8 +110,12 @@ void main(void)
 		terrain_buffer.data[node_index].triangles[offset + 1].circumcentre = find_circum_center(P2, Q2, R2);
 
 		// Circumradii
-		terrain_buffer.data[node_index].triangles[offset].circumradius = find_circum_radius_squared(P1, Q1, R1);
-		terrain_buffer.data[node_index].triangles[offset + 1].circumradius = find_circum_radius_squared(P2, Q2, R2);
+		const float radius12 = find_circum_radius_squared(P1, Q1, R1);
+		const float radius22 = find_circum_radius_squared(P2, Q2, R2);
+		terrain_buffer.data[node_index].triangles[offset].circumradius2 = radius12;
+		terrain_buffer.data[node_index].triangles[offset].circumradius = sqrt(radius12);
+		terrain_buffer.data[node_index].triangles[offset + 1].circumradius2 = radius22;
+		terrain_buffer.data[node_index].triangles[offset + 1].circumradius = sqrt(radius22);
 
 		i += WORK_GROUP_SIZE;
 	}

@@ -186,6 +186,6 @@ vec3 surface_color(vec3 pos, vec3 normal, float dis, vec3 cam_pos)
 // Some would say, most of the magic is done in post! :D
 vec3 post_effects(vec3 rgb)
 {
-	return (1.0 - exp(-rgb * 6.0)) * 1.0024;;
+	return (1.0 - exp(-rgb * 6.0)) * 1.0024;
 }
 

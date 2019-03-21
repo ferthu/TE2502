@@ -39,13 +39,12 @@ public:
 		TFile& tfile);
 
 	// Recursive intersection that gathers data on what needs to be generated or drawn
-	void intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd);
+	// Copies triangulate buffer to render buffer if needed
+	void intersect(Frustum& frustum, DebugDrawer& dd);
 
 	// Performs frustum culling and draws/generates visible terrain
 	void draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool wireframe);
 
-	// Adds new vertices to terrain buffer when needed
-	void process_triangles(GraphicsQueue& queue, Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);
 
 	// Performs frustum culling and draws/generates visible terrain to error metric image
 	void draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool draw_to_screen, float area_multiplier, float curvature_multiplier, bool wireframe);
@@ -57,7 +56,8 @@ public:
 	void create_pipelines(Window& window);
 
 	// Re-triangulate the terrain using the new points that have been previously added
-	void triangulate(GraphicsQueue& queue);
+	void triangulate(Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier, bool refine, DebugDrawer& dd);
+
 
 	// Handle borders
 	void handle_borders(GraphicsQueue& queue);
@@ -75,7 +75,21 @@ public:
 
 	RenderPass& get_render_pass();
 
+	void derp();
+
 private:
+	// Adds new vertices to terrain buffer when needed
+	void process_triangles(Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);
+
+	// Re-triangulate the terrain using the new points that have been previously added
+	void triangulate();
+
+	// Generates new terrain
+	void generate();
+
+	// Copies triangulate buffer to render buffer if necessary
+	void copy_triangulate_buffer();
+
 	struct GenerationData
 	{
 		glm::mat4 vp;
@@ -108,24 +122,30 @@ private:
 	struct TriangulationData
 	{
 		uint32_t node_index;
-	};
-	#define BORDER_ZONES 16
+	}; 
+#define MAX_BORDER_TRIANGLE_COUNT 500
+#define TRIANGULATE_MAX_NEW_BORDER_POINTS 500
 	struct BufferNodeHeader
 	{
 		uint32_t vertex_count;
 		uint32_t new_points_count;
 		uint32_t pad;
+
 		glm::vec2 min;
 		glm::vec2 max;
-		float proximity[4 * BORDER_ZONES];
-		uint32_t proximity_count[4 * BORDER_ZONES];
-		uint32_t border_level[4 * BORDER_ZONES];
+
+		uint32_t new_border_point_count[4];
+		glm::vec4 new_border_points[4 * TRIANGULATE_MAX_NEW_BORDER_POINTS];
+		uint32_t border_count[4];
+		uint32_t border_triangle_indices[4 * MAX_BORDER_TRIANGLE_COUNT];
+		float border_max[4];
+		float border_diffs[4 * MAX_BORDER_TRIANGLE_COUNT];
 	};
 	struct Triangle
 	{
 		glm::vec2 circumcircle;
 		float circumradius;
-		uint32_t pad;
+		float circumradius2;
 	};
 
 	// Move other into this
@@ -167,6 +187,15 @@ private:
 
 	// Contains terrain indices + vertices for quadtree nodes
 	GPUBuffer m_buffer;
+
+
+
+	// Rendered buffer
+	GPUBuffer m_render_buffer;
+	GPUMemory m_render_memory;
+	ComputeQueue m_triangulation_queue;
+	uint32_t* m_render_node_index_to_buffer_index;
+	VkSemaphore m_triangulation_semaphore = VK_NULL_HANDLE;
 
 	TriangleProcessingFrameData m_triangle_processing_frame_data;
 
@@ -229,11 +258,14 @@ private:
 	// For chunk i of m_buffer, m_buffer_index_filled[i] is true if that chunk is used by a node
 	bool* m_buffer_index_filled;
 
+	static const uint32_t INVALID = ~0u;
+
 	struct GenerateInfo
 	{
 		glm::vec2 min;
 		glm::vec2 max;
-		uint32_t index;
+		uint32_t buffer_index = INVALID;
+		uint32_t quadtree_index;
 	};
 
 	// Number and array of indices to nodes that needs to generate terrain
@@ -246,7 +278,5 @@ private:
 
 	// Number of bytes in buffer per node
 	VkDeviceSize m_node_memory_size;
-
-	const uint32_t INVALID = ~0u;
 };
 

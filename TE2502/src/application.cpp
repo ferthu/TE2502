@@ -21,6 +21,84 @@
 //#define RAY_MARCH_WINDOW
 #define CPUTRI
 
+ComputeQueue q1;
+GPUMemory mem1;
+GPUBuffer buf1;
+DescriptorSetLayout dsl1;
+DescriptorSet ds1;
+PipelineLayout pl1;
+std::unique_ptr<Pipeline> p1;
+
+ComputeQueue q2;
+GPUMemory mem2;
+GPUBuffer buf2;
+DescriptorSetLayout dsl2;
+DescriptorSet ds2;
+PipelineLayout pl2;
+std::unique_ptr<Pipeline> p2;
+
+void test(VulkanContext& context)
+{
+	return;
+	const uint32_t size1 = 128;
+	q1 = context.create_compute_queue();
+	mem1 = context.allocate_device_memory(size1 * sizeof(float) + 1000);
+	buf1 = GPUBuffer(context, size1 * sizeof(float), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, mem1);
+	dsl1 = DescriptorSetLayout(context);
+	dsl1.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	dsl1.create();
+	ds1 = DescriptorSet(context, dsl1);
+	ds1.add_storage_buffer(buf1);
+	ds1.bind();
+	pl1 = PipelineLayout(context);
+	pl1.add_descriptor_set_layout(dsl1);
+	pl1.create(nullptr);
+	p1 = context.create_compute_pipeline("test1", pl1, nullptr);
+
+	const uint32_t size2 = 128;
+	q2 = context.create_compute_queue();
+	mem2 = context.allocate_device_memory(size2 * sizeof(float) + 1000);
+	buf2 = GPUBuffer(context, size2 * sizeof(float), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, mem2);
+	dsl2 = DescriptorSetLayout(context);
+	dsl2.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	dsl2.create();
+	ds2 = DescriptorSet(context, dsl2);
+	ds2.add_storage_buffer(buf2);
+	ds2.bind();
+	pl2 = PipelineLayout(context);
+	pl2.add_descriptor_set_layout(dsl2);
+	pl2.create(nullptr);
+	p2 = context.create_compute_pipeline("test2", pl2, nullptr);
+
+	for (size_t ii = 0; ii < 10000; ++ii)
+	{
+		if (q2.is_done())
+		{
+			q2.start_recording();
+			q2.cmd_bind_descriptor_set_compute(pl2.get_pipeline_layout(), 0, ds2.get_descriptor_set());
+			q2.cmd_bind_compute_pipeline(p2->m_pipeline);
+			q2.cmd_dispatch(1, 1, 1);
+			q2.end_recording();
+			q2.submit();
+			printf("O");
+		}
+
+		if (q1.is_done())
+		{
+			q1.start_recording();
+			q1.cmd_bind_descriptor_set_compute(pl1.get_pipeline_layout(), 0, ds1.get_descriptor_set());
+			q1.cmd_bind_compute_pipeline(p1->m_pipeline);
+			q1.cmd_dispatch(1, 1, 1);
+			q1.end_recording();
+			q1.submit();
+			printf("_");
+		}
+		Sleep(1);
+	}
+
+	printf("\ndone\n");
+}
+
 void error_callback(int error, const char* description)
 {
 	fprintf(stderr, "Error: %s\n", description);
@@ -214,6 +292,8 @@ void Application::run(bool auto_triangulate)
 	bool q_pressed = false;
 	bool left_mouse_clicked = false;
 	bool k_pressed = false;
+
+	test(m_vulkan_context);
 
 	while (!glfwWindowShouldClose(m_window->get_glfw_window()))
 	{

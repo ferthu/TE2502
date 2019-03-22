@@ -95,7 +95,10 @@ void main(void)
 				uint neighbour_index = terrain_buffer.quadtree_index_map[ny * nodes_per_side + nx];
 				int neighbour_border = (bb + 2) % 4;
 				
-				s_border_max[bb] = terrain_buffer.data[neighbour_index].border_max[neighbour_border];
+				if (neighbour_index != ~0u)
+					s_border_max[bb] = terrain_buffer.data[neighbour_index].border_max[neighbour_border];
+				else
+					s_border_max[bb] = 0.0;
 			}
 			else
 			{
@@ -144,13 +147,35 @@ void main(void)
 			float area = pow(s * (s - a) * (s - b) * (s - c), frame_data.area_multiplier);
 
 			vec3 mid = (v0.xyz + v1.xyz + v2.xyz) / 3.0;
-			float curv = pow(curvature(mid), frame_data.curvature_multiplier);
+			float curv0 = curvature(v0.xyz);
+			float curv1 = curvature(v1.xyz);
+			float curv2 = curvature(v2.xyz);
+
+			float inv_total_curv = 1.0 / (curv0 + curv1 + curv2);
+
+			// Create linear combination of corners based on curvature
+			vec3 curv_point = (curv0 * inv_total_curv * v0.xyz) + (curv1 * inv_total_curv * v1.xyz) + (curv2 * inv_total_curv * v2.xyz);
+
+			// Linearly interpolate between triangle middle and curv_point
+			vec3 new_pos = mix(mid, curv_point, 0.5);
+
+			// Y position of potential new point
+			float terrain_y = -terrain(new_pos.xz) - 0.5;
+
+			// Transform terrain_y and curv_point to clip space
+			vec4 clip_terrain_y = frame_data.vp * vec4(new_pos.x, terrain_y, new_pos.z, 1.0);
+			vec4 clip_curv_point = frame_data.vp * vec4(curv_point, 1.0);
+			clip_terrain_y /= clip_terrain_y.w;
+			clip_curv_point /= clip_curv_point.w;
+
+			// Screen space distance between current triangle point and new point
+			float screen_space_dist = pow(distance(clip_terrain_y.xy, clip_curv_point.xy), frame_data.curvature_multiplier);
 
 			// A new point should be added
-			if (curv * area >= frame_data.threshold)
+			if (screen_space_dist * area >= frame_data.threshold)
 			{
 				// Check if the point could be a border point
-				const vec4 point = vec4(mid.x, -terrain(mid.xz) - 0.5, mid.z, 1.0);
+				const vec4 point = vec4(new_pos.x, terrain_y, new_pos.z, 1.0);
 				// TODO: Check against corner neighbour nodes as well
 				bool border = false;
 

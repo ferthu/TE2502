@@ -235,6 +235,9 @@ void main(void)
 			barrier();
 			memoryBarrierShared();
 
+			if (s_triangles_removed > max_triangles_to_remove)
+				continue;
+
 			if (thid == 0)
 			{
 				test = false;
@@ -512,6 +515,9 @@ void main(void)
 		}
 		barrier();
 		memoryBarrierShared();
+
+		if (s_triangles_removed > max_triangles_to_remove)
+			continue;
 
 		// Delete all doubly specified edges from edge buffer (this leaves the edges of the enclosing polygon only)
 		const uint edge_count = min(s_triangles_removed, max_triangles_to_remove) * 3;

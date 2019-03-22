@@ -923,8 +923,10 @@ namespace cputri
 				{
 					uint32_t neighbour_index = terrain_buffer->quadtree_index_map[ny * nodes_per_side + nx];
 					int neighbour_border = (bb + 2) % 4;
-
-					s_border_max[bb] = terrain_buffer->data[neighbour_index].border_max[neighbour_border];
+					if (neighbour_index != ~0u)
+						s_border_max[bb] = terrain_buffer->data[neighbour_index].border_max[neighbour_border];
+					else
+						s_border_max[bb] = 0;
 				}
 				else
 				{
@@ -973,13 +975,35 @@ namespace cputri
 				float area = pow(s * (s - a) * (s - b) * (s - c), area_multiplier);
 
 				glm::vec3 mid = (glm::vec3(v0) + glm::vec3(v1)+ glm::vec3(v2)) / 3.0f;
-				float curv = pow(curvature(mid, camera_position), curvature_multiplier);
+				float curv0 = curvature(glm::vec3(v0), camera_position);
+				float curv1 = curvature(glm::vec3(v1), camera_position);
+				float curv2 = curvature(glm::vec3(v2), camera_position);
+
+				float inv_total_curv = 1.0f / (curv0 + curv1 + curv2);
+
+				// Create linear combination of corners based on curvature
+				glm::vec3 curv_point = (curv0 * inv_total_curv * glm::vec3(v0)) + (curv1 * inv_total_curv * glm::vec3(v1)) + (curv2 * inv_total_curv * glm::vec3(v2));
+
+				// Linearly interpolate between triangle middle and curv_point
+				glm::vec3 new_pos = mix(mid, curv_point, 0.5);
+
+				// Y position of potential new point
+				float terrain_y = -terrain(glm::vec2(new_pos.x, new_pos.z)) - 0.5f;
+
+				// Transform terrain_y and curv_point to clip space
+				glm::vec4 clip_terrain_y = vp * glm::vec4(new_pos.x, terrain_y, new_pos.z, 1.0);
+				glm::vec4 clip_curv_point = vp * glm::vec4(curv_point, 1.0);
+				clip_terrain_y /= clip_terrain_y.w;
+				clip_curv_point /= clip_curv_point.w;
+
+				// Screen space distance between current triangle point and new point
+				float screen_space_dist = pow(distance(glm::vec2(clip_terrain_y.x, clip_terrain_y.y), glm::vec2(clip_curv_point.x, clip_curv_point.y)), curvature_multiplier);
 
 				// A new point should be added
-				if (curv * area >= threshold)
+				if (screen_space_dist * area >= threshold)
 				{
 					// Check if the point could be a border point
-					const glm::vec4 point = glm::vec4(mid.x, -terrain(glm::vec2(mid.x, mid.z)) - 0.5f, mid.z, 1.0f);
+					const glm::vec4 point = glm::vec4(new_pos.x, terrain_y, new_pos.z, 1.0);
 					// TODO: Check against corner neighbour nodes as well
 					bool border = false;
 
@@ -1338,6 +1362,9 @@ namespace cputri
 				}
 				//barrier();
 				//memoryBarrierShared();
+
+				if (s_triangles_removed > max_triangles_to_remove)
+					continue;
 
 				if (thid == 0)
 				{

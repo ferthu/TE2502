@@ -48,12 +48,9 @@ float curvature(in vec3 p)
 	{
 		for (int y = -filter_radius; y <= filter_radius; y++)
 		{
-			curvature += terrain(p.xz + vec2(sample_step * x, sample_step * y)) * curvature_filter.log_filter[(y + filter_radius) * filter_side + (x + filter_radius)];
+			curvature += (terrain(p.xz + vec2(sample_step * x, sample_step * y)) - terrain(p.xz)) * curvature_filter.log_filter[(y + filter_radius) * filter_side + (x + filter_radius)];
 		}
 	}
-
-	// Normalize for height
-	curvature -= terrain(p.xz);
 
 	return abs(curvature);
 }

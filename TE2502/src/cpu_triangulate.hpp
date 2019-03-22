@@ -36,11 +36,7 @@ namespace cputri
 		float curvature_multiplier,
 		uint32_t node_index);
 
-	void tri(uint32_t node_index);
-
-	void triangulate_borders_shader(uint32_t node_index, uint32_t border_index, glm::vec4 current_point, glm::vec2 node_min, glm::vec2 node_max, int cx, int cy);
-
-	void triangulate_shader(uint32_t node_index, glm::vec4 current_point, glm::vec2 node_min, glm::vec2 node_max);
+	void triangulate_shader(uint32_t node_index);
 
 	void triangulate();
 

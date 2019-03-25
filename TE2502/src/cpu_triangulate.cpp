@@ -543,6 +543,7 @@ namespace cputri
 	int temp = 0;
 	int vertices_per_refine = 1;
 	int border = -1;
+	int show_connections = -1;
 
 	void run(DebugDrawer& dd, Camera& camera, Window& window)
 	{
@@ -560,6 +561,7 @@ namespace cputri
 		ImGui::SliderInt("Index", &temp, -1, 15);
 		ImGui::SliderInt("Vertices per refine", &vertices_per_refine, 1, 10);
 		ImGui::SliderInt("Border", &border, -1, 3);
+		ImGui::SliderInt("Show Connections", &show_connections, -1, num_indices / 3);
 		ImGui::End();
 
 		ImGui::Begin("cputri");
@@ -799,6 +801,49 @@ namespace cputri
 									{ 0, 0, 1 });
 							}
 						}
+
+						if (show_connections == ind / 3)
+						{
+							glm::vec3 h = { 0, -20, 0 };
+
+							dd.draw_line(p0 + h, p1 + h, { 1, 0, 0 });
+							dd.draw_line(p1 + h, p2 + h, { 0, 1, 0 });
+							dd.draw_line(p2 + h, p0 + h, { 0, 0, 1 });
+
+							glm::vec3 n0 = mid + h;
+							glm::vec3 n1 = mid + h;
+							glm::vec3 n2 = mid + h;
+
+							if (terrain_buffer->data[ii].triangle_connections[ind + 0] != INVALID)
+							{
+								uint neighbour_ind = terrain_buffer->data[ii].triangle_connections[ind + 0];
+								n0 = (terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[neighbour_ind * 3 + 0]] + 
+									  terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[neighbour_ind * 3 + 1]] + 
+									  terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[neighbour_ind * 3 + 2]]) / 3.0f;
+								n0 += glm::vec3(0, height, 0) + h;
+							}
+							if (terrain_buffer->data[ii].triangle_connections[ind + 1] != INVALID)
+							{
+								uint neighbour_ind = terrain_buffer->data[ii].triangle_connections[ind + 1];
+								n1 = (terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[neighbour_ind * 3 + 0]] +
+									terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[neighbour_ind * 3 + 1]] +
+									terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[neighbour_ind * 3 + 2]]) / 3.0f;
+								n1 += glm::vec3(0, height, 0) + h;
+							}
+							if (terrain_buffer->data[ii].triangle_connections[ind + 2] != INVALID)
+							{
+								uint neighbour_ind = terrain_buffer->data[ii].triangle_connections[ind + 2];
+								n2 = (terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[neighbour_ind * 3 + 0]] +
+									terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[neighbour_ind * 3 + 1]] +
+									terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[neighbour_ind * 3 + 2]]) / 3.0f;
+								n2 += glm::vec3(0, height, 0) + h;
+							}
+
+
+							dd.draw_line(mid + h, n0, { 1, 0, 0 });
+							dd.draw_line(mid + h, n1, { 0, 1, 0 });
+							dd.draw_line(mid + h, n2, { 0, 0, 1 });
+						}
 					}
 					//for (int tt = 0; tt < terrain_buffer->data[ii].vertex_count; ++tt)
 					//{
@@ -883,13 +928,15 @@ namespace cputri
 		i = gl_GlobalInvocationID.x;
 		while (i < (GRID_SIDE - 1) * (GRID_SIDE - 1))
 		{
-			uint y = i / (GRID_SIDE - 1);
-			uint x = i % (GRID_SIDE - 1);
-			uint index = y * GRID_SIDE + x;
+			const uint y = i / (GRID_SIDE - 1);
+			const uint x = i % (GRID_SIDE - 1);
+			const uint index = y * GRID_SIDE + x;
 
 			uint indices[6];
 
-			uint offset = i * 6;
+			const uint offset = i * 6;
+			const uint triangle_index = i * 2;
+			const uint triangles_per_side = (GRID_SIDE - 1) * 2;
 			if ((y % 2) == 0)
 			{
 				// Indices
@@ -900,6 +947,15 @@ namespace cputri
 				indices[3] = index + 1;
 				indices[4] = index + GRID_SIDE;
 				indices[5] = index + GRID_SIDE + 1;
+
+				// Triangle connections
+				terrain_buffer->data[node_index].triangle_connections[offset + 0] = x > 0 ? triangle_index - 1 : INVALID;
+				terrain_buffer->data[node_index].triangle_connections[offset + 1] = triangle_index + 1;
+				terrain_buffer->data[node_index].triangle_connections[offset + 2] = y > 0 ? triangle_index - triangles_per_side + 1 : INVALID;
+
+				terrain_buffer->data[node_index].triangle_connections[offset + 3] = triangle_index;
+				terrain_buffer->data[node_index].triangle_connections[offset + 4] = y < GRID_SIDE - 2 ? triangle_index + triangles_per_side : INVALID;
+				terrain_buffer->data[node_index].triangle_connections[offset + 5] = x < GRID_SIDE - 2 ? triangle_index + 2 : INVALID;
 			}
 			else
 			{
@@ -911,10 +967,19 @@ namespace cputri
 				indices[3] = index;
 				indices[4] = index + GRID_SIDE;
 				indices[5] = index + GRID_SIDE + 1;
+
+				// Triangle connections
+				terrain_buffer->data[node_index].triangle_connections[offset + 0] = triangle_index + 1;
+				terrain_buffer->data[node_index].triangle_connections[offset + 1] = x < GRID_SIDE - 2 ? triangle_index + 3 : INVALID;
+				terrain_buffer->data[node_index].triangle_connections[offset + 2] = triangle_index - triangles_per_side + 1;
+
+				terrain_buffer->data[node_index].triangle_connections[offset + 3] = x > 0 ? triangle_index - 2 : INVALID;
+				terrain_buffer->data[node_index].triangle_connections[offset + 4] = y < GRID_SIDE - 2 ? triangle_index + triangles_per_side : INVALID;
+				terrain_buffer->data[node_index].triangle_connections[offset + 5] = triangle_index;
 			}
 
 			// Indices
-			terrain_buffer->data[node_index].indices[offset] = indices[0];
+			terrain_buffer->data[node_index].indices[offset + 0] = indices[0];
 			terrain_buffer->data[node_index].indices[offset + 1] = indices[1];
 			terrain_buffer->data[node_index].indices[offset + 2] = indices[2];
 
@@ -932,34 +997,18 @@ namespace cputri
 			glm::vec2 R2 = glm::vec2(terrain_buffer->data[node_index].positions[indices[5]].x, terrain_buffer->data[node_index].positions[indices[5]].z);
 
 			// Circumcentres
-			offset = i * 2;
-			terrain_buffer->data[node_index].triangles[offset].circumcentre = find_circum_center(P1, Q1, R1);
-			terrain_buffer->data[node_index].triangles[offset + 1].circumcentre = find_circum_center(P2, Q2, R2);
+			terrain_buffer->data[node_index].triangles[triangle_index + 0].circumcentre = find_circum_center(P1, Q1, R1);
+			terrain_buffer->data[node_index].triangles[triangle_index + 1].circumcentre = find_circum_center(P2, Q2, R2);
 
 			// Circumradii
 			const float radius12 = find_circum_radius_squared(P1, Q1, R1);
 			const float radius22 = find_circum_radius_squared(P2, Q2, R2);
-			terrain_buffer->data[node_index].triangles[offset].circumradius2 = radius12;
-			terrain_buffer->data[node_index].triangles[offset].circumradius = sqrt(radius12);
-			terrain_buffer->data[node_index].triangles[offset + 1].circumradius2 = radius22;
-			terrain_buffer->data[node_index].triangles[offset + 1].circumradius = sqrt(radius22);
+			terrain_buffer->data[node_index].triangles[triangle_index + 0].circumradius2 = radius12;
+			terrain_buffer->data[node_index].triangles[triangle_index + 0].circumradius = sqrt(radius12);
+			terrain_buffer->data[node_index].triangles[triangle_index + 1].circumradius2 = radius22;
+			terrain_buffer->data[node_index].triangles[triangle_index + 1].circumradius = sqrt(radius22);
 
 			i += WORK_GROUP_SIZE;
-		}
-
-		//barrier();
-		//memoryBarrierBuffer();
-		if (gl_GlobalInvocationID.x == 0)
-		{
-			// Borders
-			i = 0;
-			while (i < (GRID_SIDE - 1) * (GRID_SIDE - 1) * 2)
-			{
-				const float cc_radius = terrain_buffer->data[node_index].triangles[i].circumradius;
-				const glm::vec2 cc_center = terrain_buffer->data[node_index].triangles[i].circumcentre;
-				// TODO: Remove this loop?
-				i += 1;
-			}
 		}
 	}
 

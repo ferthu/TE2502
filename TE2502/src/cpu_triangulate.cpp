@@ -22,9 +22,10 @@ namespace cputri
 	
 	#define WORK_GROUP_SIZE 1
 
-	const glm::uvec3 gl_GlobalInvocationID{ 0, 0, 0 };
+	const uvec3 gl_GlobalInvocationID{ 0, 0, 0 };
 
 	typedef uint32_t uint;
+	using namespace glm;
 
 	uint num_indices;
 	uint num_vertices;
@@ -41,8 +42,8 @@ namespace cputri
 
 	struct Triangle
 	{
-		glm::vec2 circumcentre;
-		float circumradius;
+		vec2 circumcentre;
+		float circumradius;  // TODO: Still needed?
 		float circumradius2;
 	};
 
@@ -52,8 +53,8 @@ namespace cputri
 		uint new_points_count;
 		uint pad;
 
-		glm::vec2 min;
-		glm::vec2 max;
+		vec2 min;
+		vec2 max;
 
 		uint border_count;
 		std::array<uint, MAX_BORDER_TRIANGLE_COUNT> border_triangle_indices;
@@ -72,18 +73,20 @@ namespace cputri
 		uint new_points_count;
 		uint pad;
 
-		glm::vec2 min;
-		glm::vec2 max;
+		vec2 min;
+		vec2 max;
+
+		uint temp_new_triangles_count;
 
 		uint border_count;
 		std::array<uint, MAX_BORDER_TRIANGLE_COUNT> border_triangle_indices;
 		// }
 
 		std::array<uint, TERRAIN_GENERATE_NUM_INDICES> indices;
-		std::array<glm::vec4, TERRAIN_GENERATE_NUM_VERTICES> positions;
+		std::array<vec4, TERRAIN_GENERATE_NUM_VERTICES> positions;
 		std::array<Triangle, TERRAIN_GENERATE_NUM_INDICES / 3> triangles;
 		std::array<uint, TERRAIN_GENERATE_NUM_INDICES> triangle_connections;
-		std::array<glm::vec4, TRIANGULATE_MAX_NEW_POINTS> new_points;
+		std::array<vec4, TRIANGULATE_MAX_NEW_POINTS> new_points;
 		std::array<uint, TRIANGULATE_MAX_NEW_POINTS> new_points_triangles;
 	};
 
@@ -93,8 +96,8 @@ namespace cputri
 	struct TerrainBuffer
 	{
 		std::array<uint, (1 << QUADTREE_LEVELS) * (1 << QUADTREE_LEVELS)> quadtree_index_map;
-		glm::vec2 quadtree_min;
-		glm::vec2 quadtree_max;
+		vec2 quadtree_min;
+		vec2 quadtree_max;
 		std::array<uint, pad_size> pad;
 		std::array<TerrainData, TERRAIN_GENERATE_NUM_NODES> data;
 	};
@@ -102,8 +105,8 @@ namespace cputri
 
 	struct GenerateInfo
 	{
-		glm::vec2 min;
-		glm::vec2 max;
+		vec2 min;
+		vec2 max;
 		uint index;
 	};
 	struct Quadtree {
@@ -127,7 +130,7 @@ namespace cputri
 		uint* node_index_to_buffer_index;
 
 		uint64_t node_memory_size;
-		glm::vec2* quadtree_minmax;
+		vec2* quadtree_minmax;
 	};
 	Quadtree quadtree;
 
@@ -139,10 +142,10 @@ namespace cputri
 
 #pragma region TERRAINSTUFF
 	float dump;
-	glm::vec2 addxy = glm::vec2(1.0f, 0.0f);
-	glm::vec2 addyy = glm::vec2(0.0f, 0.0f);
-	glm::vec2 addxx = glm::vec2(1.0f, 1.0f);
-	glm::vec2 addyx = glm::vec2(0.0f, 1.0f);
+	vec2 addxy = vec2(1.0f, 0.0f);
+	vec2 addyy = vec2(0.0f, 0.0f);
+	vec2 addxx = vec2(1.0f, 1.0f);
+	vec2 addyx = vec2(0.0f, 1.0f);
 #define HASHSCALE1 .1031f
 
 	float mix(float a, float b, float i)
@@ -160,21 +163,21 @@ namespace cputri
 		return a;
 	}
 
-	const glm::mat2 rotate2D = glm::mat2(1.3623f, 1.7531f, -1.7131f, 1.4623f);
+	const mat2 rotate2D = mat2(1.3623f, 1.7531f, -1.7131f, 1.4623f);
 
 	//// Low-res stuff
 
-	float hash12(glm::vec2 p)
+	float hash12(vec2 p)
 	{
-		glm::vec3 p3 = fract(glm::vec3(p.x, p.y, p.x) * HASHSCALE1);
-		p3 += glm::dot(p3, glm::vec3(p3.y, p3.z, p3.x) + 19.19f);
+		vec3 p3 = fract(vec3(p.x, p.y, p.x) * HASHSCALE1);
+		p3 += dot(p3, vec3(p3.y, p3.z, p3.x) + 19.19f);
 		return modff((p3.x + p3.y) * p3.z, &dump);
 	}
 
-	float noise(glm::vec2 x)
+	float noise(vec2 x)
 	{
-		glm::vec2 p = floor(x);
-		glm::vec2 f = fract(x);
+		vec2 p = floor(x);
+		vec2 f = fract(x);
 		f = f * f * (3.0f - 2.0f * f);
 
 		float res = mix(mix(hash12(p), hash12(p + addxy), f.x),
@@ -182,12 +185,12 @@ namespace cputri
 		return res;
 	}
 
-	float terrain(glm::vec2 p)
+	float terrain(vec2 p)
 	{
-		glm::vec2 pos = p * 0.05f;
+		vec2 pos = p * 0.05f;
 		float w = (noise(pos * 0.25f) * 0.75f + 0.15f);
 		w = 66.0f * w * w;
-		glm::vec2 dxy = glm::vec2(0.0, 0.0);
+		vec2 dxy = vec2(0.0, 0.0);
 		float f = .0;
 		for (int i = 0; i < 5; i++)
 		{
@@ -201,7 +204,7 @@ namespace cputri
 		return f;
 	}
 
-	float height_to_surface(glm::vec3 p)
+	float height_to_surface(vec3 p)
 	{
 		float h = terrain({ p.x, p.z });
 
@@ -211,38 +214,38 @@ namespace cputri
 	///////
 
 	//// High-res stuff
-#define HASHSCALE3 glm::vec3(.1031f, .1030f, .0973f)
-#define HASHSCALE4 glm::vec4(1031f, .1030f, .0973f, .1099f)
+#define HASHSCALE3 vec3(.1031f, .1030f, .0973f)
+#define HASHSCALE4 vec4(1031f, .1030f, .0973f, .1099f)
 
-	glm::vec2 hash22(glm::vec2 p)
+	vec2 hash22(vec2 p)
 	{
-		glm::vec3 p3 = fract(glm::vec3(p.x, p.y, p.x) * HASHSCALE3);
-		p3 += glm::dot(p3, glm::vec3(p3.y, p3.z, p3.x) + 19.19f);
-		return fract((glm::vec2(p3.x, p3.x) + glm::vec2(p3.y, p3.z)) * glm::vec2(p3.z, p3.y));
+		vec3 p3 = fract(vec3(p.x, p.y, p.x) * HASHSCALE3);
+		p3 += dot(p3, vec3(p3.y, p3.z, p3.x) + 19.19f);
+		return fract((vec2(p3.x, p3.x) + vec2(p3.y, p3.z)) * vec2(p3.z, p3.y));
 
 	}
 
-	glm::vec2 noise2(glm::vec2 x)
+	vec2 noise2(vec2 x)
 	{
-		glm::vec2 p = floor(x);
-		glm::vec2 f = fract(x);
+		vec2 p = floor(x);
+		vec2 f = fract(x);
 		f = f * f * (3.0f - 2.0f * f);
 		float n = p.x + p.y * 57.0f;
-		glm::vec2 res = mix(mix(hash22(p), hash22(p + addxy), f.x),
+		vec2 res = mix(mix(hash22(p), hash22(p + addxy), f.x),
 			mix(hash22(p + addyx), hash22(p + addxx), f.x), f.y);
 		return res;
 	}
 
 	//--------------------------------------------------------------------------
 	// High def version only used for grabbing normal information.
-	float terrain2(glm::vec2 p)
+	float terrain2(vec2 p)
 	{
 		// There's some real magic numbers in here! 
 		// The noise calls add large mountain ranges for more variation over distances...
-		glm::vec2 pos = p * 0.05f;
+		vec2 pos = p * 0.05f;
 		float w = (noise(pos * 0.25f) * 0.75f + 0.15f);
 		w = 66.0f * w * w;
-		glm::vec2 dxy = glm::vec2(0.0f, 0.0f);
+		vec2 dxy = vec2(0.0f, 0.0f);
 		float f = 0.0f;
 		for (int i = 0; i < 5; i++)
 		{
@@ -269,13 +272,13 @@ namespace cputri
 
 	//// Coloring
 
-	glm::vec3 sun_light = normalize(glm::vec3(0.4, 0.4, 0.48));
-	glm::vec3 sun_color = glm::vec3(1.0, .9, .83);
+	vec3 sun_light = normalize(vec3(0.4, 0.4, 0.48));
+	vec3 sun_color = vec3(1.0, .9, .83);
 	float specular = 0.0;
 	float ambient;
 
 	// Calculate sun light...
-	void do_lighting(glm::vec3& mat, glm::vec3 pos, glm::vec3 normal, glm::vec3 eye_dir, float dis)
+	void do_lighting(vec3& mat, vec3 pos, vec3 normal, vec3 eye_dir, float dis)
 	{
 		float h = dot(sun_light, normal);
 		float c = std::max(h, 0.0f) + ambient;
@@ -283,38 +286,38 @@ namespace cputri
 		// Specular...
 		if (h > 0.0)
 		{
-			glm::vec3 R = reflect(sun_light, normal);
+			vec3 R = reflect(sun_light, normal);
 			float spec_amount = pow(std::max(dot(R, normalize(eye_dir)), 0.0f), 3.0f) * specular;
 			mat = mix(mat, sun_color, spec_amount);
 		}
 	}
 
 	// Hack the height, position, and normal data to create the coloured landscape
-	glm::vec3 surface_color(glm::vec3 pos, glm::vec3 normal, float dis, glm::vec3 cam_pos)
+	vec3 surface_color(vec3 pos, vec3 normal, float dis, vec3 cam_pos)
 	{
-		glm::vec3 mat;
+		vec3 mat;
 		specular = 0.0f;
 		ambient = 0.1f;
-		glm::vec3 dir = normalize(pos - cam_pos);
+		vec3 dir = normalize(pos - cam_pos);
 
-		glm::vec3 mat_pos = pos * 2.0f;// ... I had change scale halfway though, this lazy multiply allow me to keep the graphic scales I had
+		vec3 mat_pos = pos * 2.0f;// ... I had change scale halfway though, this lazy multiply allow me to keep the graphic scales I had
 
 		float dis_sqrd = dis * dis;// Squaring it gives better distance scales.
 
-		float f = clamp(noise(glm::vec2(mat_pos.x, mat_pos.z) * 0.05f), 0.0f, 1.0f);
-		f += noise(glm::vec2(mat_pos.x, mat_pos.z) * 0.1f + glm::vec2(normal.y, normal.z) * 1.08f) * 0.85f;
+		float f = clamp(noise(vec2(mat_pos.x, mat_pos.z) * 0.05f), 0.0f, 1.0f);
+		f += noise(vec2(mat_pos.x, mat_pos.z) * 0.1f + vec2(normal.y, normal.z) * 1.08f) * 0.85f;
 		f *= 0.55f;
-		glm::vec3 m = mix(glm::vec3(.63*f + .2, .7*f + .1, .7*f + .1), glm::vec3(f*.43 + .1, f*.3 + .2, f*.35 + .1), f * 0.65f);
-		mat = m * glm::vec3(f * m.x + .36f, f * m.y + .30f, f * m.z + .28f);
+		vec3 m = mix(vec3(.63*f + .2, .7*f + .1, .7*f + .1), vec3(f*.43 + .1, f*.3 + .2, f*.35 + .1), f * 0.65f);
+		mat = m * vec3(f * m.x + .36f, f * m.y + .30f, f * m.z + .28f);
 		// Should have used smoothstep to add colours, but left it using 'if' for sanity...
 		if (normal.y < .5f)
 		{
 			float v = normal.y;
 			float c = (0.5f - normal.y) * 4.0f;
 			c = clamp(c*c, 0.1f, 1.0f);
-			f = noise(glm::vec2(mat_pos.x * 0.09f, mat_pos.z * 0.095f) + glm::vec2(mat_pos.y, mat_pos.y) * 0.15f);
-			f += noise(glm::vec2(mat_pos.x * 2.233f, mat_pos.z * 2.23f)) * 0.5f;
-			mat = mix(mat, glm::vec3(.4f * f), c);
+			f = noise(vec2(mat_pos.x * 0.09f, mat_pos.z * 0.095f) + vec2(mat_pos.y, mat_pos.y) * 0.15f);
+			f += noise(vec2(mat_pos.x * 2.233f, mat_pos.z * 2.23f)) * 0.5f;
+			mat = mix(mat, vec3(.4f * f), c);
 			specular += 0.1f;
 		}
 
@@ -322,7 +325,7 @@ namespace cputri
 		if (normal.y > .65f)
 		{
 
-			m = glm::vec3(noise(glm::vec2(mat_pos.x, mat_pos.z) * 0.023f) * 0.5f + 0.15f, noise(glm::vec2(mat_pos.x, mat_pos.z) * 0.03f) * 0.6f + 0.25f, 0.0f);
+			m = vec3(noise(vec2(mat_pos.x, mat_pos.z) * 0.023f) * 0.5f + 0.15f, noise(vec2(mat_pos.x, mat_pos.z) * 0.03f) * 0.6f + 0.25f, 0.0f);
 			m *= (normal.y - 0.65f) * 0.6f;
 			mat = mix(mat, m, clamp((normal.y - .65f) * 1.3f * (45.35f - mat_pos.y)* 0.1f, 0.0f, 1.0f));
 		}
@@ -330,8 +333,8 @@ namespace cputri
 		// Snow topped mountains...
 		if (mat_pos.y > 80.0f && normal.y > .42f)
 		{
-			float snow = clamp((mat_pos.y - 80.0f - noise(glm::vec2(mat_pos.x, mat_pos.z) * 0.1f) * 28.0f) * 0.035f, 0.0f, 1.0f);
-			mat = mix(mat, glm::vec3(.7f, .7f, .8f), snow);
+			float snow = clamp((mat_pos.y - 80.0f - noise(vec2(mat_pos.x, mat_pos.z) * 0.1f) * 28.0f) * 0.035f, 0.0f, 1.0f);
+			mat = mix(mat, vec3(.7f, .7f, .8f), snow);
 			specular += snow;
 			ambient += snow * 0.3f;
 		}
@@ -342,7 +345,7 @@ namespace cputri
 	}
 
 	// Some would say, most of the magic is done in post! :D
-	glm::vec3 post_effects(glm::vec3 rgb)
+	vec3 post_effects(vec3 rgb)
 	{
 		return (1.0f - exp(-rgb * 6.0f)) * 1.0024f;
 	}
@@ -352,7 +355,7 @@ namespace cputri
 #pragma region CC
 
 	// Function to find the line given two points
-	void line_from_points(glm::vec2 p1, glm::vec2 p2, float& a, float& b, float& c)
+	void line_from_points(vec2 p1, vec2 p2, float& a, float& b, float& c)
 	{
 		a = p2.y - p1.y;
 		b = p1.x - p2.x;
@@ -362,9 +365,9 @@ namespace cputri
 	// Function which converts the input line to its 
 	// perpendicular bisector. It also inputs the points 
 	// whose mid-point lies on the bisector 
-	void perpendicular_bisector_from_line(glm::vec2 p1, glm::vec2 p2, float& a, float& b, float& c)
+	void perpendicular_bisector_from_line(vec2 p1, vec2 p2, float& a, float& b, float& c)
 	{
-		glm::vec2 mid_point = glm::vec2((p1.x + p2.x) * 0.5f, (p1.y + p2.y) * 0.5f);
+		vec2 mid_point = vec2((p1.x + p2.x) * 0.5f, (p1.y + p2.y) * 0.5f);
 
 		// c = -bx + ay 
 		c = -b * mid_point.x + a * mid_point.y;
@@ -375,17 +378,17 @@ namespace cputri
 	}
 
 	// Returns the intersection point of two lines 
-	glm::vec2 line_line_intersection(float a1, float b1, float c1, float a2, float b2, float c2)
+	vec2 line_line_intersection(float a1, float b1, float c1, float a2, float b2, float c2)
 	{
 		float determinant = a1 * b2 - a2 * b1;
 
 		float x = (b2 * c1 - b1 * c2) / determinant;
 		float y = (a1 * c2 - a2 * c1) / determinant;
 
-		return glm::vec2(x, y);
+		return vec2(x, y);
 	}
 
-	glm::vec2 find_circum_center(glm::vec2 P, glm::vec2 Q, glm::vec2 R)
+	vec2 find_circum_center(vec2 P, vec2 Q, vec2 R)
 	{
 		// Line PQ is represented as ax + by = c 
 		float a, b, c;
@@ -411,7 +414,7 @@ namespace cputri
 		return (a * a * b * b * c * c) / ((a + b + c) * (b + c - a) * (c + a - b) * (a + b - c));
 	}
 
-	float find_circum_radius_squared(glm::vec2 P, glm::vec2 Q, glm::vec2 R)
+	float find_circum_radius_squared(vec2 P, vec2 Q, vec2 R)
 	{
 		float a = distance(P, Q);
 		float b = distance(Q, R);
@@ -422,14 +425,14 @@ namespace cputri
 
 #pragma endregion
 
-	bool clip(glm::vec4 p)
+	bool clip(vec4 p)
 	{
 		return (abs(p.x) <= p.w &&
 			abs(p.y) <= p.w &&
 			abs(p.z) <= p.w);
 	}
 
-	float curvature(glm::vec3 p, glm::vec3 camera_position)
+	float curvature(vec3 p, vec3 camera_position)
 	{
 		const float pi = 3.1415f;
 
@@ -470,12 +473,12 @@ namespace cputri
 		{
 			for (int y = -filter_radius; y <= filter_radius; y++)
 			{
-				curvature += terrain(glm::vec2(p.x, p.z) + glm::vec2(sample_step * x, sample_step * y)) * log_filter[(y + filter_radius) * filter_side + (x + filter_radius)];
+				curvature += terrain(vec2(p.x, p.z) + vec2(sample_step * x, sample_step * y)) * log_filter[(y + filter_radius) * filter_side + (x + filter_radius)];
 			}
 		}
 
 		// Normalize for height
-		curvature -= terrain(glm::vec2(p.x, p.z));
+		curvature -= terrain(vec2(p.x, p.z));
 
 		return abs(curvature);
 	}
@@ -505,14 +508,14 @@ namespace cputri
 			sizeof(VkDrawIndexedIndirectCommand) +
 			sizeof(BufferNodeHeader) +
 			num_indices * sizeof(uint) + // Indices
-			num_vertices * sizeof(glm::vec4) + // Vertices
+			num_vertices * sizeof(vec4) + // Vertices
 			(num_indices / 3) * sizeof(Triangle) + // Circumcentre and circumradius
 			num_indices * sizeof(uint) + // Triangle connectivity
-			num_new_points * sizeof(glm::vec4) + // New points
+			num_new_points * sizeof(vec4) + // New points
 			num_new_points * sizeof(uint); // New point triangle index
 
 		// Add space for an additional two vec2's to store the quadtree min and max
-		cpu_index_buffer_size = (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint) + sizeof(glm::vec2) * 2;
+		cpu_index_buffer_size = (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint) + sizeof(vec2) * 2;
 		cpu_index_buffer_size += 64 - (cpu_index_buffer_size % 64);
 
 		terrain_buffer = (TerrainBuffer*) new char[cpu_index_buffer_size + quadtree.node_memory_size * num_nodes + 1000];
@@ -520,12 +523,12 @@ namespace cputri
 		quadtree.node_index_to_buffer_index = (uint*)terrain_buffer;
 
 		// Point to the end of cpu index buffer
-		quadtree.quadtree_minmax = (glm::vec2*) (((char*)quadtree.node_index_to_buffer_index) + (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
+		quadtree.quadtree_minmax = (vec2*) (((char*)quadtree.node_index_to_buffer_index) + (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
 
 		quadtree.total_side_length = TERRAIN_GENERATE_TOTAL_SIDE_LENGTH;
 		float half_length = quadtree.total_side_length * 0.5f;
-		quadtree.quadtree_minmax[0] = glm::vec2(-half_length, -half_length);
-		quadtree.quadtree_minmax[1] = glm::vec2(half_length, half_length);
+		quadtree.quadtree_minmax[0] = vec2(-half_length, -half_length);
+		quadtree.quadtree_minmax[1] = vec2(half_length, half_length);
 
 		// (1 << levels) is number of nodes per axis
 		memset(quadtree.node_index_to_buffer_index, INVALID, (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
@@ -656,7 +659,7 @@ namespace cputri
 			//if (quadtree.draw_nodes[i] == lolz)
 			triangle_process_shader(
 				camera.get_vp(),
-				glm::vec4(camera.get_pos(), 0),
+				vec4(camera.get_pos(), 0),
 				window.get_size(),
 				em_threshold,
 				area_multiplier,
@@ -669,7 +672,7 @@ namespace cputri
 		{
 			triangle_process_shader(
 				camera.get_vp(),
-				glm::vec4(camera.get_pos(), 0),
+				vec4(camera.get_pos(), 0),
 				window.get_size(),
 				em_threshold,
 				area_multiplier,
@@ -749,7 +752,7 @@ namespace cputri
 		// This node is visible, check children
 		if (frustum_aabbxz_intersection(frustum, aabb))
 		{
-			glm::vec2 mid = (aabb.m_min + aabb.m_max) * 0.5f;
+			vec2 mid = (aabb.m_min + aabb.m_max) * 0.5f;
 			float mid_x = (aabb.m_min.x + aabb.m_max.x) * 0.5f;
 			float mid_z = (aabb.m_min.y + aabb.m_max.y) * 0.5f;
 
@@ -772,11 +775,11 @@ namespace cputri
 					{
 						const float height = -100.0f;
 
-						glm::vec3 p0 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 0]]) + glm::vec3(0.0f, height, 0.0f);
-						glm::vec3 p1 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 1]]) + glm::vec3(0.0f, height, 0.0f);
-						glm::vec3 p2 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 2]]) + glm::vec3(0.0f, height, 0.0f);
+						vec3 p0 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 0]]) + vec3(0.0f, height, 0.0f);
+						vec3 p1 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 1]]) + vec3(0.0f, height, 0.0f);
+						vec3 p2 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 2]]) + vec3(0.0f, height, 0.0f);
 
-						glm::vec3 mid = (p0 + p1 + p2) / 3.0f;
+						vec3 mid = (p0 + p1 + p2) / 3.0f;
 
 						dd.draw_line(p0, p1, { 1, 0, 0 });
 						dd.draw_line(p1, p2, { 1, 0, 0 });
@@ -794,10 +797,10 @@ namespace cputri
 							for (uint jj = 0; jj < steps + 1; ++jj)
 							{
 								float cc_radius = terrain_buffer->data[ii].triangles[tri_index].circumradius;
-								glm::vec3 cc_mid = { terrain_buffer->data[ii].triangles[tri_index].circumcentre.x, mid.y, terrain_buffer->data[ii].triangles[tri_index].circumcentre.y };
+								vec3 cc_mid = { terrain_buffer->data[ii].triangles[tri_index].circumcentre.x, mid.y, terrain_buffer->data[ii].triangles[tri_index].circumcentre.y };
 
-								dd.draw_line(cc_mid + glm::vec3(sinf(angle * jj) * cc_radius, 0.0f, cosf(angle * jj) * cc_radius),
-									cc_mid + glm::vec3(sinf(angle * (jj + 1)) * cc_radius, 0.0f, cosf(angle * (jj + 1)) * cc_radius),
+								dd.draw_line(cc_mid + vec3(sinf(angle * jj) * cc_radius, 0.0f, cosf(angle * jj) * cc_radius),
+									cc_mid + vec3(sinf(angle * (jj + 1)) * cc_radius, 0.0f, cosf(angle * (jj + 1)) * cc_radius),
 									{ 0, 0, 1 });
 							}
 						}
@@ -847,12 +850,12 @@ namespace cputri
 					}
 					//for (int tt = 0; tt < terrain_buffer->data[ii].vertex_count; ++tt)
 					//{
-					//	glm::vec3 p = terrain_buffer->data[ii].positions[tt] + glm::vec4(0, -100, 0, 0);
-					//	dd.draw_line(p, p + glm::vec3(0, -50, 0), glm::vec3(1, 0, 1));
+					//	vec3 p = terrain_buffer->data[ii].positions[tt] + vec4(0, -100, 0, 0);
+					//	dd.draw_line(p, p + vec3(0, -50, 0), vec3(1, 0, 1));
 					//}
 
-					//glm::vec2 min = terrain_buffer->data[ii].min;
-					//glm::vec2 max = terrain_buffer->data[ii].max;
+					//vec2 min = terrain_buffer->data[ii].min;
+					//vec2 max = terrain_buffer->data[ii].max;
 					//dd.draw_line({ min.x - terrain_buffer->data[ii].border_max[3], -150, min.y }, { min.x - terrain_buffer->data[ii].border_max[3], -150, max.y }, { 1, 1, 1 });
 					//dd.draw_line({ max.x + terrain_buffer->data[ii].border_max[1], -150, min.y }, { max.x + terrain_buffer->data[ii].border_max[1], -150, max.y }, { 1, 1, 1 });
 					//dd.draw_line({ min.x, -150, max.y + terrain_buffer->data[ii].border_max[0] }, { max.x, -150, max.y + terrain_buffer->data[ii].border_max[0] }, { 1, 1, 1 });
@@ -865,9 +868,9 @@ namespace cputri
 					//		{
 					//			const float height = -120.0f;
 					//			uint ind = terrain_buffer->data[ii].border_triangle_indices[bb * max_border_triangle_count + bt] * 3;
-					//			glm::vec3 p0 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 0]]) + glm::vec3(0.0f, height, 0.0f);
-					//			glm::vec3 p1 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 1]]) + glm::vec3(0.0f, height, 0.0f);
-					//			glm::vec3 p2 = glm::vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 2]]) + glm::vec3(0.0f, height, 0.0f);
+					//			vec3 p0 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 0]]) + vec3(0.0f, height, 0.0f);
+					//			vec3 p1 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 1]]) + vec3(0.0f, height, 0.0f);
+					//			vec3 p2 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 2]]) + vec3(0.0f, height, 0.0f);
 
 					//			dd.draw_line(p0, p1, { 0, 0, 1 });
 					//			dd.draw_line(p1, p2, { 0, 0, 1 });
@@ -880,7 +883,7 @@ namespace cputri
 	}
 
 
-	void generate_shader(uint node_index, glm::vec2 min, glm::vec2 max)
+	void generate_shader(uint node_index, vec2 min, vec2 max)
 	{
 		const uint GRID_SIDE = TERRAIN_GENERATE_GRID_SIDE;
 
@@ -904,8 +907,8 @@ namespace cputri
 		//barrier();
 		//memoryBarrierBuffer();
 
-		const glm::vec2 node_min = terrain_buffer->data[node_index].min;
-		const glm::vec2 node_max = terrain_buffer->data[node_index].max;
+		const vec2 node_min = terrain_buffer->data[node_index].min;
+		const vec2 node_max = terrain_buffer->data[node_index].max;
 		const float side = node_max.x - node_min.x;
 
 		// Positions
@@ -915,8 +918,8 @@ namespace cputri
 			float x = min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * (max.x - min.x);
 			float z = min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * (max.y - min.y);
 
-			//terrain_buffer->data[node_index].positions[i] = glm::vec4(x, -terrain(glm::vec2(x, z)) - 0.5f, z, 1.0f);
-			terrain_buffer->data[node_index].positions[i] = glm::vec4(x + ((max.x - min.x) / GRID_SIDE) * 0.5 * ((i / GRID_SIDE) % 2), -terrain(glm::vec2(x, z)) - 0.5, z, 1.0);
+			//terrain_buffer->data[node_index].positions[i] = vec4(x, -terrain(vec2(x, z)) - 0.5f, z, 1.0f);
+			terrain_buffer->data[node_index].positions[i] = vec4(x + ((max.x - min.x) / GRID_SIDE) * 0.5 * ((i / GRID_SIDE) % 2), -terrain(vec2(x, z)) - 0.5, z, 1.0);
 
 			i += WORK_GROUP_SIZE;
 		}
@@ -988,13 +991,13 @@ namespace cputri
 			terrain_buffer->data[node_index].indices[offset + 5] = indices[5];
 
 			// Positions
-			glm::vec2 P1 = glm::vec2(terrain_buffer->data[node_index].positions[indices[0]].x, terrain_buffer->data[node_index].positions[indices[0]].z);
-			glm::vec2 Q1 = glm::vec2(terrain_buffer->data[node_index].positions[indices[1]].x, terrain_buffer->data[node_index].positions[indices[1]].z);
-			glm::vec2 R1 = glm::vec2(terrain_buffer->data[node_index].positions[indices[2]].x, terrain_buffer->data[node_index].positions[indices[2]].z);
+			vec2 P1 = vec2(terrain_buffer->data[node_index].positions[indices[0]].x, terrain_buffer->data[node_index].positions[indices[0]].z);
+			vec2 Q1 = vec2(terrain_buffer->data[node_index].positions[indices[1]].x, terrain_buffer->data[node_index].positions[indices[1]].z);
+			vec2 R1 = vec2(terrain_buffer->data[node_index].positions[indices[2]].x, terrain_buffer->data[node_index].positions[indices[2]].z);
 										 
-			glm::vec2 P2 = glm::vec2(terrain_buffer->data[node_index].positions[indices[3]].x, terrain_buffer->data[node_index].positions[indices[3]].z);
-			glm::vec2 Q2 = glm::vec2(terrain_buffer->data[node_index].positions[indices[4]].x, terrain_buffer->data[node_index].positions[indices[4]].z);
-			glm::vec2 R2 = glm::vec2(terrain_buffer->data[node_index].positions[indices[5]].x, terrain_buffer->data[node_index].positions[indices[5]].z);
+			vec2 P2 = vec2(terrain_buffer->data[node_index].positions[indices[3]].x, terrain_buffer->data[node_index].positions[indices[3]].z);
+			vec2 Q2 = vec2(terrain_buffer->data[node_index].positions[indices[4]].x, terrain_buffer->data[node_index].positions[indices[4]].z);
+			vec2 R2 = vec2(terrain_buffer->data[node_index].positions[indices[5]].x, terrain_buffer->data[node_index].positions[indices[5]].z);
 
 			// Circumcentres
 			terrain_buffer->data[node_index].triangles[triangle_index + 0].circumcentre = find_circum_center(P1, Q1, R1);
@@ -1017,17 +1020,18 @@ namespace cputri
 	static /*shared*/ std::array<uint, WORK_GROUP_SIZE> s_counts;
 	static /*shared*/ uint s_total;
 
-	void triangle_process_shader(glm::mat4 vp, glm::vec4 camera_position, glm::vec2 screen_size, float threshold, float area_multiplier, float curvature_multiplier, uint node_index)
+	void triangle_process_shader(mat4 vp, vec4 camera_position, vec2 screen_size, float threshold, float area_multiplier, float curvature_multiplier, uint node_index)
 	{
 		if (terrain_buffer->data[node_index].new_points_count != 0)
 			return;
 		terrain_buffer->data[node_index].new_points_count = 0;
-		std::array<glm::vec4, max_new_normal_points + 1> new_points;
+		std::array<vec4, max_new_normal_points + 1> new_points;
+		std::array<uint, max_new_normal_points + 1> triangle_indices;
 
 		const uint thid = gl_GlobalInvocationID.x;
 
-		const glm::vec2 node_min = terrain_buffer->data[node_index].min;
-		const glm::vec2 node_max = terrain_buffer->data[node_index].max;
+		const vec2 node_min = terrain_buffer->data[node_index].min;
+		const vec2 node_max = terrain_buffer->data[node_index].max;
 		const float side = node_max.x - node_min.x;
 
 		const int neighbur_indexing_x[4] = { 0, 1, 0, -1 };
@@ -1046,14 +1050,14 @@ namespace cputri
 		for (uint i = thid * 3; i + 3 <= index_count && new_point_count < max_new_normal_points; i += WORK_GROUP_SIZE * 3)
 		{
 			// Get vertices
-			glm::vec4 v0 = terrain_buffer->data[node_index].positions[terrain_buffer->data[node_index].indices[i]];
-			glm::vec4 v1 = terrain_buffer->data[node_index].positions[terrain_buffer->data[node_index].indices[i + 1]];
-			glm::vec4 v2 = terrain_buffer->data[node_index].positions[terrain_buffer->data[node_index].indices[i + 2]];
+			vec4 v0 = terrain_buffer->data[node_index].positions[terrain_buffer->data[node_index].indices[i]];
+			vec4 v1 = terrain_buffer->data[node_index].positions[terrain_buffer->data[node_index].indices[i + 1]];
+			vec4 v2 = terrain_buffer->data[node_index].positions[terrain_buffer->data[node_index].indices[i + 2]];
 
 			// Get clipspace coordinates
-			glm::vec4 c0 = vp * v0;
-			glm::vec4 c1 = vp * v1;
-			glm::vec4 c2 = vp * v2;
+			vec4 c0 = vp * v0;
+			vec4 c1 = vp * v1;
+			vec4 c2 = vp * v2;
 
 			// Check if any vertex is visible (shitty clipping)
 			if (clip(c0) || clip(c1) || clip(c2))
@@ -1065,24 +1069,24 @@ namespace cputri
 				c2 /= c2.w;
 
 				// a, b, c is triangle side lengths
-				float a = distance(glm::vec2(c0.x, c0.y), glm::vec2(c1.x, c1.y));
-				float b = distance(glm::vec2(c0.x, c0.y), glm::vec2(c2.x, c2.y));
-				float c = distance(glm::vec2(c1.x, c1.y), glm::vec2(c2.x, c2.y));
+				float a = distance(vec2(c0.x, c0.y), vec2(c1.x, c1.y));
+				float b = distance(vec2(c0.x, c0.y), vec2(c2.x, c2.y));
+				float c = distance(vec2(c1.x, c1.y), vec2(c2.x, c2.y));
 
 				// s is semiperimeter
 				float s = (a + b + c) * 0.5f;
 
 				float area = pow(s * (s - a) * (s - b) * (s - c), area_multiplier);
 
-				glm::vec3 mid = (glm::vec3(v0) + glm::vec3(v1)+ glm::vec3(v2)) / 3.0f;
+				vec3 mid = (vec3(v0) + vec3(v1)+ vec3(v2)) / 3.0f;
 				float curv = pow(curvature(mid, camera_position), curvature_multiplier);
 
 				// A new point should be added
 				if (curv * area >= threshold)
 				{
-					// Check if the point could be a border point
-					const glm::vec4 point = glm::vec4(mid.x, -terrain(glm::vec2(mid.x, mid.z)) - 0.5f, mid.z, 1.0f);
+					const vec4 point = vec4(mid.x, -terrain(vec2(mid.x, mid.z)) - 0.5f, mid.z, 1.0f);
 					new_points[new_point_count] = point;
+					triangle_indices[new_point_count] = i / 3;
 					++new_point_count;
 				}
 			}
@@ -1159,6 +1163,7 @@ namespace cputri
 		for (uint i = 0; i < new_point_count && base_offset + i < num_new_points; ++i)
 		{
 			terrain_buffer->data[node_index].new_points[base_offset + i] = new_points[i];
+			terrain_buffer->data[node_index].new_points_triangles[base_offset + i] = triangle_indices[i];
 		}
 	}
 #pragma endregion
@@ -1167,12 +1172,14 @@ namespace cputri
 
 	struct BorderEdge
 	{
-		glm::vec4 p1;
-		glm::vec4 p2;
+		vec4 p1;
+		vec4 p2;
 		uint p1_index;
 		uint p2_index;
 		uint node_index;
-		uint pad;
+		uint connection;
+		uint future_index;
+		uint pad[3];
 	};
 	const uint max_border_edges = 100;
 	/*shared*/ std::array<BorderEdge, max_border_edges * 3> s_border_edges;
@@ -1189,6 +1196,8 @@ namespace cputri
 	/*shared*/ uint s_index_count;
 	/*shared*/ uint s_triangle_count;
 	/*shared*/ uint s_vertex_count;
+
+	/*shared*/ uint s_valid_indices[max_triangles_to_remove];
 
 #define INVALID 9999999
 #define EPSILON 1.0f - 0.0001f
@@ -1212,8 +1221,9 @@ namespace cputri
 				terrain_buffer->data[node_index].triangles[index].circumcentre = terrain_buffer->data[node_index].triangles[last_triangle].circumcentre;
 				terrain_buffer->data[node_index].triangles[index].circumradius = terrain_buffer->data[node_index].triangles[last_triangle].circumradius;
 				terrain_buffer->data[node_index].triangles[index].circumradius2 = terrain_buffer->data[node_index].triangles[last_triangle].circumradius2;
-
-				// TODO: Move connectivity as well
+				terrain_buffer->data[node_index].triangle_connections[index * 3 + 0] = terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + 0];
+				terrain_buffer->data[node_index].triangle_connections[index * 3 + 1] = terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + 1];
+				terrain_buffer->data[node_index].triangle_connections[index * 3 + 2] = terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + 2];
 			}
 			terrain_buffer->data[node_index].index_count -= 3;
 		}
@@ -1226,8 +1236,8 @@ namespace cputri
 	{
 		const uint thid = gl_GlobalInvocationID.x;
 
-		const glm::vec2 node_min = terrain_buffer->data[node_index].min;
-		const glm::vec2 node_max = terrain_buffer->data[node_index].max;
+		const vec2 node_min = terrain_buffer->data[node_index].min;
+		const vec2 node_max = terrain_buffer->data[node_index].max;
 		const float side = node_max.x - node_min.x;
 
 		const int nodes_per_side = 1 << quadtree_levels;
@@ -1250,15 +1260,27 @@ namespace cputri
 		const uint new_points_count = terrain_buffer->data[node_index].new_points_count;
 		for (uint n = 0; n < new_points_count && n < (uint)max_points_per_refine; ++n)
 		{
-			const glm::vec4 current_point = terrain_buffer->data[node_index].new_points[n];
+			const vec4 current_point = terrain_buffer->data[node_index].new_points[n];
 
-			// TODO: Change to connectivity driven looping
-			const uint triangle_count = terrain_buffer->data[node_index].index_count / 3;
-			uint i = thid;
-			while (i < triangle_count)
+			uint seen_triangles[50];
+			uint seen_triangle_count = 4;
+			uint triangles_to_test[50];
+			uint test_count = 3;
+
+			const uint start_index = terrain_buffer->data[node_index].new_points_triangles[n];
+			seen_triangles[0] = start_index;
+			seen_triangles[1] = terrain_buffer->data[node_index].triangle_connections[start_index * 3 + 0];
+			seen_triangles[2] = terrain_buffer->data[node_index].triangle_connections[start_index * 3 + 1];
+			seen_triangles[3] = terrain_buffer->data[node_index].triangle_connections[start_index * 3 + 2];
+			triangles_to_test[0] = seen_triangles[1];
+			triangles_to_test[1] = seen_triangles[2];
+			triangles_to_test[2] = seen_triangles[3];
+
+			while (test_count != 0)
 			{
-				const glm::vec2 circumcentre = terrain_buffer->data[node_index].triangles[i].circumcentre;
-				const float circumradius2 = terrain_buffer->data[node_index].triangles[i].circumradius2;
+				const uint triangle_index = triangles_to_test[--test_count];
+				const vec2 circumcentre = terrain_buffer->data[node_index].triangles[triangle_index].circumcentre;
+				const float circumradius2 = terrain_buffer->data[node_index].triangles[triangle_index].circumradius2;
 
 				const float dx = current_point.x - circumcentre.x;
 				const float dy = current_point.z - circumcentre.y;
@@ -1266,12 +1288,12 @@ namespace cputri
 				if (dx * dx + dy * dy < circumradius2)
 				{
 					// Add triangle edges to edge buffer
-					const uint index0 = terrain_buffer->data[node_index].indices[i * 3 + 0];
-					const uint index1 = terrain_buffer->data[node_index].indices[i * 3 + 1];
-					const uint index2 = terrain_buffer->data[node_index].indices[i * 3 + 2];
-					const glm::vec4 p0 = terrain_buffer->data[node_index].positions[index0];
-					const glm::vec4 p1 = terrain_buffer->data[node_index].positions[index1];
-					const glm::vec4 p2 = terrain_buffer->data[node_index].positions[index2];
+					const uint index0 = terrain_buffer->data[node_index].indices[triangle_index * 3 + 0];
+					const uint index1 = terrain_buffer->data[node_index].indices[triangle_index * 3 + 1];
+					const uint index2 = terrain_buffer->data[node_index].indices[triangle_index * 3 + 2];
+					const vec4 p0 = terrain_buffer->data[node_index].positions[index0];
+					const vec4 p1 = terrain_buffer->data[node_index].positions[index1];
+					const vec4 p2 = terrain_buffer->data[node_index].positions[index2];
 
 					// Store edges to be removed
 					//uint tr = atomicAdd(s_triangles_removed, 1);
@@ -1289,6 +1311,7 @@ namespace cputri
 					s_border_edges[ec + 0].p1_index = biggest_point ? index0 : index1;
 					s_border_edges[ec + 0].p2_index = !biggest_point ? index0 : index1;
 					s_border_edges[ec + 0].node_index = node_index;
+					s_border_edges[ec + 0].connection = terrain_buffer->data[node_index].triangle_connections[triangle_index * 3 + 0];
 					// Edge 1
 					biggest_point = p1.y < p2.y;
 					s_border_edges[ec + 1].p1 = biggest_point ? p1 : p2;
@@ -1296,6 +1319,7 @@ namespace cputri
 					s_border_edges[ec + 1].p1_index = biggest_point ? index1 : index2;
 					s_border_edges[ec + 1].p2_index = !biggest_point ? index1 : index2;
 					s_border_edges[ec + 1].node_index = node_index;
+					s_border_edges[ec + 1].connection = terrain_buffer->data[node_index].triangle_connections[triangle_index * 3 + 1];
 					// Edge 2
 					biggest_point = p2.y < p0.y;
 					s_border_edges[ec + 2].p1 = biggest_point ? p2 : p0;
@@ -1303,21 +1327,46 @@ namespace cputri
 					s_border_edges[ec + 2].p1_index = biggest_point ? index2 : index0;
 					s_border_edges[ec + 2].p2_index = !biggest_point ? index2 : index0;
 					s_border_edges[ec + 2].node_index = node_index;
+					s_border_edges[ec + 2].connection = terrain_buffer->data[node_index].triangle_connections[triangle_index * 3 + 2];
 
 					// Mark the triangle to be removed later
-					s_triangles_to_remove[tr] = i;
+					s_triangles_to_remove[tr] = triangle_index;
 					s_owning_node[tr] = node_index;
-				}
 
-				i += WORK_GROUP_SIZE;
+					// Add neighbour triangles to be tested
+					for (uint tt = 0; tt < 3; ++tt)
+					{
+						const uint index = terrain_buffer->data[node_index].triangle_connections[triangle_index * 3 + tt];
+						if (index == INVALID)
+							continue;
+						// Check if it has already been seen
+						bool found = false;
+						for (uint ii = 0; ii < seen_triangle_count; ++ii)
+						{
+							if (index == seen_triangles[ii])
+							{
+								found = true;
+								break;
+							}
+						}
+						if (!found)
+						{
+							seen_triangles[seen_triangle_count++] = index;
+							triangles_to_test[test_count++] = index;
+						}
+					}
+					// TODO: Borders
+				}
 			}
+
+
 
 			//barrier();
 			//memoryBarrierShared();
 
 			// Delete all doubly specified edges from edge buffer (this leaves the edges of the enclosing polygon only)
 			const uint edge_count = s_triangles_removed * 3;
-			i = thid;
+			uint i = thid;
 			while (i < edge_count)
 			{
 				bool found = false;
@@ -1349,7 +1398,8 @@ namespace cputri
 				{
 					if (s_border_edges[j].p1.w > -0.5)
 					{
-						++s_new_triangle_count;
+						s_valid_indices[s_new_triangle_count++] = j;
+						s_border_edges[j].future_index = terrain_buffer->data[s_border_edges[j].node_index].temp_new_triangles_count++;  // TODO: Reset
 					}
 				}
 			}
@@ -1366,88 +1416,122 @@ namespace cputri
 
 			if (thid == 0)
 			{
-				std::vector<uint> participating_nodes;
+				std::array<uint, 9> participating_nodes;
+				uint participation_count = 0;
 
 				// Add to the triangle list all triangles formed between the point and the edges of the enclosing polygon
-				for (uint i = 0; i < edge_count; ++i)
+				for (uint ii = 0; ii < s_new_triangle_count; ++ii)
 				{
-					if (s_border_edges[i].p1.w > -0.5)
+					uint i = s_valid_indices[ii];
+					vec3 P = vec3(s_border_edges[i].p1);
+					vec3 Q = vec3(s_border_edges[i].p2);
+					vec3 R = vec3(current_point);
+
+					vec2 PQ = normalize(vec2(Q.x, Q.z) - vec2(P.x, P.z));
+					vec2 PR = normalize(vec2(R.x, R.z) - vec2(P.x, P.z));
+					vec2 RQ = normalize(vec2(Q.x, Q.z) - vec2(R.x, R.z));
+
+					float d1 = abs(dot(PQ, PR));
+					float d2 = abs(dot(PR, RQ));
+					float d3 = abs(dot(RQ, PQ));
+
+					// Skip this triangle because it is too narrow (should only happen at borders)
+					if (d1 > EPSILON || d2 > EPSILON || d3 > EPSILON)
 					{
-						glm::vec3 P = glm::vec3(s_border_edges[i].p1);
-						glm::vec3 Q = glm::vec3(s_border_edges[i].p2);
-						glm::vec3 R = glm::vec3(current_point);
+						continue;  // TODO: Still needed?
+					}
 
-						glm::vec2 PQ = normalize(glm::vec2(Q.x, Q.z) - glm::vec2(P.x, P.z));
-						glm::vec2 PR = normalize(glm::vec2(R.x, R.z) - glm::vec2(P.x, P.z));
-						glm::vec2 RQ = normalize(glm::vec2(Q.x, Q.z) - glm::vec2(R.x, R.z));
+					// Make sure winding order is correct
+					const vec3 nor = cross(R - P, Q - P);
+					if (nor.y > 0)
+					{
+						vec4 temp = s_border_edges[i].p1;
+						s_border_edges[i].p1 = s_border_edges[i].p2;
+						s_border_edges[i].p2 = temp;
+						uint temp2 = s_border_edges[i].p1_index;
+						s_border_edges[i].p1_index = s_border_edges[i].p2_index;
+						s_border_edges[i].p2_index = temp2;
+					}
 
-						float d1 = abs(dot(PQ, PR));
-						float d2 = abs(dot(PR, RQ));
-						float d3 = abs(dot(RQ, PQ));
+					// Set indices for the new triangle
+					const uint index_count = terrain_buffer->data[s_border_edges[i].node_index].index_count;
+					terrain_buffer->data[s_border_edges[i].node_index].indices[index_count + 0] = s_border_edges[i].p1_index;
+					terrain_buffer->data[s_border_edges[i].node_index].indices[index_count + 1] = s_border_edges[i].p2_index;
+					terrain_buffer->data[s_border_edges[i].node_index].indices[index_count + 2] = terrain_buffer->data[s_border_edges[i].node_index].vertex_count;
 
-						// Skip this triangle because it is too narrow (should only happen at borders)
-						if (d1 > EPSILON || d2 > EPSILON || d3 > EPSILON)
-						{
-							continue;  // TODO: Still needed?
-						}
+					// Set circumcircles for the new triangle
+					float a = distance(vec2(P.x, P.z), vec2(Q.x, Q.z));
+					float b = distance(vec2(P.x, P.z), vec2(R.x, R.z));
+					float c = distance(vec2(R.x, R.z), vec2(Q.x, Q.z));
 
-						// Make sure winding order is correct
-						const glm::vec3 nor = cross(R - P, Q - P);
-						if (nor.y > 0)
-						{
-							glm::vec4 temp = s_border_edges[i].p1;
-							s_border_edges[i].p1 = s_border_edges[i].p2;
-							s_border_edges[i].p2 = temp;
-							uint temp2 = s_border_edges[i].p1_index;
-							s_border_edges[i].p1_index = s_border_edges[i].p2_index;
-							s_border_edges[i].p2_index = temp2;
-						}
+					const vec2 cc_center = find_circum_center(vec2(P.x, P.z), vec2(Q.x, Q.z), vec2(R.x, R.z));
+					const float cc_radius2 = find_circum_radius_squared(a, b, c);
+					const float cc_radius = sqrt(cc_radius2);
 
-						// Set indices for the new triangle
-						const uint index_count = terrain_buffer->data[s_border_edges[i].node_index].index_count;
-						terrain_buffer->data[s_border_edges[i].node_index].indices[index_count + 0] = s_border_edges[i].p1_index;
-						terrain_buffer->data[s_border_edges[i].node_index].indices[index_count + 1] = s_border_edges[i].p2_index;
-						terrain_buffer->data[s_border_edges[i].node_index].indices[index_count + 2] = terrain_buffer->data[s_border_edges[i].node_index].vertex_count;
+					const uint triangle_count = index_count / 3;
+					terrain_buffer->data[s_border_edges[i].node_index].triangles[triangle_count].circumcentre = cc_center;
+					terrain_buffer->data[s_border_edges[i].node_index].triangles[triangle_count].circumradius = cc_radius;
+					terrain_buffer->data[s_border_edges[i].node_index].triangles[triangle_count].circumradius2 = cc_radius2;
 
-						// Set circumcircles for the new triangle
-						float a = distance(glm::vec2(P.x, P.z), glm::vec2(Q.x, Q.z));
-						float b = distance(glm::vec2(P.x, P.z), glm::vec2(R.x, R.z));
-						float c = distance(glm::vec2(R.x, R.z), glm::vec2(Q.x, Q.z));
-
-						const glm::vec2 cc_center = find_circum_center(glm::vec2(P.x, P.z), glm::vec2(Q.x, Q.z), glm::vec2(R.x, R.z));
-						const float cc_radius2 = find_circum_radius_squared(a, b, c);
-						const float cc_radius = sqrt(cc_radius2);
-
-						const uint triangle_count = index_count / 3;
-						terrain_buffer->data[s_border_edges[i].node_index].triangles[triangle_count].circumcentre = cc_center;
-						terrain_buffer->data[s_border_edges[i].node_index].triangles[triangle_count].circumradius = cc_radius;
-						terrain_buffer->data[s_border_edges[i].node_index].triangles[triangle_count].circumradius2 = cc_radius2;
-
-						// TODO: Connectivity
-
-						terrain_buffer->data[s_border_edges[i].node_index].index_count += 3;
+					// Connections
+					terrain_buffer->data[s_border_edges[i].node_index].triangle_connections[index_count + 0] = s_border_edges[i].connection;
+					const vec4 edges[4] = { s_border_edges[i].p2, current_point, current_point, s_border_edges[i].p1 };
+					for (uint ss = 0; ss < 4; ss += 2)  // The two other sides
+					{
+						// TODO: Add early exit?
+						//if (terrain_buffer->data[s_border_edges[i].node_index].triangle_connections[index_count + 1 + ss / 2] == )
+						//	continue;
 
 						bool found = false;
-						for (auto t : participating_nodes)
+						// Search through all other new triangles that have been added to find possible neighbours/connections
+						for (uint ee = 0; ee < s_new_triangle_count && !found; ++ee)
 						{
-							if (s_border_edges[i].node_index == t)
+							if (ee == i || s_border_edges[i].node_index != s_border_edges[ee].node_index)
+								continue;
+							// Check each pair of points in the triangle if they match
+							if (edges[ss] == s_border_edges[ee].p2 && edges[ss + 1] == s_border_edges[ee].p1)
 							{
+								terrain_buffer->data[s_border_edges[i].node_index].triangle_connections[index_count + 1 + ss / 2] = s_border_edges[ee].future_index;
 								found = true;
-								break;
+							}
+							else if (edges[ss] == current_point && edges[ss + 1] == s_border_edges[ee].p2)
+							{
+								terrain_buffer->data[s_border_edges[i].node_index].triangle_connections[index_count + 1 + ss / 2] = s_border_edges[ee].future_index;
+								found = true;
+							}
+							else if (edges[ss] == s_border_edges[ee].p1 && edges[ss + 1] == current_point)
+							{
+								terrain_buffer->data[s_border_edges[i].node_index].triangle_connections[index_count + 1 + ss / 2] = s_border_edges[ee].future_index;
+								found = true;
 							}
 						}
 						if (!found)
-							participating_nodes.push_back(s_border_edges[i].node_index);
+						{
+							terrain_buffer->data[s_border_edges[i].node_index].triangle_connections[index_count + 1 + ss / 2] = INVALID;
+						}
 					}
+
+					terrain_buffer->data[s_border_edges[i].node_index].index_count += 3;
+
+					bool found = false;
+					for (uint jj = 0; jj < participation_count; ++jj)
+					{
+						if (s_border_edges[i].node_index == participating_nodes[jj])
+						{
+							found = true;
+							break;
+						}
+					}
+					if (!found)
+						participating_nodes[participation_count++] = s_border_edges[i].node_index;
 				}
 
 				remove_old_triangles();
 
 				// Insert new point
-				for (auto t : participating_nodes)
+				for (uint jj = 0; jj < participation_count; ++jj)
 				{
-					terrain_buffer->data[t].positions[terrain_buffer->data[t].vertex_count] = current_point;
-					++terrain_buffer->data[t].vertex_count;
+					terrain_buffer->data[participating_nodes[jj]].positions[terrain_buffer->data[participating_nodes[jj]].vertex_count++] = current_point;
 				}
 
 				s_triangles_removed = 0;

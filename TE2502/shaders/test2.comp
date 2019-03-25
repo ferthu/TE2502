@@ -14,11 +14,11 @@ float rand(float n)
 
 void main()
 {
-	for (int ii = 0; ii < 128; ++ii)
+	for (int ii = 0; ii < 4096; ++ii)
 	{
 		float sum = 0.0;
 
-		for (uint jj = 0; jj < 128; ++jj)
+		for (uint jj = 0; jj < 4096; ++jj)
 		{
 			sum += fract(pow(sin(pow(test.f[jj], 2.65464)), 0.89465));
 		}

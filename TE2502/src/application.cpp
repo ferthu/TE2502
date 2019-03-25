@@ -39,7 +39,7 @@ std::unique_ptr<Pipeline> p2;
 
 void test(VulkanContext& context)
 {
-	return;
+	//return;
 	const uint32_t size1 = 128;
 	q1 = context.create_compute_queue();
 	mem1 = context.allocate_device_memory(size1 * sizeof(float) + 1000);
@@ -55,7 +55,7 @@ void test(VulkanContext& context)
 	pl1.create(nullptr);
 	p1 = context.create_compute_pipeline("test1", pl1, nullptr);
 
-	const uint32_t size2 = 128;
+	const uint32_t size2 = 4096;
 	q2 = context.create_compute_queue();
 	mem2 = context.allocate_device_memory(size2 * sizeof(float) + 1000);
 	buf2 = GPUBuffer(context, size2 * sizeof(float), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, mem2);

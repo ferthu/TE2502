@@ -11,6 +11,8 @@
 #include "pipeline.hpp"
 #include "render_pass.hpp"
 
+//#define CALLBACKS
+
 VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_error_callback(
 	VkDebugReportFlagsEXT       flags,
 	VkDebugReportObjectTypeEXT  objectType,
@@ -92,6 +94,7 @@ VulkanContext::~VulkanContext()
 	vkDestroyDevice(m_device, m_allocation_callbacks);
 
 #ifdef _DEBUG
+#ifdef CALLBACKS
 	// Destroy debug callbacks
 	PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT =
 		reinterpret_cast<PFN_vkDestroyDebugReportCallbackEXT>
@@ -99,6 +102,7 @@ VulkanContext::~VulkanContext()
 
 	vkDestroyDebugReportCallbackEXT(m_instance, m_error_callback, m_allocation_callbacks);
 	vkDestroyDebugReportCallbackEXT(m_instance, m_warning_callback, m_allocation_callbacks);
+#endif
 #endif
 
 	vkDestroyInstance(m_instance, m_allocation_callbacks);
@@ -159,7 +163,7 @@ void VulkanContext::create_instance()
 	assert(result == VK_SUCCESS);
 
 #ifdef _DEBUG
-
+#ifdef CALLBACKS
 	// Register validation layer callbacks
 
 	// Get addresses of VK_EXT_debug_report functions
@@ -199,6 +203,7 @@ void VulkanContext::create_instance()
 		VkDebugReportObjectTypeEXT::VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, 0, 0, 
 		"Timmie", 
 		">>> Initializing Vulkan validation layer callbacks <<<");
+#endif
 #endif
 }
 

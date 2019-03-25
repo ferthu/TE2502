@@ -11,7 +11,7 @@
 #include "pipeline.hpp"
 #include "render_pass.hpp"
 
-//#define CALLBACKS
+#define CALLBACKS
 
 VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_error_callback(
 	VkDebugReportFlagsEXT       flags,

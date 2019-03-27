@@ -43,7 +43,6 @@ namespace cputri
 	struct Triangle
 	{
 		vec2 circumcentre;
-		//float circumradius;  // TODO: Still needed?
 		float circumradius2;
 		uint pad;
 	};
@@ -1015,9 +1014,7 @@ namespace cputri
 			const float radius12 = find_circum_radius_squared(P1, Q1, R1);
 			const float radius22 = find_circum_radius_squared(P2, Q2, R2);
 			terrain_buffer->data[node_index].triangles[triangle_index + 0].circumradius2 = radius12;
-			//terrain_buffer->data[node_index].triangles[triangle_index + 0].circumradius = sqrt(radius12);
 			terrain_buffer->data[node_index].triangles[triangle_index + 1].circumradius2 = radius22;
-			//terrain_buffer->data[node_index].triangles[triangle_index + 1].circumradius = sqrt(radius22);
 
 			i += WORK_GROUP_SIZE;
 		}
@@ -1274,7 +1271,6 @@ namespace cputri
 				terrain_buffer->data[global_node_index].indices[index * 3 + 1] = terrain_buffer->data[global_node_index].indices[last_triangle * 3 + 1];
 				terrain_buffer->data[global_node_index].indices[index * 3 + 2] = terrain_buffer->data[global_node_index].indices[last_triangle * 3 + 2];
 				terrain_buffer->data[global_node_index].triangles[index].circumcentre = terrain_buffer->data[global_node_index].triangles[last_triangle].circumcentre;
-				//terrain_buffer->data[global_node_index].triangles[index].circumradius = terrain_buffer->data[global_node_index].triangles[last_triangle].circumradius;
 				terrain_buffer->data[global_node_index].triangles[index].circumradius2 = terrain_buffer->data[global_node_index].triangles[last_triangle].circumradius2;
 				terrain_buffer->data[global_node_index].triangle_connections[index * 3 + 0] = terrain_buffer->data[global_node_index].triangle_connections[last_triangle * 3 + 0];
 				terrain_buffer->data[global_node_index].triangle_connections[index * 3 + 1] = terrain_buffer->data[global_node_index].triangle_connections[last_triangle * 3 + 1];
@@ -1631,9 +1627,6 @@ namespace cputri
 						s_edges[i].p2_index = temp2;
 					}
 
-					// Calculate node to put the triangle in
-
-
 					// Set indices for the new triangle
 					const uint index_count = terrain_buffer->data[ltg[s_edges[i].node_index]].index_count;
 					terrain_buffer->data[ltg[s_edges[i].node_index]].indices[index_count + 0] = s_edges[i].p1_index;
@@ -1654,7 +1647,6 @@ namespace cputri
 					const float cc_radius = sqrt(cc_radius2);
 
 					terrain_buffer->data[ltg[s_edges[i].node_index]].triangles[triangle_count].circumcentre = cc_center;
-					//terrain_buffer->data[ltg[s_edges[i].node_index]].triangles[triangle_count].circumradius = cc_radius;
 					terrain_buffer->data[ltg[s_edges[i].node_index]].triangles[triangle_count].circumradius2 = cc_radius2;
 
 					// Connections

@@ -14,8 +14,8 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_vulkan.h"
 
-#include <string>
 #include <glm/gtc/matrix_transform.hpp>
+#include <string>
 #include <array>
 
 //#define RAY_MARCH_WINDOW
@@ -39,7 +39,7 @@ std::unique_ptr<Pipeline> p2;
 
 void test(VulkanContext& context)
 {
-	//return;
+	return;
 	const uint32_t size1 = 128;
 	q1 = context.create_compute_queue();
 	mem1 = context.allocate_device_memory(size1 * sizeof(float) + 1000);

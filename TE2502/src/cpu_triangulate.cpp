@@ -18,7 +18,7 @@ namespace cputri
 	#define TERRAIN_GENERATE_NUM_INDICES 8000
 	#define TERRAIN_GENERATE_NUM_VERTICES 2000
 	#define TERRAIN_GENERATE_NUM_NODES 16
-	#define TERRAIN_GENERATE_GRID_SIDE 3
+	#define TERRAIN_GENERATE_GRID_SIDE 7
 	#define TRIANGULATE_MAX_NEW_POINTS 1024
 	#define QUADTREE_LEVELS 2
 	#define MAX_BORDER_TRIANGLE_COUNT 500
@@ -1203,6 +1203,10 @@ namespace cputri
 	uint test_triangle_owners[50]; // Local node format
 	uint test_count;
 
+#define NUM_NEW_TRIANGLE_INDICES 20
+	uint new_triangle_indices[9 * NUM_NEW_TRIANGLE_INDICES];
+	uint new_triangle_index_count[9];
+
 #define EPSILON 1.0f - 0.0001f
 #define SELF_INDEX 4
 
@@ -1250,9 +1254,7 @@ namespace cputri
 						{
 							terrain_buffer->data[global_node_index].border_triangle_indices[tt] = terrain_buffer->data[global_node_index].border_triangle_indices[count - 1];
 							--terrain_buffer->data[global_node_index].border_count;
-							terrain_buffer->data[global_node_index].border_triangle_indices[count - 1] = INVALID; // TODO: REMOVE
 							--count;
-
 						}
 						if (terrain_buffer->data[global_node_index].border_triangle_indices[tt] == last_triangle)
 						{
@@ -1275,27 +1277,37 @@ namespace cputri
 				terrain_buffer->data[global_node_index].triangle_connections[index * 3 + 0] = terrain_buffer->data[global_node_index].triangle_connections[last_triangle * 3 + 0];
 				terrain_buffer->data[global_node_index].triangle_connections[index * 3 + 1] = terrain_buffer->data[global_node_index].triangle_connections[last_triangle * 3 + 1];
 				terrain_buffer->data[global_node_index].triangle_connections[index * 3 + 2] = terrain_buffer->data[global_node_index].triangle_connections[last_triangle * 3 + 2];
+
+				for (uint tt = 0; tt < new_triangle_index_count[s_owning_node[j]]; ++tt)
+				{
+					const uint triangle_index = new_triangle_indices[s_owning_node[j] * NUM_NEW_TRIANGLE_INDICES + tt];
+					if (triangle_index == last_triangle)
+						new_triangle_indices[s_owning_node[j] * NUM_NEW_TRIANGLE_INDICES + tt] = index;
+				}
 			}
 
 			terrain_buffer->data[global_node_index].index_count -= 3;
 
-			// TODO: Only search through new triangles
+			// Update the rest of the new points' triangle index after updating triangles in node
 			for (uint ii = 0; ii < terrain_buffer->data[global_node_index].new_points_count; ++ii)
 			{
 				if (terrain_buffer->data[global_node_index].new_points_triangles[ii] == index)
 				{
-					for (int tt = terrain_buffer->data[global_node_index].index_count / 3 - 1; tt >= 0; --tt)
+					// Look through all newly added triangles only
+					for (uint tt = 0; tt < new_triangle_index_count[s_owning_node[j]]; ++tt)
 					{
+						const uint triangle_index = new_triangle_indices[s_owning_node[j] * NUM_NEW_TRIANGLE_INDICES + tt];
 						const vec4 new_point = terrain_buffer->data[global_node_index].new_points[ii];
-						const vec2 circumcentre = terrain_buffer->data[global_node_index].triangles[tt].circumcentre;
-						const float circumradius2 = terrain_buffer->data[global_node_index].triangles[tt].circumradius2;
+						const vec2 circumcentre = terrain_buffer->data[global_node_index].triangles[triangle_index].circumcentre;
+						const float circumradius2 = terrain_buffer->data[global_node_index].triangles[triangle_index].circumradius2;
 
 						const float dx = new_point.x - circumcentre.x;
 						const float dy = new_point.z - circumcentre.y;
 
+						// Find the first triangle whose cc contains the point
 						if (dx * dx + dy * dy < circumradius2)
 						{
-							terrain_buffer->data[global_node_index].new_points_triangles[ii] = tt;
+							terrain_buffer->data[global_node_index].new_points_triangles[ii] = triangle_index;
 							break;
 						}
 					}
@@ -1380,6 +1392,7 @@ namespace cputri
 			for (uint ii = 0; ii < 9; ++ii)
 			{
 				nodes_new_points_count[ii] = 0;
+				new_triangle_index_count[ii] = 0;
 			}
 
 			seen_triangle_count = 1;
@@ -1391,12 +1404,6 @@ namespace cputri
 			seen_triangle_owners[0] = SELF_INDEX;
 			triangles_to_test[0] = start_index;
 			test_triangle_owners[0] = SELF_INDEX;
-			//seen_triangles[1] = terrain_buffer->data[node_index].triangle_connections[start_index * 3 + 0];
-			//seen_triangles[2] = terrain_buffer->data[node_index].triangle_connections[start_index * 3 + 1];
-			//seen_triangles[3] = terrain_buffer->data[node_index].triangle_connections[start_index * 3 + 2];
-			//triangles_to_test[0] = seen_triangles[1];
-			//triangles_to_test[1] = seen_triangles[2];
-			//triangles_to_test[2] = seen_triangles[3];
 
 			while (test_count != 0)
 			{
@@ -1492,15 +1499,6 @@ namespace cputri
 											if (ddx * ddx + ddy * ddy < cr2)
 											{
 												add_connection(local_index, border_triangle);
-
-												/*for (uint s = 0; s < 3; ++s)
-												{
-													const uint connection = terrain_buffer->data[node].triangle_connections[border_triangle * 3 + s];
-													if (connection != INVALID)
-													{
-														add_connection(local_index, connection);
-													}
-												}*/
 											}
 										}
 									}
@@ -1614,6 +1612,10 @@ namespace cputri
 					terrain_buffer->data[ltg[s_edges[i].node_index]].indices[index_count + 1] = s_edges[i].p2_index;
 					terrain_buffer->data[ltg[s_edges[i].node_index]].indices[index_count + 2] = terrain_buffer->data[ltg[s_edges[i].node_index]].vertex_count;
 
+					const uint triangle_count = index_count / 3;
+					new_triangle_indices[s_edges[i].node_index * NUM_NEW_TRIANGLE_INDICES + new_triangle_index_count[s_edges[i].node_index]] = triangle_count;
+					++new_triangle_index_count[s_edges[i].node_index];
+
 					// Set circumcircles for the new triangle
 					float a = distance(vec2(P.x, P.z), vec2(Q.x, Q.z));
 					float b = distance(vec2(P.x, P.z), vec2(R.x, R.z));
@@ -1623,7 +1625,6 @@ namespace cputri
 					const float cc_radius2 = find_circum_radius_squared(a, b, c);
 					const float cc_radius = sqrt(cc_radius2);
 
-					const uint triangle_count = index_count / 3;
 					terrain_buffer->data[ltg[s_edges[i].node_index]].triangles[triangle_count].circumcentre = cc_center;
 					terrain_buffer->data[ltg[s_edges[i].node_index]].triangles[triangle_count].circumradius = cc_radius;
 					terrain_buffer->data[ltg[s_edges[i].node_index]].triangles[triangle_count].circumradius2 = cc_radius2;

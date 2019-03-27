@@ -43,8 +43,9 @@ namespace cputri
 	struct Triangle
 	{
 		vec2 circumcentre;
-		float circumradius;  // TODO: Still needed?
+		//float circumradius;  // TODO: Still needed?
 		float circumradius2;
+		uint pad;
 	};
 
 	struct BufferNodeHeader
@@ -789,7 +790,7 @@ namespace cputri
 							const float angle = 3.14159265f * 2.0f / steps;
 							for (uint jj = 0; jj < steps + 1; ++jj)
 							{
-								float cc_radius = terrain_buffer->data[ii].triangles[tri_index].circumradius;
+								float cc_radius = sqrt(terrain_buffer->data[ii].triangles[tri_index].circumradius2);
 								vec3 cc_mid = { terrain_buffer->data[ii].triangles[tri_index].circumcentre.x, mid.y, terrain_buffer->data[ii].triangles[tri_index].circumcentre.y };
 
 								dd.draw_line(cc_mid + vec3(sinf(angle * jj) * cc_radius, 0.0f, cosf(angle * jj) * cc_radius),
@@ -910,7 +911,7 @@ namespace cputri
 		uint i = gl_GlobalInvocationID.x;
 		while (i < GRID_SIDE * GRID_SIDE)
 		{
-			float x = min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * (max.x - min.x) + ((max.x - min.x) / GRID_SIDE) * 0.5 * ((i / GRID_SIDE) % 2);
+			float x = min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * (max.x - min.x) + ((max.x - min.x) / GRID_SIDE) * 0.5f * ((i / GRID_SIDE) % 2);
 			float z = min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * (max.y - min.y);
 
 			terrain_buffer->data[node_index].positions[i] = vec4(x, -terrain(vec2(x, z)) - 0.5, z, 1.0);
@@ -1014,9 +1015,9 @@ namespace cputri
 			const float radius12 = find_circum_radius_squared(P1, Q1, R1);
 			const float radius22 = find_circum_radius_squared(P2, Q2, R2);
 			terrain_buffer->data[node_index].triangles[triangle_index + 0].circumradius2 = radius12;
-			terrain_buffer->data[node_index].triangles[triangle_index + 0].circumradius = sqrt(radius12);
+			//terrain_buffer->data[node_index].triangles[triangle_index + 0].circumradius = sqrt(radius12);
 			terrain_buffer->data[node_index].triangles[triangle_index + 1].circumradius2 = radius22;
-			terrain_buffer->data[node_index].triangles[triangle_index + 1].circumradius = sqrt(radius22);
+			//terrain_buffer->data[node_index].triangles[triangle_index + 1].circumradius = sqrt(radius22);
 
 			i += WORK_GROUP_SIZE;
 		}
@@ -1209,6 +1210,7 @@ namespace cputri
 
 #define EPSILON 1.0f - 0.0001f
 #define SELF_INDEX 4
+#define ADJUST_PERCENTAGE 0.20f
 
 	void replace_connection_index(uint node_index, uint triangle_to_check, uint index_to_replace, uint new_value)
 	{
@@ -1272,7 +1274,7 @@ namespace cputri
 				terrain_buffer->data[global_node_index].indices[index * 3 + 1] = terrain_buffer->data[global_node_index].indices[last_triangle * 3 + 1];
 				terrain_buffer->data[global_node_index].indices[index * 3 + 2] = terrain_buffer->data[global_node_index].indices[last_triangle * 3 + 2];
 				terrain_buffer->data[global_node_index].triangles[index].circumcentre = terrain_buffer->data[global_node_index].triangles[last_triangle].circumcentre;
-				terrain_buffer->data[global_node_index].triangles[index].circumradius = terrain_buffer->data[global_node_index].triangles[last_triangle].circumradius;
+				//terrain_buffer->data[global_node_index].triangles[index].circumradius = terrain_buffer->data[global_node_index].triangles[last_triangle].circumradius;
 				terrain_buffer->data[global_node_index].triangles[index].circumradius2 = terrain_buffer->data[global_node_index].triangles[last_triangle].circumradius2;
 				terrain_buffer->data[global_node_index].triangle_connections[index * 3 + 0] = terrain_buffer->data[global_node_index].triangle_connections[last_triangle * 3 + 0];
 				terrain_buffer->data[global_node_index].triangle_connections[index * 3 + 1] = terrain_buffer->data[global_node_index].triangle_connections[last_triangle * 3 + 1];
@@ -1384,7 +1386,7 @@ namespace cputri
 		const uint new_points_count = terrain_buffer->data[node_index].new_points_count;
 		//for (uint n = 0; n < new_points_count && n < (uint)max_points_per_refine; ++n)
 		uint counter = 0;
-		for (int n = new_points_count - 1; n >= 0 && counter < vertices_per_refine; --n, ++counter)
+		for (int n = (int)new_points_count - 1; n >= 0 && counter < (uint)vertices_per_refine; --n, ++counter)
 		{
 			const vec4 current_point = terrain_buffer->data[node_index].new_points[n];
 
@@ -1477,28 +1479,54 @@ namespace cputri
 						else if (!checked_borders)
 						{
 							checked_borders = true;
-							// TODO: Only check relevant nodes
-							for (int y = 0; y <= 2; ++y)
+							// Check the internal border triangles
+							uint node = ltg[SELF_INDEX];
+							if (node != INVALID)
 							{
-								for (int x = 0; x <= 2; ++x)
+								const uint triangle_count = terrain_buffer->data[node].border_count;
+								for (uint tt = 0; tt < triangle_count; ++tt)
 								{
-									const uint local_index = y * 3 + x;
-									const uint node = ltg[local_index];
-									if (node != INVALID)
+									const uint border_triangle = terrain_buffer->data[node].border_triangle_indices[tt];
+									const vec2 cc = terrain_buffer->data[node].triangles[border_triangle].circumcentre;
+									const float cr2 = terrain_buffer->data[node].triangles[border_triangle].circumradius2;
+
+									const float ddx = current_point.x - cc.x;
+									const float ddy = current_point.z - cc.y;
+
+									if (ddx * ddx + ddy * ddy < cr2)
 									{
-										const uint triangle_count = terrain_buffer->data[node].border_count;
-										for (uint tt = 0; tt < triangle_count; ++tt)
+										add_connection(SELF_INDEX, border_triangle);
+									}
+								}
+							}
+
+							// Check neighbour nodes
+							for (uint nn = 0; nn < 9; ++nn)
+							{
+								if (nn != SELF_INDEX)
+								{
+									const vec2 adjusted_max = node_max + vec2(side) * ADJUST_PERCENTAGE;
+									const vec2 adjusted_min = node_min - vec2(side) * ADJUST_PERCENTAGE;
+									if (current_point.x >= adjusted_min.x && current_point.x <= adjusted_max.x
+										&& current_point.z >= adjusted_min.y && current_point.z <= adjusted_max.y)
+									{
+										const uint node = ltg[nn];
+										if (node != INVALID)
 										{
-											const uint border_triangle = terrain_buffer->data[node].border_triangle_indices[tt];
-											const vec2 cc = terrain_buffer->data[node].triangles[border_triangle].circumcentre;
-											const float cr2 = terrain_buffer->data[node].triangles[border_triangle].circumradius2;
-
-											const float ddx = current_point.x - cc.x;
-											const float ddy = current_point.z - cc.y;
-
-											if (ddx * ddx + ddy * ddy < cr2)
+											const uint triangle_count = terrain_buffer->data[node].border_count;
+											for (uint tt = 0; tt < triangle_count; ++tt)
 											{
-												add_connection(local_index, border_triangle);
+												const uint border_triangle = terrain_buffer->data[node].border_triangle_indices[tt];
+												const vec2 cc = terrain_buffer->data[node].triangles[border_triangle].circumcentre;
+												const float cr2 = terrain_buffer->data[node].triangles[border_triangle].circumradius2;
+
+												const float ddx = current_point.x - cc.x;
+												const float ddy = current_point.z - cc.y;
+
+												if (ddx * ddx + ddy * ddy < cr2)
+												{
+													add_connection(nn, border_triangle);
+												}
 											}
 										}
 									}
@@ -1577,19 +1605,19 @@ namespace cputri
 					vec3 Q = vec3(s_edges[i].p2);
 					vec3 R = vec3(current_point);
 
-					vec2 PQ = normalize(vec2(Q.x, Q.z) - vec2(P.x, P.z));
-					vec2 PR = normalize(vec2(R.x, R.z) - vec2(P.x, P.z));
-					vec2 RQ = normalize(vec2(Q.x, Q.z) - vec2(R.x, R.z));
+					//vec2 PQ = normalize(vec2(Q.x, Q.z) - vec2(P.x, P.z));
+					//vec2 PR = normalize(vec2(R.x, R.z) - vec2(P.x, P.z));
+					//vec2 RQ = normalize(vec2(Q.x, Q.z) - vec2(R.x, R.z));
 
-					float d1 = abs(dot(PQ, PR));
-					float d2 = abs(dot(PR, RQ));
-					float d3 = abs(dot(RQ, PQ));
+					//float d1 = abs(dot(PQ, PR));
+					//float d2 = abs(dot(PR, RQ));
+					//float d3 = abs(dot(RQ, PQ));
 
 					// Skip this triangle because it is too narrow (should only happen at borders)
-					if (d1 > EPSILON || d2 > EPSILON || d3 > EPSILON)
-					{
-						continue;  // TODO: Still needed?
-					}
+					//if (d1 > EPSILON || d2 > EPSILON || d3 > EPSILON)
+					//{
+					//	continue;
+					//}
 
 					// Make sure winding order is correct
 					const vec3 nor = cross(R - P, Q - P);
@@ -1626,7 +1654,7 @@ namespace cputri
 					const float cc_radius = sqrt(cc_radius2);
 
 					terrain_buffer->data[ltg[s_edges[i].node_index]].triangles[triangle_count].circumcentre = cc_center;
-					terrain_buffer->data[ltg[s_edges[i].node_index]].triangles[triangle_count].circumradius = cc_radius;
+					//terrain_buffer->data[ltg[s_edges[i].node_index]].triangles[triangle_count].circumradius = cc_radius;
 					terrain_buffer->data[ltg[s_edges[i].node_index]].triangles[triangle_count].circumradius2 = cc_radius2;
 
 					// Connections
@@ -1640,10 +1668,6 @@ namespace cputri
 					}
 					for (uint ss = 0; ss < 2; ++ss)  // The two other sides
 					{
-						// TODO: Add early exit?
-						//if (terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[index_count + 1 + ss / 2] == )
-						//	continue;
-
 						bool found = false;
 						// Search through all other new triangles that have been added to find possible neighbours/connections
 						for (uint ee = 0; ee < s_new_triangle_count && !found; ++ee)

@@ -6,6 +6,7 @@
 #include "glm/glm.hpp"
 #include "cpu_triangulate.hpp"
 #include "graphics/window.hpp"
+#include "utilities.hpp"
 
 #include "imgui/imgui.h"
 
@@ -15,13 +16,14 @@ namespace cputri
 	typedef uint32_t uint;
 
 	#define TERRAIN_GENERATE_TOTAL_SIDE_LENGTH 1000
-	#define TERRAIN_GENERATE_NUM_INDICES 8000
-	#define TERRAIN_GENERATE_NUM_VERTICES 2000
+	#define TERRAIN_GENERATE_NUM_INDICES 12000
+	#define TERRAIN_GENERATE_NUM_VERTICES 4000
 	#define TERRAIN_GENERATE_NUM_NODES 16
-	#define TERRAIN_GENERATE_GRID_SIDE 7
+	#define TERRAIN_GENERATE_GRID_SIDE 9
 	#define TRIANGULATE_MAX_NEW_POINTS 1024
 	#define QUADTREE_LEVELS 2
-	#define MAX_BORDER_TRIANGLE_COUNT 500
+	#define MAX_BORDER_TRIANGLE_COUNT 2000
+	#define ADJUST_PERCENTAGE 0.20f
 	
 	#define WORK_GROUP_SIZE 1
 
@@ -117,18 +119,21 @@ namespace cputri
 		uint* draw_nodes;
 
 		float total_side_length;
-		uint levels;
 
 		// Max number of active nodes
 		uint64_t max_nodes;
 
-		// For chunk i of m_buffer, m_buffer_index_filled[i] is true if that chunk is used by a node
+		// For chunk i of m_buffer, quadtree.buffer_index_filled[i] is true if that chunk is used by a node
 		bool* buffer_index_filled;
 
 		uint* node_index_to_buffer_index;
 
 		uint64_t node_memory_size;
 		vec2* quadtree_minmax;
+
+		vec2 node_size;
+
+		const float quadtree_shift_distance = 100.0f;
 	};
 	Quadtree quadtree;
 
@@ -530,6 +535,8 @@ namespace cputri
 
 		// (1 << levels) is number of nodes per axis
 		memset(quadtree.node_index_to_buffer_index, INVALID, (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
+
+		quadtree.node_size = vec2(quadtree.total_side_length / (1 << quadtree_levels), quadtree.total_side_length / (1 << quadtree_levels));
 	}
 
 	void destroy()
@@ -547,7 +554,7 @@ namespace cputri
 	void run(DebugDrawer& dd, Camera& camera, Window& window, bool show_imgui)
 	{
 		Frustum fr = camera.get_frustum();
-		cputri::intersect(fr, dd);
+		cputri::intersect(fr, dd, camera.get_pos());
 
 		cputri::draw_terrain(fr, dd, camera);
 
@@ -567,7 +574,6 @@ namespace cputri
 			if (ImGui::Button("Refine"))
 			{
 				cputri::process_triangles(camera, window, threshold, area_mult, curv_mult);
-				triangulate();
 			}
 			if (ImGui::Button("Clear Terrain"))
 			{
@@ -586,6 +592,7 @@ namespace cputri
 			ImGui::DragInt("Vistris End", &vistris_end, 0.1f);
 			ImGui::End();
 		}
+		triangulate();
 	}
 
 	uint find_chunk()
@@ -623,6 +630,135 @@ namespace cputri
 		return cpu_index_buffer_size + i * quadtree.node_memory_size;
 	}
 
+	void shift_quadtree(glm::vec3 camera_pos)
+	{
+		size_t nodes_per_side = (1ull << quadtree_levels);
+
+		bool shifted = false;
+
+		do
+		{
+			shifted = false;
+
+			if (camera_pos.x + quadtree.quadtree_shift_distance >= quadtree.quadtree_minmax[1].x)
+			{
+				shifted = true;
+
+				quadtree.quadtree_minmax[0].x += quadtree.node_size.x;
+				quadtree.quadtree_minmax[1].x += quadtree.node_size.x;
+
+				for (size_t y = 0; y < nodes_per_side; ++y)
+				{
+					for (size_t x = 0; x < nodes_per_side; ++x)
+					{
+						size_t index = y * nodes_per_side + x;
+
+						if (x == nodes_per_side - 1)
+						{
+							quadtree.node_index_to_buffer_index[index] = INVALID;
+						}
+						else
+						{
+							if (x == 0 && quadtree.node_index_to_buffer_index[index] != INVALID)
+							{
+								quadtree.buffer_index_filled[quadtree.node_index_to_buffer_index[index]] = false;
+							}
+
+							quadtree.node_index_to_buffer_index[index] = quadtree.node_index_to_buffer_index[index + 1];
+						}
+					}
+				}
+			}
+			else if (camera_pos.x - quadtree.quadtree_shift_distance <= quadtree.quadtree_minmax[0].x)
+			{
+				shifted = true;
+
+				quadtree.quadtree_minmax[0].x -= quadtree.node_size.x;
+				quadtree.quadtree_minmax[1].x -= quadtree.node_size.x;
+
+				for (size_t y = 0; y < nodes_per_side; ++y)
+				{
+					for (int64_t x = nodes_per_side - 1; x >= 0; --x)
+					{
+						size_t index = y * nodes_per_side + x;
+
+						if (x == 0)
+						{
+							quadtree.node_index_to_buffer_index[index] = INVALID;
+						}
+						else
+						{
+							if (x == nodes_per_side - 1 && quadtree.node_index_to_buffer_index[index] != INVALID)
+							{
+								quadtree.buffer_index_filled[quadtree.node_index_to_buffer_index[index]] = false;
+							}
+
+							quadtree.node_index_to_buffer_index[index] = quadtree.node_index_to_buffer_index[index - 1];
+						}
+					}
+				}
+			}
+			else if (camera_pos.z + quadtree.quadtree_shift_distance >= quadtree.quadtree_minmax[1].y)
+			{
+				shifted = true;
+
+				quadtree.quadtree_minmax[0].y += quadtree.node_size.y;
+				quadtree.quadtree_minmax[1].y += quadtree.node_size.y;
+
+				for (size_t y = 0; y < nodes_per_side; ++y)
+				{
+					for (size_t x = 0; x < nodes_per_side; ++x)
+					{
+						size_t index = y * nodes_per_side + x;
+
+						if (y == nodes_per_side - 1)
+						{
+							quadtree.node_index_to_buffer_index[index] = INVALID;
+						}
+						else
+						{
+							if (y == 0 && quadtree.node_index_to_buffer_index[index] != INVALID)
+							{
+								quadtree.buffer_index_filled[quadtree.node_index_to_buffer_index[index]] = false;
+							}
+
+							quadtree.node_index_to_buffer_index[index] = quadtree.node_index_to_buffer_index[index + nodes_per_side];
+						}
+					}
+				}
+			}
+			else if (camera_pos.z - quadtree.quadtree_shift_distance <= quadtree.quadtree_minmax[0].y)
+			{
+				shifted = true;
+
+				quadtree.quadtree_minmax[0].y -= quadtree.node_size.y;
+				quadtree.quadtree_minmax[1].y -= quadtree.node_size.y;
+
+				for (int64_t y = nodes_per_side - 1; y >= 0; --y)
+				{
+					for (size_t x = 0; x < nodes_per_side; ++x)
+					{
+						size_t index = y * nodes_per_side + x;
+
+						if (y == 0)
+						{
+							quadtree.node_index_to_buffer_index[index] = INVALID;
+						}
+						else
+						{
+							if (y == nodes_per_side - 1 && quadtree.node_index_to_buffer_index[index] != INVALID)
+							{
+								quadtree.buffer_index_filled[quadtree.node_index_to_buffer_index[index]] = false;
+							}
+
+							quadtree.node_index_to_buffer_index[index] = quadtree.node_index_to_buffer_index[index - nodes_per_side];
+						}
+					}
+				}
+			}
+		} while (shifted);
+	}
+
 	void clear_terrain()
 	{
 		memset(quadtree.node_index_to_buffer_index, INVALID, (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
@@ -640,7 +776,9 @@ namespace cputri
 				{
 					for (int tx = xx; tx < nodes_per_side; tx += 3)
 					{
-						triangulate_shader(quadtree.node_index_to_buffer_index[ty * nodes_per_side + tx]);
+						uint index = quadtree.node_index_to_buffer_index[ty * nodes_per_side + tx];
+						if (index != INVALID)
+							triangulate_shader(index);
 					}
 				}
 			}
@@ -676,16 +814,18 @@ namespace cputri
 		}
 	}
 
-	void intersect(Frustum& frustum, DebugDrawer& dd)
+	void intersect(Frustum& frustum, DebugDrawer& dd, vec3 camera_pos)
 	{
+		shift_quadtree(camera_pos);
+
 		quadtree.num_generate_nodes = 0;
 		quadtree.num_draw_nodes = 0;
 
 		float half_length = quadtree.total_side_length * 0.5f;
-
+		
 		// Gather status of nodes
-		intersect(frustum, dd, { {-half_length, -half_length},
-			{half_length, half_length} }, 0, 0, 0);
+		intersect(frustum, dd, AabbXZ{ quadtree.quadtree_minmax[0],
+			quadtree.quadtree_minmax[1] }, 0, 0, 0);
 
 		for (uint i = 0; i < quadtree.num_generate_nodes; i++)
 		{
@@ -858,7 +998,7 @@ namespace cputri
 
 					for (uint bt = 0; bt < terrain_buffer->data[ii].border_count; ++bt)
 					{
-						const float height = -120.0f;
+						const float height = -102.0f;
 						uint ind = terrain_buffer->data[ii].border_triangle_indices[bt] * 3;
 						vec3 p0 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 0]]) + vec3(0.0f, height, 0.0f);
 						vec3 p1 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 1]]) + vec3(0.0f, height, 0.0f);
@@ -878,6 +1018,46 @@ namespace cputri
 		uint ret = var;
 		var += addition;
 		return ret;
+	}
+
+	void add_border_point(uint self_node_index, uint other_node_index, vec4 point)
+	{
+		uint count = terrain_buffer->data[self_node_index].new_points_count;
+		for (uint np = 0; np < count; ++np)
+		{
+			if (terrain_buffer->data[self_node_index].new_points[np] == point)
+				return;
+		}
+		count = terrain_buffer->data[self_node_index].vertex_count;
+		for (uint vv = 0; vv < count; ++vv)
+		{
+			if (terrain_buffer->data[self_node_index].positions[vv] == point)
+				return;
+		}
+		// Find the triangle to put the new point in
+		count = terrain_buffer->data[self_node_index].index_count / 3;
+		for (uint tt = 0; tt < count; ++tt)
+		{
+			//const uint triangle_index = terrain_buffer->data[self_node_index].border_triangle_indices[tt];
+			//const vec2 circumcentre = terrain_buffer->data[self_node_index].triangles[triangle_index].circumcentre;
+			//const float circumradius2 = terrain_buffer->data[self_node_index].triangles[triangle_index].circumradius2;
+
+			const vec2 circumcentre = terrain_buffer->data[self_node_index].triangles[tt].circumcentre;
+			const float circumradius2 = terrain_buffer->data[self_node_index].triangles[tt].circumradius2;
+
+			const float dx = point.x - circumcentre.x;
+			const float dy = point.z - circumcentre.y;
+
+			// Find the first triangle whose cc contains the point
+			if (dx * dx + dy * dy < circumradius2)
+			{
+				terrain_buffer->data[self_node_index].new_points[terrain_buffer->data[self_node_index].new_points_count] = point;
+				terrain_buffer->data[self_node_index].new_points_triangles[terrain_buffer->data[self_node_index].new_points_count++] = tt;
+				print("Point added to node " + std::to_string(self_node_index) + ". New points count: " + std::to_string(terrain_buffer->data[self_node_index].new_points_count) + ". ");
+				println("Triangle index: " + std::to_string(tt));
+				return;
+			}
+		}
 	}
 
 	void generate_shader(uint node_index, vec2 min, vec2 max)
@@ -1020,6 +1200,67 @@ namespace cputri
 
 			i += WORK_GROUP_SIZE;
 		}
+
+		//barrier();
+		//memoryBarrierBuffer();
+
+		// TODO: Make this work on the GPU
+
+		const int nodes_per_side = 1 << quadtree_levels;
+
+		const int cx = int((node_min.x - terrain_buffer->quadtree_min.x + 1) / side);  // current node x
+		const int cy = int((node_min.y - terrain_buffer->quadtree_min.y + 1) / side);  // current node z/y
+
+		const vec2 adjusted_max = node_max + vec2(side) * ADJUST_PERCENTAGE;
+		const vec2 adjusted_min = node_min - vec2(side) * ADJUST_PERCENTAGE;
+
+		// Check existing neighbour node border triangles
+		for (int y = -1; y <= 1; ++y)
+		{
+			for (int x = -1; x <= 1; ++x)
+			{
+				const int nx = cx + x;
+				const int ny = cy + y;
+				// Check if valid node
+				if (nx >= 0 && nx < nodes_per_side && ny >= 0 && ny < nodes_per_side)
+				{
+					const uint neighbour_index = terrain_buffer->quadtree_index_map[ny * nodes_per_side + nx];
+					if (neighbour_index == INVALID || terrain_buffer->data[neighbour_index].instance_count != 1)
+						continue;
+
+					const uint triangle_count = terrain_buffer->data[neighbour_index].border_count;
+					// Check each border triangle
+					for (uint tt = 0; tt < triangle_count; ++tt)
+					{
+						const uint triangle_index = terrain_buffer->data[neighbour_index].border_triangle_indices[tt];
+						const vec4 p0 = terrain_buffer->data[neighbour_index].positions[terrain_buffer->data[neighbour_index].indices[triangle_index * 3 + 0]];
+						// Check if the point could actually be relevant
+						//if (p0.x >= adjusted_min.x && p0.x <= adjusted_max.x
+						//	&& p0.z >= adjusted_min.y && p0.z <= adjusted_max.y)
+						{
+							const vec4 p1 = terrain_buffer->data[neighbour_index].positions[terrain_buffer->data[neighbour_index].indices[triangle_index * 3 + 1]];
+							const vec4 p2 = terrain_buffer->data[neighbour_index].positions[terrain_buffer->data[neighbour_index].indices[triangle_index * 3 + 2]];
+							// Find the side(s) that actually faces the border (and therefore has an INVALID connection)
+							if (terrain_buffer->data[neighbour_index].triangle_connections[triangle_index * 3 + 0] == INVALID)
+							{
+								add_border_point(node_index, neighbour_index, p0);
+								add_border_point(node_index, neighbour_index, p1);
+							}
+							if (terrain_buffer->data[neighbour_index].triangle_connections[triangle_index * 3 + 1] == INVALID)
+							{
+								add_border_point(node_index, neighbour_index, p1);
+								add_border_point(node_index, neighbour_index, p2);
+							}
+							if (terrain_buffer->data[neighbour_index].triangle_connections[triangle_index * 3 + 2] == INVALID)
+							{
+								add_border_point(node_index, neighbour_index, p2);
+								add_border_point(node_index, neighbour_index, p0);
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 #pragma region TRIANGLE_PROCESS
@@ -1029,9 +1270,9 @@ namespace cputri
 
 	void triangle_process_shader(mat4 vp, vec4 camera_position, vec2 screen_size, float threshold, float area_multiplier, float curvature_multiplier, uint node_index)
 	{
-		if (terrain_buffer->data[node_index].new_points_count != 0)
+		if (terrain_buffer->data[node_index].new_points_count != 0)  // TODO: Remove when moving to GPU
 			return;
-		terrain_buffer->data[node_index].new_points_count = 0;
+		//terrain_buffer->data[node_index].new_points_count = 0;
 		std::array<vec4, max_new_normal_points + 1> new_points;
 		std::array<uint, max_new_normal_points + 1> triangle_indices;
 
@@ -1232,7 +1473,6 @@ namespace cputri
 
 #define EPSILON 1.0f - 0.0001f
 #define SELF_INDEX 4
-#define ADJUST_PERCENTAGE 0.20f
 
 	void replace_connection_index(uint node_index, uint triangle_to_check, uint index_to_replace, uint new_value)
 	{
@@ -1408,7 +1648,7 @@ namespace cputri
 		
 		uint counter = 0;
 		//for (int n = (int)new_points_count - 1; n >= 0 && counter < (uint)vertices_per_refine; --n, ++counter)
-		for (int n = 0; n < new_points_count && n < TERRAIN_GENERATE_NUM_VERTICES; ++n)
+		for (uint n = 0; n < new_points_count && n < TERRAIN_GENERATE_NUM_VERTICES; ++n)
 		{
 			const vec4 current_point = terrain_buffer->data[node_index].new_points[n];
 
@@ -1753,7 +1993,8 @@ namespace cputri
 		//{
 			//terrain_buffer->data[node_index].vertex_count = s_vertex_count;
 			//terrain_buffer->data[node_index].index_count = s_index_count;
-		terrain_buffer->data[node_index].new_points_count -= std::min((uint)vertices_per_refine, new_points_count);
+		//terrain_buffer->data[node_index].new_points_count -= std::min((uint)vertices_per_refine, new_points_count);
+		terrain_buffer->data[node_index].new_points_count = 0;
 		//}
 	}
 

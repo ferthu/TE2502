@@ -27,6 +27,9 @@ namespace cputri
 	// Get offset for indices for index i in m_buffer
 	uint64_t get_offset_of_node(uint32_t i);
 
+	// Shifts the quadtree if required
+	void shift_quadtree(glm::vec3 camera_pos);
+
 	void generate_shader(uint32_t node_index, glm::vec2 min, glm::vec2 max);
 	void triangle_process_shader(glm::mat4 vp,
 		glm::vec4 camera_position,
@@ -46,7 +49,7 @@ namespace cputri
 
 	void draw_terrain(Frustum& frustum, DebugDrawer& dd, Camera& camera);
 
-	void intersect(Frustum& frustum, DebugDrawer& dd);
+	void intersect(Frustum& frustum, DebugDrawer& dd, glm::vec3 camera_pos);
 
 	void intersect(Frustum& frustum, DebugDrawer& dd, AabbXZ aabb, uint32_t level, uint32_t x, uint32_t y);
 }

@@ -1,0 +1,28 @@
+#version 450 core
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) buffer test_t
+{
+	float f[];
+} test;
+
+float rand(float n)
+{
+	return fract(sin(n) * 43758.5453123);
+}
+
+void main()
+{
+	for (int ii = 0; ii < 4096; ++ii)
+	{
+		float sum = 0.0;
+
+		for (uint jj = 0; jj < 4096; ++jj)
+		{
+			sum += fract(pow(sin(pow(test.f[jj], 2.65464)), 0.89465));
+		}
+		
+		test.f[ii] = pow(pow(rand(ii), rand(ii * (ii + sqrt(ii)))), fract(sum)) + test.f[max(0, ii - 1)];
+	}
+}

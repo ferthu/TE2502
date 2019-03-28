@@ -544,46 +544,48 @@ namespace cputri
 	int vertices_per_refine = 1;
 	int show_connections = -1;
 
-	void run(DebugDrawer& dd, Camera& camera, Window& window)
+	void run(DebugDrawer& dd, Camera& camera, Window& window, bool show_imgui)
 	{
 		Frustum fr = camera.get_frustum();
-		intersect(fr, dd);
+		cputri::intersect(fr, dd);
 
-		draw_terrain(fr, dd, camera);
+		cputri::draw_terrain(fr, dd, camera);
 
 		static float threshold = 0.0f;
 		static float area_mult = 1.0f;
 		static float curv_mult = 1.0f;
 
-		ImGui::Begin("Lol");
-		ImGui::SliderInt("Index", &temp, -1, 15);
-		ImGui::SliderInt("Vertices per refine", &vertices_per_refine, 1, 10);
-		ImGui::SliderInt("Show Connections", &show_connections, -1, 20);
-		ImGui::End();
-
-		ImGui::Begin("cputri");
-		if (ImGui::Button("Refine"))
+		if (show_imgui)
 		{
-			process_triangles(camera, window, threshold, area_mult, curv_mult);
-			triangulate();
+			ImGui::Begin("Lol");
+			ImGui::SliderInt("Index", &temp, -1, 15);
+			ImGui::SliderInt("Vertices per refine", &vertices_per_refine, 1, 10);
+			ImGui::SliderInt("Show Connections", &show_connections, -1, 20);
+			ImGui::End();
+
+			ImGui::Begin("cputri");
+			if (ImGui::Button("Refine"))
+			{
+				cputri::process_triangles(camera, window, threshold, area_mult, curv_mult);
+				triangulate();
+			}
+			if (ImGui::Button("Clear Terrain"))
+			{
+				clear_terrain();
+			}
+
+			ImGui::DragFloat("Area mult", &area_mult, 0.01f, 0.0f, 50.0f);
+			ImGui::DragFloat("Curv mult", &curv_mult, 0.01f, 0.0f, 50.0f);
+			ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 50.0f);
+
+			ImGui::Checkbox("Show", &show);
+			ImGui::Checkbox("Show CC", &show_cc);
+
+			ImGui::DragInt("Max Points", &max_points_per_refine);
+			ImGui::DragInt("Vistris Start", &vistris_start, 0.1f);
+			ImGui::DragInt("Vistris End", &vistris_end, 0.1f);
+			ImGui::End();
 		}
-		if (ImGui::Button("Clear Terrain"))
-		{
-			clear_terrain();
-		}
-
-		ImGui::DragFloat("Area mult", &area_mult, 0.01f, 0.0f, 50.0f);
-		ImGui::DragFloat("Curv mult", &curv_mult, 0.01f, 0.0f, 50.0f);
-		ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 50.0f);
-
-		ImGui::Checkbox("Show", &show);
-		ImGui::Checkbox("Show CC", &show_cc);
-
-		ImGui::DragInt("Max Points", &max_points_per_refine);
-		ImGui::DragInt("Vistris Start", &vistris_start, 0.1f);
-		ImGui::DragInt("Vistris End", &vistris_end, 0.1f);
-		ImGui::End();
-
 	}
 
 	uint find_chunk()
@@ -1071,13 +1073,35 @@ namespace cputri
 
 				float area = pow(s * (s - a) * (s - b) * (s - c), area_multiplier);
 
-				vec3 mid = (vec3(v0) + vec3(v1)+ vec3(v2)) / 3.0f;
-				float curv = pow(curvature(mid, camera_position), curvature_multiplier);
+				glm::vec3 mid = (glm::vec3(v0) + glm::vec3(v1)+ glm::vec3(v2)) / 3.0f;
+				float curv0 = curvature(glm::vec3(v0), camera_position);
+				float curv1 = curvature(glm::vec3(v1), camera_position);
+				float curv2 = curvature(glm::vec3(v2), camera_position);
+
+				float inv_total_curv = 1.0f / (curv0 + curv1 + curv2);
+
+				// Create linear combination of corners based on curvature
+				glm::vec3 curv_point = (curv0 * inv_total_curv * glm::vec3(v0)) + (curv1 * inv_total_curv * glm::vec3(v1)) + (curv2 * inv_total_curv * glm::vec3(v2));
+
+				// Linearly interpolate between triangle middle and curv_point
+				glm::vec3 new_pos = mix(mid, curv_point, 0.5);
+
+				// Y position of potential new point
+				float terrain_y = -terrain(glm::vec2(new_pos.x, new_pos.z)) - 0.5f;
+
+				// Transform terrain_y and curv_point to clip space
+				glm::vec4 clip_terrain_y = vp * glm::vec4(new_pos.x, terrain_y, new_pos.z, 1.0);
+				glm::vec4 clip_curv_point = vp * glm::vec4(curv_point, 1.0);
+				clip_terrain_y /= clip_terrain_y.w;
+				clip_curv_point /= clip_curv_point.w;
+
+				// Screen space distance between current triangle point and new point
+				float screen_space_dist = pow(distance(glm::vec2(clip_terrain_y.x, clip_terrain_y.y), glm::vec2(clip_curv_point.x, clip_curv_point.y)), curvature_multiplier);
 
 				// A new point should be added
-				if (curv * area >= threshold)
+				if (screen_space_dist * area >= threshold)
 				{
-					const vec4 point = vec4(mid.x, -terrain(vec2(mid.x, mid.z)) - 0.5f, mid.z, 1.0f);
+					const glm::vec4 point = glm::vec4(new_pos.x, terrain_y, new_pos.z, 1.0);
 					new_points[new_point_count] = point;
 					triangle_indices[new_point_count] = i / 3;
 					++new_point_count;

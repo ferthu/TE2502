@@ -47,6 +47,15 @@ Queue& Queue::operator=(Queue&& other)
 	return *this;
 }
 
+bool Queue::is_done()
+{
+	assert(!m_recording);
+
+	VkResult result = vkGetFenceStatus(m_context->get_device(), m_fence);
+
+	return result == VK_SUCCESS;
+}
+
 void Queue::reset()
 {
 	assert(!m_recording);
@@ -106,6 +115,11 @@ void Queue::wait()
 VkQueue Queue::get_queue() const
 {
 	return m_queue;
+}
+
+VkFence Queue::get_fence() const
+{
+	return m_fence;
 }
 
 void Queue::move_from(Queue&& other)

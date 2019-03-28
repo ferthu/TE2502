@@ -19,6 +19,10 @@ layout(push_constant) uniform frame_data_t
 	uint node_index;
 } frame_data;
 
+layout(set = 0, binding = 1) uniform curvature_filter_t
+{
+	float log_filter[CURVATURE_FILTER_RADIUS * 2 + 1];
+} curvature_filter;
 
 
 
@@ -32,38 +36,11 @@ bool clip(in vec4 p)
 
 float curvature(in vec3 p)
 {
-	const float pi = 3.1415;
+	const int filter_radius = CURVATURE_FILTER_RADIUS;
+	const int filter_side = CURVATURE_FILTER_RADIUS * 2 + 1;
 
 	float camera_distance = distance(p, frame_data.camera_position.xyz);
-
 	float sample_step = 5.5 + pow(camera_distance * 0.5, 0.6);
-	const float gaussian_width = 1.0;
-	const int filter_radius = 2;	// Side length of grid is filter_radius * 2 + 1
-	const int filter_side = filter_radius * 2 + 1;
-	float log_filter[filter_side * filter_side];
-
-	/////////////////////////////////////////
-	float sum = 0.0;
-
-	for (int x = -filter_radius; x <= filter_radius; x++)
-	{
-		for (int y = -filter_radius; y <= filter_radius; y++)
-		{
-			// https://homepages.inf.ed.ac.uk/rbf/HIPR2/log.htm
-			float t = -((x * x + y * y) / (2.0 * gaussian_width * gaussian_width));
-			float log = -(1 / (pi * pow(gaussian_width, 4.0))) * (1.0 + t) * exp(t);
-
-			log_filter[(y + filter_radius) * filter_side + (x + filter_radius)] = log;
-			sum += log;
-		}
-	}
-
-	// Normalize filter
-	float correction = 1.0 / sum;
-	for (uint i = 0; i < filter_side * filter_side; i++)
-	{
-		log_filter[i] *= correction;
-	}
 
 	float curvature = 0.0;
 
@@ -71,12 +48,9 @@ float curvature(in vec3 p)
 	{
 		for (int y = -filter_radius; y <= filter_radius; y++)
 		{
-			curvature += terrain(p.xz + vec2(sample_step * x, sample_step * y)) * log_filter[(y + filter_radius) * filter_side + (x + filter_radius)];
+			curvature += (terrain(p.xz + vec2(sample_step * x, sample_step * y)) - terrain(p.xz)) * curvature_filter.log_filter[(y + filter_radius) * filter_side + (x + filter_radius)];
 		}
 	}
-
-	// Normalize for height
-	curvature -= terrain(p.xz);
 
 	return abs(curvature);
 }
@@ -118,7 +92,10 @@ void main(void)
 				uint neighbour_index = terrain_buffer.quadtree_index_map[ny * nodes_per_side + nx];
 				int neighbour_border = (bb + 2) % 4;
 				
-				s_border_max[bb] = terrain_buffer.data[neighbour_index].border_max[neighbour_border];
+				if (neighbour_index != ~0u)
+					s_border_max[bb] = terrain_buffer.data[neighbour_index].border_max[neighbour_border];
+				else
+					s_border_max[bb] = 0.0;
 			}
 			else
 			{
@@ -167,13 +144,35 @@ void main(void)
 			float area = pow(s * (s - a) * (s - b) * (s - c), frame_data.area_multiplier);
 
 			vec3 mid = (v0.xyz + v1.xyz + v2.xyz) / 3.0;
-			float curv = pow(curvature(mid), frame_data.curvature_multiplier);
+			float curv0 = curvature(v0.xyz);
+			float curv1 = curvature(v1.xyz);
+			float curv2 = curvature(v2.xyz);
+
+			float inv_total_curv = 1.0 / (curv0 + curv1 + curv2);
+
+			// Create linear combination of corners based on curvature
+			vec3 curv_point = (curv0 * inv_total_curv * v0.xyz) + (curv1 * inv_total_curv * v1.xyz) + (curv2 * inv_total_curv * v2.xyz);
+
+			// Linearly interpolate between triangle middle and curv_point
+			vec3 new_pos = mix(mid, curv_point, 0.5);
+
+			// Y position of potential new point
+			float terrain_y = -terrain(new_pos.xz) - 0.5;
+
+			// Transform terrain_y and curv_point to clip space
+			vec4 clip_terrain_y = frame_data.vp * vec4(new_pos.x, terrain_y, new_pos.z, 1.0);
+			vec4 clip_curv_point = frame_data.vp * vec4(curv_point, 1.0);
+			clip_terrain_y /= clip_terrain_y.w;
+			clip_curv_point /= clip_curv_point.w;
+
+			// Screen space distance between current triangle point and new point
+			float screen_space_dist = pow(distance(clip_terrain_y.xy, clip_curv_point.xy), frame_data.curvature_multiplier);
 
 			// A new point should be added
-			if (curv * area >= frame_data.threshold)
+			if (screen_space_dist * area >= frame_data.threshold)
 			{
 				// Check if the point could be a border point
-				const vec4 point = vec4(mid.x, -terrain(mid.xz) - 0.5, mid.z, 1.0);
+				const vec4 point = vec4(new_pos.x, terrain_y, new_pos.z, 1.0);
 				// TODO: Check against corner neighbour nodes as well
 				bool border = false;
 

@@ -16,6 +16,7 @@
 #include "graphics/framebuffer.hpp"
 #include "graphics/window.hpp"
 #include "camera.hpp"
+#include "tfile.hpp"
 
 class Quadtree
 {
@@ -34,16 +35,16 @@ public:
 		VkDeviceSize max_node_vertices, 
 		VkDeviceSize max_node_new_points, 
 		Window& window,
-		GraphicsQueue& queue);
+		GraphicsQueue& queue,
+		TFile& tfile);
 
 	// Recursive intersection that gathers data on what needs to be generated or drawn
-	void intersect(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd);
+	// Copies triangulate buffer to render buffer if needed
+	void intersect(Frustum& frustum, DebugDrawer& dd, glm::vec3 camera_pos);
 
 	// Performs frustum culling and draws/generates visible terrain
 	void draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool wireframe);
 
-	// Adds new vertices to terrain buffer when needed
-	void process_triangles(GraphicsQueue& queue, Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);
 
 	// Performs frustum culling and draws/generates visible terrain to error metric image
 	void draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool draw_to_screen, float area_multiplier, float curvature_multiplier, bool wireframe);
@@ -55,7 +56,8 @@ public:
 	void create_pipelines(Window& window);
 
 	// Re-triangulate the terrain using the new points that have been previously added
-	void triangulate(GraphicsQueue& queue);
+	void triangulate(Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier, bool refine, DebugDrawer& dd);
+
 
 	PipelineLayout& get_triangle_processing_layout();
 
@@ -73,6 +75,18 @@ public:
 	void derp();
 
 private:
+	// Adds new vertices to terrain buffer when needed
+	void process_triangles(Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);
+
+	// Re-triangulate the terrain using the new points that have been previously added
+	void triangulate();
+
+	// Generates new terrain
+	void generate();
+
+	// Copies triangulate buffer to render buffer if necessary
+	void copy_triangulate_buffer();
+
 	struct GenerationData
 	{
 		glm::mat4 vp;
@@ -148,6 +162,8 @@ private:
 	// Set up error metric objects
 	void error_metric_setup(Window& window, GraphicsQueue& queue);
 
+	void terrain_processing_filter_setup(GraphicsQueue& queue, TFile& tfile);
+
 	// Get offset for indices for index i in m_buffer
 	VkDeviceSize get_index_offset_of_node(uint32_t i);
 
@@ -156,6 +172,9 @@ private:
 
 	// Get offset for indices for index i in m_buffer
 	VkDeviceSize get_offset_of_node(uint32_t i);
+
+	// Shifts the quadtree if required
+	void shift_quadtree(glm::vec3 camera_pos);
 
 	GenerationData m_push_data;
 	ErrorMetricData m_em_push_data;
@@ -168,6 +187,15 @@ private:
 
 	// Contains terrain indices + vertices for quadtree nodes
 	GPUBuffer m_buffer;
+
+
+
+	// Rendered buffer
+	GPUBuffer m_render_buffer;
+	GPUMemory m_render_memory;
+	ComputeQueue m_triangulation_queue;
+	uint32_t* m_render_node_index_to_buffer_index;
+	VkSemaphore m_triangulation_semaphore = VK_NULL_HANDLE;
 
 	TriangleProcessingFrameData m_triangle_processing_frame_data;
 
@@ -196,6 +224,10 @@ private:
 	std::unique_ptr<Pipeline> m_em_wireframe_pipeline;
 
 	// Triangle processing
+	GPUMemory m_triangle_processing_filter_cpu_memory;
+	GPUMemory m_triangle_processing_filter_gpu_memory;
+	GPUBuffer m_triangle_processing_filter_cpu_buffer;
+	GPUBuffer m_triangle_processing_filter_gpu_buffer;
 	DescriptorSetLayout m_triangle_processing_layout;
 	DescriptorSet m_triangle_processing_set;
 	PipelineLayout m_triangle_processing_pipeline_layout;
@@ -223,14 +255,23 @@ private:
 	VkDeviceSize m_cpu_index_buffer_size;
 	glm::vec2* m_quadtree_minmax;
 
+	// The size of a node
+	glm::vec2 m_node_size;
+
+	// If camera is closer than this distance to the edge of the quadtree, it will shift
+	float m_quadtree_shift_distance = 100.0f;
+
 	// For chunk i of m_buffer, m_buffer_index_filled[i] is true if that chunk is used by a node
 	bool* m_buffer_index_filled;
+
+	static const uint32_t INVALID = ~0u;
 
 	struct GenerateInfo
 	{
 		glm::vec2 min;
 		glm::vec2 max;
-		uint32_t index;
+		uint32_t buffer_index = INVALID;
+		uint32_t quadtree_index;
 	};
 
 	// Number and array of indices to nodes that needs to generate terrain
@@ -243,7 +284,5 @@ private:
 
 	// Number of bytes in buffer per node
 	VkDeviceSize m_node_memory_size;
-
-	const uint32_t INVALID = ~0u;
 };
 

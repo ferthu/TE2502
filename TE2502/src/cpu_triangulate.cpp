@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <array>
+#include <glm/gtc/constants.hpp>
 
 #include "vulkan/vulkan.h"
 #include "glm/glm.hpp"
@@ -141,6 +142,11 @@ namespace cputri
 
 	TerrainBuffer* terrain_buffer;
 	uint cpu_index_buffer_size;
+
+	const float gaussian_width = 1.0f;
+	const int filter_radius = 2;	// Side length of grid is filter_radius * 2 + 1
+	const int filter_side = filter_radius * 2 + 1;
+	float log_filter[filter_side * filter_side];
 
 
 #pragma region TERRAINSTUFF
@@ -435,40 +441,11 @@ namespace cputri
 			abs(p.z) <= p.w);
 	}
 
-	float curvature(vec3 p, vec3 camera_position)
+	float curvature(vec3 p)
 	{
 		const float pi = 3.1415f;
 
-		float camera_distance = distance(p, camera_position);
-
-		float sample_step = 5.5f + pow(camera_distance * 0.5f, 0.6f);
-		const float gaussian_width = 1.0f;
-		const int filter_radius = 2;	// Side length of grid is filter_radius * 2 + 1
-		const int filter_side = filter_radius * 2 + 1;
-		float log_filter[filter_side * filter_side];
-
-		/////////////////////////////////////////
-		float sum = 0.0f;
-
-		for (int x = -filter_radius; x <= filter_radius; x++)
-		{
-			for (int y = -filter_radius; y <= filter_radius; y++)
-			{
-				// https://homepages.inf.ed.ac.uk/rbf/HIPR2/log.htm
-				float t = -((x * x + y * y) / (2.0f * gaussian_width * gaussian_width));
-				float log = -(1.0f / (pi * powf(gaussian_width, 4.0f))) * (1.0f + t) * exp(t);
-
-				log_filter[(y + filter_radius) * filter_side + (x + filter_radius)] = log;
-				sum += log;
-			}
-		}
-
-		// Normalize filter
-		float correction = 1.0f / sum;
-		for (uint i = 0; i < filter_side * filter_side; i++)
-		{
-			log_filter[i] *= correction;
-		}
+		float sample_step = 1.0f;
 
 		float curvature = 0.0f;
 
@@ -537,6 +514,31 @@ namespace cputri
 		memset(quadtree.node_index_to_buffer_index, INVALID, (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
 
 		quadtree.node_size = vec2(quadtree.total_side_length / (1 << quadtree_levels), quadtree.total_side_length / (1 << quadtree_levels));
+
+		// Create filter kernel
+		const float gaussian_width = 1.0f;
+
+		float sum = 0.0f;
+
+		for (int64_t x = -filter_radius; x <= filter_radius; x++)
+		{
+			for (int64_t y = -filter_radius; y <= filter_radius; y++)
+			{
+				// https://homepages.inf.ed.ac.uk/rbf/HIPR2/log.htm
+				float t = -((x * x + y * y) / (2.0f * gaussian_width * gaussian_width));
+				float log = -(1.0f / (pi<float>() * powf(gaussian_width, 4.0f))) * (1.0f + t) * exp(t);
+
+				log_filter[(y + filter_radius) * filter_side + (x + filter_radius)] = log;
+				sum += log;
+			}
+		}
+
+		// Normalize filter
+		float correction = 1.0f / sum;
+		for (uint64_t i = 0; i < filter_side * filter_side; i++)
+		{
+			log_filter[i] *= correction;
+		}
 	}
 
 	void destroy()
@@ -1095,7 +1097,7 @@ namespace cputri
 			float x = min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * (max.x - min.x) + ((max.x - min.x) / GRID_SIDE) * 0.5f * ((i / GRID_SIDE) % 2);
 			float z = min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * (max.y - min.y);
 
-			terrain_buffer->data[node_index].positions[i] = vec4(x, -terrain(vec2(x, z)) - 0.5, z, 1.0);
+			terrain_buffer->data[node_index].positions[i] = vec4(x, -terrain(vec2(x, z)) - 0.5, z, curvature(vec3(x, 0.0f, z)));
 
 			i += WORK_GROUP_SIZE;
 		}
@@ -1291,9 +1293,9 @@ namespace cputri
 			vec4 v2 = terrain_buffer->data[node_index].positions[terrain_buffer->data[node_index].indices[i + 2]];
 
 			// Get clipspace coordinates
-			vec4 c0 = vp * v0;
-			vec4 c1 = vp * v1;
-			vec4 c2 = vp * v2;
+			vec4 c0 = vp * glm::vec4(glm::vec3(v0), 1.0f);
+			vec4 c1 = vp * glm::vec4(glm::vec3(v1), 1.0f);
+			vec4 c2 = vp * glm::vec4(glm::vec3(v2), 1.0f);
 
 			// Check if any vertex is visible (shitty clipping)
 			if (clip(c0) || clip(c1) || clip(c2))
@@ -1315,9 +1317,9 @@ namespace cputri
 				float area = pow(s * (s - a) * (s - b) * (s - c), area_multiplier);
 
 				glm::vec3 mid = (glm::vec3(v0) + glm::vec3(v1)+ glm::vec3(v2)) / 3.0f;
-				float curv0 = curvature(glm::vec3(v0), camera_position);
-				float curv1 = curvature(glm::vec3(v1), camera_position);
-				float curv2 = curvature(glm::vec3(v2), camera_position);
+				float curv0 = v0.w;		// Curvature is stored in w coordinate
+				float curv1 = v1.w;
+				float curv2 = v2.w;
 
 				float inv_total_curv = 1.0f / (curv0 + curv1 + curv2);
 
@@ -1342,7 +1344,7 @@ namespace cputri
 				// A new point should be added
 				if (screen_space_dist * area >= threshold)
 				{
-					const glm::vec4 point = glm::vec4(new_pos.x, terrain_y, new_pos.z, 1.0);
+					const glm::vec4 point = glm::vec4(new_pos.x, terrain_y, new_pos.z, curvature(vec3(new_pos.x, terrain_y, new_pos.z)));
 					new_points[new_point_count] = point;
 					triangle_indices[new_point_count] = i / 3;
 					++new_point_count;
@@ -1453,7 +1455,6 @@ namespace cputri
 	/*shared*/ uint s_triangles_removed;
 	/*shared*/ uint s_new_triangle_count;
 
-	/*shared*/ uint s_index_count;
 	/*shared*/ uint s_triangle_count;
 	/*shared*/ uint s_vertex_count;
 
@@ -1669,7 +1670,8 @@ namespace cputri
 			triangles_to_test[0] = start_index;
 			test_triangle_owners[0] = SELF_INDEX;
 
-			while (test_count != 0)
+			bool finish = false;
+			while (test_count != 0 && !finish)
 			{
 				const uint triangle_index = triangles_to_test[--test_count];
 				const uint local_owner_index = test_triangle_owners[test_count];
@@ -1686,15 +1688,17 @@ namespace cputri
 					const uint index0 = terrain_buffer->data[global_owner_index].indices[triangle_index * 3 + 0];
 					const uint index1 = terrain_buffer->data[global_owner_index].indices[triangle_index * 3 + 1];
 					const uint index2 = terrain_buffer->data[global_owner_index].indices[triangle_index * 3 + 2];
-					const vec4 p0 = terrain_buffer->data[global_owner_index].positions[index0];
-					const vec4 p1 = terrain_buffer->data[global_owner_index].positions[index1];
-					const vec4 p2 = terrain_buffer->data[global_owner_index].positions[index2];
+					const vec4 p0 = vec4(vec3(terrain_buffer->data[global_owner_index].positions[index0]), 1.0f);
+					const vec4 p1 = vec4(vec3(terrain_buffer->data[global_owner_index].positions[index1]), 1.0f);
+					const vec4 p2 = vec4(vec3(terrain_buffer->data[global_owner_index].positions[index2]), 1.0f);
 
 					// Store edges to be removed
 					uint tr = atomicAdd(s_triangles_removed, 1);
-
-					if (tr >= max_border_edges || tr >= max_triangles_to_remove)
+					if (tr >= max_triangles_to_remove || tr >= max_border_edges)
+					{
+						finish = true;
 						break;
+					}
 
 					uint ec = tr * 3;
 					// Edge 0
@@ -1730,12 +1734,18 @@ namespace cputri
 					s_owning_node[tr] = local_owner_index;
 
 					// Add neighbour triangles to be tested
-					for (uint ss = 0; ss < 3; ++ss)
+					for (uint ss = 0; ss < 3 && !finish; ++ss)
 					{
 						const uint index = terrain_buffer->data[global_owner_index].triangle_connections[triangle_index * 3 + ss];
 
 						if (index != INVALID)
 						{
+							if (seen_triangle_count >= TEST_TRIANGLE_BUFFER_SIZE || test_count >= TEST_TRIANGLE_BUFFER_SIZE)
+							{
+								finish = true;
+								break;
+							}
+
 							add_connection(local_owner_index, index);
 						}
 						else if (!checked_borders)
@@ -1757,13 +1767,19 @@ namespace cputri
 
 									if (ddx * ddx + ddy * ddy < cr2)
 									{
+										if (seen_triangle_count >= TEST_TRIANGLE_BUFFER_SIZE || test_count >= TEST_TRIANGLE_BUFFER_SIZE)
+										{
+											finish = true;
+											break;
+										}
+
 										add_connection(SELF_INDEX, border_triangle);
 									}
 								}
 							}
 
 							// Check neighbour nodes
-							for (uint nn = 0; nn < 9; ++nn)
+							for (uint nn = 0; nn < 9 && !finish; ++nn)
 							{
 								if (nn != SELF_INDEX)
 								{
@@ -1787,7 +1803,14 @@ namespace cputri
 
 												if (ddx * ddx + ddy * ddy < cr2)
 												{
+													if (seen_triangle_count >= TEST_TRIANGLE_BUFFER_SIZE || test_count >= TEST_TRIANGLE_BUFFER_SIZE)
+													{
+														finish = true;
+														break;
+													}
+
 													add_connection(nn, border_triangle);
+
 												}
 											}
 										}
@@ -1797,6 +1820,12 @@ namespace cputri
 						}
 					}
 				}
+			}
+
+			if (finish)
+			{
+				s_triangles_removed = 0;
+				continue;
 			}
 
 			//barrier();
@@ -1846,18 +1875,60 @@ namespace cputri
 			//barrier();
 			//memoryBarrierShared();
 
-			// If new triangles will not fit in index buffer, quit
-			//if (s_index_count + (s_new_triangle_count * 3) >= num_indices)
-			//{
-			//	//finish = true;
-			//	break;
-			//}
-
 			if (thid == 0)
 			{
-
 				std::array<uint, 9> participating_nodes;
+				std::array<uint, 9> index_counts;
+				std::array<uint, 9> vertex_counts;
+				std::array<uint, 9> border_counts;
 				uint participation_count = 0;
+
+				// Loop through nodes and calculate required index and vertex counts
+				for (uint edge = 0; edge < s_new_triangle_count; ++edge)
+				{
+					bool found = false;
+					for (uint jj = 0; jj < participation_count; ++jj)
+					{
+						if (s_edges[s_valid_indices[edge]].node_index == participating_nodes[jj])
+						{
+							found = true;
+							index_counts[jj] += 3;
+
+							if (s_edges[s_valid_indices[edge]].connection == INVALID)
+								++border_counts[participation_count];
+
+							break;
+						}
+					}
+					if (!found)
+					{
+						participating_nodes[participation_count] = s_edges[s_valid_indices[edge]].node_index;
+						index_counts[participation_count] = terrain_buffer->data[ltg[participating_nodes[participation_count]]].index_count + 3;
+						vertex_counts[participation_count] = terrain_buffer->data[ltg[participating_nodes[participation_count]]].vertex_count + 1;
+						border_counts[participation_count] = terrain_buffer->data[ltg[participating_nodes[participation_count]]].border_count;
+
+						if (s_edges[s_valid_indices[edge]].connection == INVALID)
+							++border_counts[participation_count];
+
+						++participation_count;
+					}
+				}
+
+				// If any index or vertex count is above max, jump to next point
+				bool skip = false;
+				for (uint jj = 0; jj < participation_count; ++jj)
+				{
+					if (index_counts[jj] >= num_indices || vertex_counts[jj] >= num_vertices || border_counts[jj] >= MAX_BORDER_TRIANGLE_COUNT)
+					{
+						skip = true;
+						break;
+					}
+				}
+				if (skip || s_new_triangle_count >= NUM_NEW_TRIANGLE_INDICES)
+				{
+					s_triangles_removed = 0;
+					continue;
+				}
 
 				// Add to the triangle list all triangles formed between the point and the edges of the enclosing polygon
 				for (uint ii = 0; ii < s_new_triangle_count; ++ii)
@@ -1919,7 +1990,7 @@ namespace cputri
 					terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[index_count + 0] = s_edges[i].connection;
 					const vec4 edges[2] = { s_edges[i].p1, s_edges[i].p2 };
 					bool already_added = false;
-					if (s_edges[i].connection == INVALID)
+					if (s_edges[i].connection == INVALID && terrain_buffer->data[ltg[s_edges[i].node_index]].border_count < MAX_BORDER_TRIANGLE_COUNT)
 					{
 						already_added = true;
 						terrain_buffer->data[ltg[s_edges[i].node_index]].border_triangle_indices[terrain_buffer->data[ltg[s_edges[i].node_index]].border_count++] = s_edges[i].future_index;
@@ -1948,7 +2019,7 @@ namespace cputri
 						if (!found)
 						{
 							terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[index_count + 2 - ss] = INVALID;
-							if (!already_added)
+							if (!already_added && terrain_buffer->data[ltg[s_edges[i].node_index]].border_count < MAX_BORDER_TRIANGLE_COUNT)
 							{
 								already_added = true;
 								terrain_buffer->data[ltg[s_edges[i].node_index]].border_triangle_indices[terrain_buffer->data[ltg[s_edges[i].node_index]].border_count++] = s_edges[i].future_index;
@@ -1959,18 +2030,6 @@ namespace cputri
 					replace_connection_index(ltg[s_edges[i].node_index], s_edges[i].connection, s_edges[i].old_triangle_index, s_edges[i].future_index);
 
 					terrain_buffer->data[ltg[s_edges[i].node_index]].index_count += 3;
-
-					bool found = false;
-					for (uint jj = 0; jj < participation_count; ++jj)
-					{
-						if (s_edges[i].node_index == participating_nodes[jj])
-						{
-							found = true;
-							break;
-						}
-					}
-					if (!found)
-						participating_nodes[participation_count++] = s_edges[i].node_index;
 				}
 
 				remove_old_triangles();
@@ -1993,9 +2052,10 @@ namespace cputri
 		//{
 			//terrain_buffer->data[node_index].vertex_count = s_vertex_count;
 			//terrain_buffer->data[node_index].index_count = s_index_count;
-		//terrain_buffer->data[node_index].new_points_count -= std::min((uint)vertices_per_refine, new_points_count);
-		terrain_buffer->data[node_index].new_points_count = 0;
+			//terrain_buffer->data[node_index].new_points_count -= std::min((uint)vertices_per_refine, new_points_count);
 		//}
+
+		terrain_buffer->data[node_index].new_points_count = 0;
 	}
 
 #pragma endregion

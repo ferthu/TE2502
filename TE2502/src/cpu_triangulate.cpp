@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <array>
+#include <glm/gtc/constants.hpp>
 
 #include "vulkan/vulkan.h"
 #include "glm/glm.hpp"
@@ -136,6 +137,11 @@ namespace cputri
 
 	TerrainBuffer* terrain_buffer;
 	uint cpu_index_buffer_size;
+
+	const float gaussian_width = 1.0f;
+	const int filter_radius = 2;	// Side length of grid is filter_radius * 2 + 1
+	const int filter_side = filter_radius * 2 + 1;
+	float log_filter[filter_side * filter_side];
 
 
 #pragma region TERRAINSTUFF
@@ -430,40 +436,11 @@ namespace cputri
 			abs(p.z) <= p.w);
 	}
 
-	float curvature(vec3 p, vec3 camera_position)
+	float curvature(vec3 p)
 	{
 		const float pi = 3.1415f;
 
-		float camera_distance = distance(p, camera_position);
-
-		float sample_step = 5.5f + pow(camera_distance * 0.5f, 0.6f);
-		const float gaussian_width = 1.0f;
-		const int filter_radius = 2;	// Side length of grid is filter_radius * 2 + 1
-		const int filter_side = filter_radius * 2 + 1;
-		float log_filter[filter_side * filter_side];
-
-		/////////////////////////////////////////
-		float sum = 0.0f;
-
-		for (int x = -filter_radius; x <= filter_radius; x++)
-		{
-			for (int y = -filter_radius; y <= filter_radius; y++)
-			{
-				// https://homepages.inf.ed.ac.uk/rbf/HIPR2/log.htm
-				float t = -((x * x + y * y) / (2.0f * gaussian_width * gaussian_width));
-				float log = -(1.0f / (pi * powf(gaussian_width, 4.0f))) * (1.0f + t) * exp(t);
-
-				log_filter[(y + filter_radius) * filter_side + (x + filter_radius)] = log;
-				sum += log;
-			}
-		}
-
-		// Normalize filter
-		float correction = 1.0f / sum;
-		for (uint i = 0; i < filter_side * filter_side; i++)
-		{
-			log_filter[i] *= correction;
-		}
+		float sample_step = 1.0f;
 
 		float curvature = 0.0f;
 
@@ -530,6 +507,31 @@ namespace cputri
 
 		// (1 << levels) is number of nodes per axis
 		memset(quadtree.node_index_to_buffer_index, INVALID, (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
+
+		// Create filter kernel
+		const float gaussian_width = 1.0f;
+
+		float sum = 0.0f;
+
+		for (int64_t x = -filter_radius; x <= filter_radius; x++)
+		{
+			for (int64_t y = -filter_radius; y <= filter_radius; y++)
+			{
+				// https://homepages.inf.ed.ac.uk/rbf/HIPR2/log.htm
+				float t = -((x * x + y * y) / (2.0f * gaussian_width * gaussian_width));
+				float log = -(1.0f / (pi<float>() * powf(gaussian_width, 4.0f))) * (1.0f + t) * exp(t);
+
+				log_filter[(y + filter_radius) * filter_side + (x + filter_radius)] = log;
+				sum += log;
+			}
+		}
+
+		// Normalize filter
+		float correction = 1.0f / sum;
+		for (uint64_t i = 0; i < filter_side * filter_side; i++)
+		{
+			log_filter[i] *= correction;
+		}
 	}
 
 	void destroy()
@@ -915,7 +917,7 @@ namespace cputri
 			float x = min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * (max.x - min.x) + ((max.x - min.x) / GRID_SIDE) * 0.5f * ((i / GRID_SIDE) % 2);
 			float z = min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * (max.y - min.y);
 
-			terrain_buffer->data[node_index].positions[i] = vec4(x, -terrain(vec2(x, z)) - 0.5, z, 1.0);
+			terrain_buffer->data[node_index].positions[i] = vec4(x, -terrain(vec2(x, z)) - 0.5, z, curvature(vec3(x, 0.0f, z)));
 
 			i += WORK_GROUP_SIZE;
 		}
@@ -1050,9 +1052,9 @@ namespace cputri
 			vec4 v2 = terrain_buffer->data[node_index].positions[terrain_buffer->data[node_index].indices[i + 2]];
 
 			// Get clipspace coordinates
-			vec4 c0 = vp * v0;
-			vec4 c1 = vp * v1;
-			vec4 c2 = vp * v2;
+			vec4 c0 = vp * glm::vec4(glm::vec3(v0), 1.0f);
+			vec4 c1 = vp * glm::vec4(glm::vec3(v1), 1.0f);
+			vec4 c2 = vp * glm::vec4(glm::vec3(v2), 1.0f);
 
 			// Check if any vertex is visible (shitty clipping)
 			if (clip(c0) || clip(c1) || clip(c2))
@@ -1074,9 +1076,9 @@ namespace cputri
 				float area = pow(s * (s - a) * (s - b) * (s - c), area_multiplier);
 
 				glm::vec3 mid = (glm::vec3(v0) + glm::vec3(v1)+ glm::vec3(v2)) / 3.0f;
-				float curv0 = curvature(glm::vec3(v0), camera_position);
-				float curv1 = curvature(glm::vec3(v1), camera_position);
-				float curv2 = curvature(glm::vec3(v2), camera_position);
+				float curv0 = v0.w;		// Curvature is stored in w coordinate
+				float curv1 = v1.w;
+				float curv2 = v2.w;
 
 				float inv_total_curv = 1.0f / (curv0 + curv1 + curv2);
 
@@ -1101,7 +1103,7 @@ namespace cputri
 				// A new point should be added
 				if (screen_space_dist * area >= threshold)
 				{
-					const glm::vec4 point = glm::vec4(new_pos.x, terrain_y, new_pos.z, 1.0);
+					const glm::vec4 point = glm::vec4(new_pos.x, terrain_y, new_pos.z, curvature(vec3(new_pos.x, terrain_y, new_pos.z)));
 					new_points[new_point_count] = point;
 					triangle_indices[new_point_count] = i / 3;
 					++new_point_count;
@@ -1446,9 +1448,9 @@ namespace cputri
 					const uint index0 = terrain_buffer->data[global_owner_index].indices[triangle_index * 3 + 0];
 					const uint index1 = terrain_buffer->data[global_owner_index].indices[triangle_index * 3 + 1];
 					const uint index2 = terrain_buffer->data[global_owner_index].indices[triangle_index * 3 + 2];
-					const vec4 p0 = terrain_buffer->data[global_owner_index].positions[index0];
-					const vec4 p1 = terrain_buffer->data[global_owner_index].positions[index1];
-					const vec4 p2 = terrain_buffer->data[global_owner_index].positions[index2];
+					const vec4 p0 = vec4(vec3(terrain_buffer->data[global_owner_index].positions[index0]), 1.0f);
+					const vec4 p1 = vec4(vec3(terrain_buffer->data[global_owner_index].positions[index1]), 1.0f);
+					const vec4 p2 = vec4(vec3(terrain_buffer->data[global_owner_index].positions[index2]), 1.0f);
 
 					// Store edges to be removed
 					uint tr = atomicAdd(s_triangles_removed, 1);

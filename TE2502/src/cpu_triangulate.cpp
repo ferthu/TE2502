@@ -21,7 +21,7 @@ namespace cputri
 	#define TERRAIN_GENERATE_GRID_SIDE 7
 	#define TRIANGULATE_MAX_NEW_POINTS 1024
 	#define QUADTREE_LEVELS 2
-	#define MAX_BORDER_TRIANGLE_COUNT 500
+	#define MAX_BORDER_TRIANGLE_COUNT 50
 	
 	#define WORK_GROUP_SIZE 1
 
@@ -1212,7 +1212,6 @@ namespace cputri
 	/*shared*/ uint s_triangles_removed;
 	/*shared*/ uint s_new_triangle_count;
 
-	/*shared*/ uint s_index_count;
 	/*shared*/ uint s_triangle_count;
 	/*shared*/ uint s_vertex_count;
 
@@ -1429,7 +1428,8 @@ namespace cputri
 			triangles_to_test[0] = start_index;
 			test_triangle_owners[0] = SELF_INDEX;
 
-			while (test_count != 0)
+			bool finish = false;
+			while (test_count != 0 && !finish)
 			{
 				const uint triangle_index = triangles_to_test[--test_count];
 				const uint local_owner_index = test_triangle_owners[test_count];
@@ -1452,9 +1452,11 @@ namespace cputri
 
 					// Store edges to be removed
 					uint tr = atomicAdd(s_triangles_removed, 1);
-
-					if (tr >= max_border_edges || tr >= max_triangles_to_remove)
+					if (tr >= max_triangles_to_remove || tr >= max_border_edges)
+					{
+						finish = true;
 						break;
+					}
 
 					uint ec = tr * 3;
 					// Edge 0
@@ -1490,12 +1492,18 @@ namespace cputri
 					s_owning_node[tr] = local_owner_index;
 
 					// Add neighbour triangles to be tested
-					for (uint ss = 0; ss < 3; ++ss)
+					for (uint ss = 0; ss < 3 && !finish; ++ss)
 					{
 						const uint index = terrain_buffer->data[global_owner_index].triangle_connections[triangle_index * 3 + ss];
 
 						if (index != INVALID)
 						{
+							if (seen_triangle_count >= TEST_TRIANGLE_BUFFER_SIZE || test_count >= TEST_TRIANGLE_BUFFER_SIZE)
+							{
+								finish = true;
+								break;
+							}
+
 							add_connection(local_owner_index, index);
 						}
 						else if (!checked_borders)
@@ -1517,13 +1525,19 @@ namespace cputri
 
 									if (ddx * ddx + ddy * ddy < cr2)
 									{
+										if (seen_triangle_count >= TEST_TRIANGLE_BUFFER_SIZE || test_count >= TEST_TRIANGLE_BUFFER_SIZE)
+										{
+											finish = true;
+											break;
+										}
+
 										add_connection(SELF_INDEX, border_triangle);
 									}
 								}
 							}
 
 							// Check neighbour nodes
-							for (uint nn = 0; nn < 9; ++nn)
+							for (uint nn = 0; nn < 9 && !finish; ++nn)
 							{
 								if (nn != SELF_INDEX)
 								{
@@ -1547,7 +1561,14 @@ namespace cputri
 
 												if (ddx * ddx + ddy * ddy < cr2)
 												{
+													if (seen_triangle_count >= TEST_TRIANGLE_BUFFER_SIZE || test_count >= TEST_TRIANGLE_BUFFER_SIZE)
+													{
+														finish = true;
+														break;
+													}
+
 													add_connection(nn, border_triangle);
+
 												}
 											}
 										}
@@ -1557,6 +1578,12 @@ namespace cputri
 						}
 					}
 				}
+			}
+
+			if (finish)
+			{
+				s_triangles_removed = 0;
+				continue;
 			}
 
 			//barrier();
@@ -1606,18 +1633,60 @@ namespace cputri
 			//barrier();
 			//memoryBarrierShared();
 
-			// If new triangles will not fit in index buffer, quit
-			//if (s_index_count + (s_new_triangle_count * 3) >= num_indices)
-			//{
-			//	//finish = true;
-			//	break;
-			//}
-
 			if (thid == 0)
 			{
-
 				std::array<uint, 9> participating_nodes;
+				std::array<uint, 9> index_counts;
+				std::array<uint, 9> vertex_counts;
+				std::array<uint, 9> border_counts;
 				uint participation_count = 0;
+
+				// Loop through nodes and calculate required index and vertex counts
+				for (uint edge = 0; edge < s_new_triangle_count; ++edge)
+				{
+					bool found = false;
+					for (uint jj = 0; jj < participation_count; ++jj)
+					{
+						if (s_edges[s_valid_indices[edge]].node_index == participating_nodes[jj])
+						{
+							found = true;
+							index_counts[jj] += 3;
+
+							if (s_edges[s_valid_indices[edge]].connection == INVALID)
+								++border_counts[participation_count];
+
+							break;
+						}
+					}
+					if (!found)
+					{
+						participating_nodes[participation_count] = s_edges[s_valid_indices[edge]].node_index;
+						index_counts[participation_count] = terrain_buffer->data[ltg[participating_nodes[participation_count]]].index_count + 3;
+						vertex_counts[participation_count] = terrain_buffer->data[ltg[participating_nodes[participation_count]]].vertex_count + 1;
+						border_counts[participation_count] = terrain_buffer->data[ltg[participating_nodes[participation_count]]].border_count;
+
+						if (s_edges[s_valid_indices[edge]].connection == INVALID)
+							++border_counts[participation_count];
+
+						++participation_count;
+					}
+				}
+
+				// If any index or vertex count is above max, jump to next point
+				bool skip = false;
+				for (uint jj = 0; jj < participation_count; ++jj)
+				{
+					if (index_counts[jj] >= num_indices || vertex_counts[jj] >= num_vertices || border_counts[jj] >= MAX_BORDER_TRIANGLE_COUNT)
+					{
+						skip = true;
+						break;
+					}
+				}
+				if (skip || s_new_triangle_count >= NUM_NEW_TRIANGLE_INDICES)
+				{
+					s_triangles_removed = 0;
+					continue;
+				}
 
 				// Add to the triangle list all triangles formed between the point and the edges of the enclosing polygon
 				for (uint ii = 0; ii < s_new_triangle_count; ++ii)
@@ -1679,7 +1748,7 @@ namespace cputri
 					terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[index_count + 0] = s_edges[i].connection;
 					const vec4 edges[2] = { s_edges[i].p1, s_edges[i].p2 };
 					bool already_added = false;
-					if (s_edges[i].connection == INVALID)
+					if (s_edges[i].connection == INVALID && terrain_buffer->data[ltg[s_edges[i].node_index]].border_count < MAX_BORDER_TRIANGLE_COUNT)
 					{
 						already_added = true;
 						terrain_buffer->data[ltg[s_edges[i].node_index]].border_triangle_indices[terrain_buffer->data[ltg[s_edges[i].node_index]].border_count++] = s_edges[i].future_index;
@@ -1708,7 +1777,7 @@ namespace cputri
 						if (!found)
 						{
 							terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[index_count + 2 - ss] = INVALID;
-							if (!already_added)
+							if (!already_added && terrain_buffer->data[ltg[s_edges[i].node_index]].border_count < MAX_BORDER_TRIANGLE_COUNT)
 							{
 								already_added = true;
 								terrain_buffer->data[ltg[s_edges[i].node_index]].border_triangle_indices[terrain_buffer->data[ltg[s_edges[i].node_index]].border_count++] = s_edges[i].future_index;
@@ -1719,18 +1788,6 @@ namespace cputri
 					replace_connection_index(ltg[s_edges[i].node_index], s_edges[i].connection, s_edges[i].old_triangle_index, s_edges[i].future_index);
 
 					terrain_buffer->data[ltg[s_edges[i].node_index]].index_count += 3;
-
-					bool found = false;
-					for (uint jj = 0; jj < participation_count; ++jj)
-					{
-						if (s_edges[i].node_index == participating_nodes[jj])
-						{
-							found = true;
-							break;
-						}
-					}
-					if (!found)
-						participating_nodes[participation_count++] = s_edges[i].node_index;
 				}
 
 				remove_old_triangles();
@@ -1753,8 +1810,10 @@ namespace cputri
 		//{
 			//terrain_buffer->data[node_index].vertex_count = s_vertex_count;
 			//terrain_buffer->data[node_index].index_count = s_index_count;
-		terrain_buffer->data[node_index].new_points_count -= std::min((uint)vertices_per_refine, new_points_count);
+			//terrain_buffer->data[node_index].new_points_count -= std::min((uint)vertices_per_refine, new_points_count);
 		//}
+
+		terrain_buffer->data[node_index].new_points_count = 0;
 	}
 
 #pragma endregion

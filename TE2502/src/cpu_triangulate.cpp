@@ -1194,11 +1194,12 @@ namespace cputri
 
 	/*shared*/ uint s_valid_indices[max_triangles_to_remove];
 
-	uint seen_triangles[50];
-	uint seen_triangle_owners[50]; // Local node format
+#define TEST_TRIANGLE_BUFFER_SIZE 50
+	uint seen_triangles[TEST_TRIANGLE_BUFFER_SIZE];
+	uint seen_triangle_owners[TEST_TRIANGLE_BUFFER_SIZE]; // Local node format
 	uint seen_triangle_count;
-	uint triangles_to_test[50];
-	uint test_triangle_owners[50]; // Local node format
+	uint triangles_to_test[TEST_TRIANGLE_BUFFER_SIZE];
+	uint test_triangle_owners[TEST_TRIANGLE_BUFFER_SIZE]; // Local node format
 	uint test_count;
 
 #define NUM_NEW_TRIANGLE_INDICES 20
@@ -1380,9 +1381,10 @@ namespace cputri
 		//memoryBarrierShared();
 
 		const uint new_points_count = terrain_buffer->data[node_index].new_points_count;
-		//for (uint n = 0; n < new_points_count && n < (uint)max_points_per_refine; ++n)
+		
 		uint counter = 0;
-		for (int n = (int)new_points_count - 1; n >= 0 && counter < (uint)vertices_per_refine; --n, ++counter)
+		//for (int n = (int)new_points_count - 1; n >= 0 && counter < (uint)vertices_per_refine; --n, ++counter)
+		for (int n = 0; n < new_points_count && n < TERRAIN_GENERATE_NUM_VERTICES; ++n)
 		{
 			const vec4 current_point = terrain_buffer->data[node_index].new_points[n];
 

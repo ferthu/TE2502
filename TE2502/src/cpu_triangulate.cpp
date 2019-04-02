@@ -11,6 +11,18 @@
 
 #include "imgui/imgui.h"
 
+// Fritjof when coding in this file:
+//    ,,,,,
+//    |T^T|
+//    \___/
+//      |
+//      |
+//  ----+----
+//      |
+//      |
+//     / \ 
+//    /   \ 
+//  _/     \_
 namespace cputri
 {
 	using namespace glm;
@@ -1903,7 +1915,7 @@ namespace cputri
 					float a = distance(vec2(P.x, P.z), vec2(Q.x, Q.z));
 					float b = distance(vec2(P.x, P.z), vec2(R.x, R.z));
 					float c = distance(vec2(R.x, R.z), vec2(Q.x, Q.z));
-
+					
 					const vec2 cc_center = find_circum_center(vec2(P.x, P.z), vec2(Q.x, Q.z), vec2(R.x, R.z));
 					const float cc_radius2 = find_circum_radius_squared(a, b, c);
 					const float cc_radius = sqrt(cc_radius2);

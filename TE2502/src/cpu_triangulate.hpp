@@ -39,9 +39,11 @@ namespace cputri
 		float curvature_multiplier,
 		uint32_t node_index);
 
+	void triangulate();
+
 	void triangulate_shader(uint32_t node_index);
 
-	void triangulate();
+	void replace_connection_index(uint32_t node_index, uint32_t triangle_to_check, uint32_t index_to_replace, uint32_t new_value);
 
 	void clear_terrain();
 

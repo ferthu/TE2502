@@ -20,11 +20,11 @@ namespace cputri
 	#define TERRAIN_GENERATE_NUM_INDICES 12000
 	#define TERRAIN_GENERATE_NUM_VERTICES 4000
 	#define TERRAIN_GENERATE_NUM_NODES 16
-	#define TERRAIN_GENERATE_GRID_SIDE 9
+	#define TERRAIN_GENERATE_GRID_SIDE 7
 	#define TRIANGULATE_MAX_NEW_POINTS 1024
 	#define QUADTREE_LEVELS 2
 	#define MAX_BORDER_TRIANGLE_COUNT 2000
-	#define ADJUST_PERCENTAGE 0.20f
+	#define ADJUST_PERCENTAGE 0.50f
 	
 	#define WORK_GROUP_SIZE 1
 
@@ -570,7 +570,7 @@ namespace cputri
 			ImGui::Begin("Lol");
 			ImGui::SliderInt("Index", &temp, -1, 15);
 			ImGui::SliderInt("Vertices per refine", &vertices_per_refine, 1, 10);
-			ImGui::SliderInt("Show Connections", &show_connections, -1, 20);
+			ImGui::SliderInt("Show Connections", &show_connections, -1, 200);
 			ImGui::SliderInt("Refine Node", &refine_node, -1, TERRAIN_GENERATE_NUM_NODES - 1);
 			ImGui::End();
 
@@ -1047,9 +1047,8 @@ namespace cputri
 	const uint max_border_edges = 100;
 	/*shared*/ std::array<GenerateEdge, max_border_edges * 3> s_generate_edges;
 
-	const uint max_triangles_to_remove = 50;
+	const uint max_triangles_to_remove = 100;
 
-	/*shared*/ std::array<uint, max_triangles_to_remove> s_owning_node;
 	/*shared*/ std::array<uint, max_triangles_to_remove> s_triangles_to_remove;
 	/*shared*/ uint s_triangles_removed;
 	/*shared*/ uint s_new_triangle_count;
@@ -1059,7 +1058,7 @@ namespace cputri
 
 	/*shared*/ uint s_valid_indices[max_triangles_to_remove];
 
-#define NUM_NEW_TRIANGLE_INDICES 20
+#define NUM_NEW_TRIANGLE_INDICES 30
 	uint g_new_triangle_indices[NUM_NEW_TRIANGLE_INDICES];
 	uint g_new_triangle_index_count;
 
@@ -1083,30 +1082,6 @@ namespace cputri
 			{
 				replace_connection_index(node_index, terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + ii], last_triangle, index);
 			}
-
-			// Fix border indices
-			//for (uint ss = 0; ss < 3; ++ss)
-			//{
-			//	if (terrain_buffer->data[node_index].triangle_connections[index * 3 + ss] == INVALID ||
-			//		terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + ss] == INVALID)
-			//	{
-			//		uint count = terrain_buffer->data[node_index].border_count;
-			//		for (uint tt = 0; tt < count; ++tt)
-			//		{
-			//			if (terrain_buffer->data[node_index].border_triangle_indices[tt] == index)
-			//			{
-			//				terrain_buffer->data[node_index].border_triangle_indices[tt] = terrain_buffer->data[node_index].border_triangle_indices[count - 1];
-			//				--terrain_buffer->data[node_index].border_count;
-			//				--count;
-			//			}
-			//			if (terrain_buffer->data[node_index].border_triangle_indices[tt] == last_triangle)
-			//			{
-			//				terrain_buffer->data[node_index].border_triangle_indices[tt] = index;
-			//			}
-			//		}
-			//		break;
-			//	}
-			//}
 
 			// Remove triangle
 			if (index < last_triangle)
@@ -1203,7 +1178,6 @@ namespace cputri
 
 		const uint new_points_count = terrain_buffer->data[node_index].new_points_count;
 
-		uint counter = 0;
 		for (uint n = 0; n < new_points_count && n < TERRAIN_GENERATE_NUM_VERTICES; ++n)
 		{
 			const vec4 current_point = terrain_buffer->data[node_index].new_points[n];
@@ -1415,6 +1389,11 @@ namespace cputri
 						if (!found)
 						{
 							terrain_buffer->data[node_index].triangle_connections[index_count + 2 - ss] = INVALID;
+							if (!already_added && terrain_buffer->data[node_index].border_count < MAX_BORDER_TRIANGLE_COUNT)
+							{
+								already_added = true;
+								terrain_buffer->data[node_index].border_triangle_indices[terrain_buffer->data[node_index].border_count++] = s_generate_edges[i].future_index;
+							}
 						}
 					}
 
@@ -1472,6 +1451,7 @@ namespace cputri
 			{
 				terrain_buffer->data[self_node_index].new_points[terrain_buffer->data[self_node_index].new_points_count] = point;
 				terrain_buffer->data[self_node_index].new_points_triangles[terrain_buffer->data[self_node_index].new_points_count++] = tt;
+				break;
 			}
 		}
 	}
@@ -1503,7 +1483,7 @@ namespace cputri
 
 			terrain_buffer->data[node_index].border_count = 0;
 
-			float temp = side * 0.25f;
+			float temp = side * 0.4f;
 			vec4 p0 = vec4(node_min.x - temp, 1, node_min.y - temp, 1);
 			vec4 p1 = vec4(node_max.x + temp, 2, node_min.y - temp, 1);
 			vec4 p2 = vec4(node_max.x + temp, 3, node_max.y + temp, 1);
@@ -1521,10 +1501,10 @@ namespace cputri
 			terrain_buffer->data[node_index].indices[4] = 3;
 			terrain_buffer->data[node_index].indices[5] = 0;
 
-			vec2 P = vec2(p0.x, p0.z);
-			vec2 Q = vec2(p1.x, p1.z);
-			vec2 R = vec2(p2.x, p2.z);
-			vec2 S = vec2(p3.x, p3.z);
+			const vec2 P = vec2(p0.x, p0.z);
+			const vec2 Q = vec2(p1.x, p1.z);
+			const vec2 R = vec2(p2.x, p2.z);
+			const vec2 S = vec2(p3.x, p3.z);
 			terrain_buffer->data[node_index].triangles[0].circumcentre = find_circum_center(P, Q, R);
 			terrain_buffer->data[node_index].triangles[0].circumradius2 = find_circum_radius_squared(P, Q, R);
 			terrain_buffer->data[node_index].triangles[1].circumcentre = find_circum_center(R, S, P);
@@ -1537,8 +1517,8 @@ namespace cputri
 			terrain_buffer->data[node_index].triangle_connections[3 + 1] = INVALID;
 			terrain_buffer->data[node_index].triangle_connections[3 + 2] = 0;
 
-			terrain_buffer->data[node_index].border_triangle_indices[0] = 0;
-			terrain_buffer->data[node_index].border_triangle_indices[1] = 1;
+			//terrain_buffer->data[node_index].border_triangle_indices[0] = 0;
+			//terrain_buffer->data[node_index].border_triangle_indices[1] = 1;
 		}
 
 		//barrier();
@@ -1573,13 +1553,13 @@ namespace cputri
 
 		// TODO: Make this work on the GPU
 
-		const int nodes_per_side = 1 << quadtree_levels;
+		//const int nodes_per_side = 1 << quadtree_levels;
 
-		const int cx = int((node_min.x - terrain_buffer->quadtree_min.x + 1) / side);  // current node x
-		const int cy = int((node_min.y - terrain_buffer->quadtree_min.y + 1) / side);  // current node z/y
+		//const int cx = int((node_min.x - terrain_buffer->quadtree_min.x + 1) / side);  // current node x
+		//const int cy = int((node_min.y - terrain_buffer->quadtree_min.y + 1) / side);  // current node z/y
 
-		const vec2 adjusted_max = node_max + vec2(side) * ADJUST_PERCENTAGE;
-		const vec2 adjusted_min = node_min - vec2(side) * ADJUST_PERCENTAGE;
+		//const vec2 adjusted_max = node_max + vec2(side) * ADJUST_PERCENTAGE;
+		//const vec2 adjusted_min = node_min - vec2(side) * ADJUST_PERCENTAGE;
 
 		// Check existing neighbour node border triangles
 		//for (int y = -1; y <= 1; ++y)
@@ -1630,6 +1610,99 @@ namespace cputri
 		//}
 
 		generate_triangulate_shader(node_index);
+		
+		// Find out and mark which triangles are part of the outer triangles
+		const vec4 start_positions[4] = { terrain_buffer->data[node_index].positions[0], 
+																			terrain_buffer->data[node_index].positions[1], 
+																			terrain_buffer->data[node_index].positions[2], 
+																			terrain_buffer->data[node_index].positions[3] };
+		uint triangle_count = terrain_buffer->data[node_index].index_count / 3;
+		s_triangles_removed = 0;
+		for (uint tt = 0; tt < triangle_count; ++tt)
+		{
+			// Check each of the three points that make up each triangle
+			bool found = false;
+			for (uint pp = 0; pp < 3 && !found; ++pp)
+			{
+				const vec4 test_point = terrain_buffer->data[node_index].positions[terrain_buffer->data[node_index].indices[tt * 3 + pp]];
+				// Check against all four supertriangle corners
+				for (uint sp = 0; sp < 4; ++sp)
+				{
+					if (test_point == start_positions[sp])
+					{
+						uint tr = atomicAdd(s_triangles_removed, 1);
+						// Mark the triangle to be removed later
+						s_triangles_to_remove[tr] = tt;
+						found = true;
+						break;
+					}
+				}
+			}
+		}
+
+		// Remove the outer triangles
+		for (int j = int(s_triangles_removed) - 1; j >= 0; --j)
+		{
+			const uint index = s_triangles_to_remove[j];
+
+			const uint last_triangle = terrain_buffer->data[node_index].index_count / 3 - 1;
+
+			// Go through all valid connected triangles
+			for (uint ii = 0; ii < 3; ++ii)
+			{
+				const uint triangle_to_check = terrain_buffer->data[node_index].triangle_connections[index * 3 + ii];
+				if (triangle_to_check != INVALID)
+				{
+					// Find the side that points back to the current triangle
+					for (uint tt = 0; tt < 3; ++tt)
+					{
+						const uint triangle_index = terrain_buffer->data[node_index].triangle_connections[triangle_to_check * 3 + tt];
+						if (triangle_index == index)
+						{
+							// Mark that side connection as INVALID since that triangle is being removed
+							terrain_buffer->data[node_index].triangle_connections[triangle_to_check * 3 + tt] = INVALID;
+						}
+					}
+				}
+
+				replace_connection_index(node_index, terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + ii], last_triangle, index);
+			}
+
+			// Remove triangle
+			if (index < last_triangle)
+			{
+				terrain_buffer->data[node_index].indices[index * 3 + 0] = terrain_buffer->data[node_index].indices[last_triangle * 3 + 0];
+				terrain_buffer->data[node_index].indices[index * 3 + 1] = terrain_buffer->data[node_index].indices[last_triangle * 3 + 1];
+				terrain_buffer->data[node_index].indices[index * 3 + 2] = terrain_buffer->data[node_index].indices[last_triangle * 3 + 2];
+				terrain_buffer->data[node_index].triangles[index].circumcentre = terrain_buffer->data[node_index].triangles[last_triangle].circumcentre;
+				terrain_buffer->data[node_index].triangles[index].circumradius2 = terrain_buffer->data[node_index].triangles[last_triangle].circumradius2;
+				terrain_buffer->data[node_index].triangle_connections[index * 3 + 0] = terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + 0];
+				terrain_buffer->data[node_index].triangle_connections[index * 3 + 1] = terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + 1];
+				terrain_buffer->data[node_index].triangle_connections[index * 3 + 2] = terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + 2];
+
+			}
+
+			terrain_buffer->data[node_index].index_count -= 3;
+		}
+
+		//barrier();
+		//memoryBarrierBuffer();
+
+		// Restore borders
+		triangle_count = terrain_buffer->data[node_index].index_count / 3; 
+		terrain_buffer->data[node_index].border_count = 0;
+		for (uint tt = 0; tt < triangle_count; ++tt)
+		{
+			for (uint ss = 0; ss < 3; ++ss)
+			{
+				if (terrain_buffer->data[node_index].triangle_connections[tt * 3 + ss] == INVALID)
+				{
+					terrain_buffer->data[node_index].border_triangle_indices[terrain_buffer->data[node_index].border_count++] = tt;
+					break;
+				}
+			}
+		}
+
 		node_index = 1;
 	}
 #pragma endregion
@@ -1641,8 +1714,8 @@ namespace cputri
 
 	void triangle_process_shader(mat4 vp, vec4 camera_position, vec2 screen_size, float threshold, float area_multiplier, float curvature_multiplier, uint node_index)
 	{
-		if (refine_node != -1 && refine_node != node_index)
-			return;
+		//if (refine_node != -1 && refine_node != node_index)
+		//	return;
 
 		if (terrain_buffer->data[node_index].new_points_count != 0)  // TODO: Remove when moving to GPU
 			return;
@@ -1815,6 +1888,7 @@ namespace cputri
 		uint pad[2];
 	};
 	/*shared*/ std::array<BorderEdge, max_border_edges * 3> s_edges;
+	/*shared*/ std::array<uint, max_triangles_to_remove> s_owning_node;
 
 	// Convert local node format to global
 	uint ltg[9];
@@ -1959,8 +2033,8 @@ namespace cputri
 
 	void triangulate_shader(const uint node_index)
 	{
-		if (refine_node != -1 && refine_node != node_index)
-			return;
+		//if (refine_node != -1 && refine_node != node_index)
+		//	return;
 
 		const uint thid = gl_GlobalInvocationID.x;
 
@@ -2003,7 +2077,7 @@ namespace cputri
 
 		const uint new_points_count = terrain_buffer->data[node_index].new_points_count;
 		
-		uint counter = 0;
+		//uint counter = 0;
 		//for (int n = (int)new_points_count - 1; n >= 0 && counter < (uint)vertices_per_refine; --n, ++counter)
 		for (uint n = 0; n < new_points_count && n < TERRAIN_GENERATE_NUM_VERTICES; ++n)
 		{

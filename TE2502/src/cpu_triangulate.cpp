@@ -552,6 +552,7 @@ namespace cputri
 	int temp = 0;
 	int vertices_per_refine = 1;
 	int show_connections = -1;
+	int refine_node = -1;
 
 	void run(DebugDrawer& dd, Camera& camera, Window& window, bool show_imgui)
 	{
@@ -570,12 +571,14 @@ namespace cputri
 			ImGui::SliderInt("Index", &temp, -1, 15);
 			ImGui::SliderInt("Vertices per refine", &vertices_per_refine, 1, 10);
 			ImGui::SliderInt("Show Connections", &show_connections, -1, 20);
+			ImGui::SliderInt("Refine Node", &refine_node, -1, TERRAIN_GENERATE_NUM_NODES - 1);
 			ImGui::End();
 
 			ImGui::Begin("cputri");
 			if (ImGui::Button("Refine"))
 			{
 				cputri::process_triangles(camera, window, threshold, area_mult, curv_mult);
+				triangulate();
 			}
 			if (ImGui::Button("Clear Terrain"))
 			{
@@ -594,7 +597,6 @@ namespace cputri
 			ImGui::DragInt("Vistris End", &vistris_end, 0.1f);
 			ImGui::End();
 		}
-		triangulate();
 	}
 
 	uint find_chunk()
@@ -900,6 +902,8 @@ namespace cputri
 		}
 	}
 
+	std::vector<vec3> draw_points;
+
 	void draw_terrain(Frustum& frustum, DebugDrawer& dd, Camera& camera)
 	{
 		if (show)
@@ -1011,6 +1015,11 @@ namespace cputri
 						dd.draw_line(p2, p0, { 0, 0, 1 });
 					}
 				}
+			}
+
+			for (auto& p : draw_points)
+			{
+				dd.draw_line(p, p + vec3(0.0f, -50.0f, 0.0f), { 0, 1, 0 });
 			}
 		}
 	}
@@ -1469,6 +1478,9 @@ namespace cputri
 
 	void generate_shader(uint node_index, vec2 min, vec2 max)
 	{
+		if (node_index == 3)
+			draw_points.clear();
+
 		const uint GRID_SIDE = TERRAIN_GENERATE_GRID_SIDE;
 
 		const vec2 node_min = min;
@@ -1539,8 +1551,16 @@ namespace cputri
 			float x = min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * side + (side / GRID_SIDE) * 0.5f * ((i / GRID_SIDE) % 2);
 			float z = min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * side;
 
+			if ((i % GRID_SIDE) / float(GRID_SIDE - 1) == 0)
+				x = min.x;
+			else if ((i % GRID_SIDE) / float(GRID_SIDE - 1) > 0.99f)
+				x = max.x;
+
 			terrain_buffer->data[node_index].new_points[i] = vec4(x, -terrain(vec2(x, z)) - 0.5, z, curvature(vec3(x, 0.0f, z)));
 			terrain_buffer->data[node_index].new_points_triangles[i] = 0;
+
+			if (((i % GRID_SIDE) / float(GRID_SIDE - 1) == 0 || (i % GRID_SIDE) / float(GRID_SIDE - 1) > 0.99f) && node_index == 3)
+				draw_points.push_back(vec3(x, -terrain(vec2(x, z)) - 0.5 - 100.0f, z));
 
 			i += WORK_GROUP_SIZE;
 		}
@@ -1621,6 +1641,9 @@ namespace cputri
 
 	void triangle_process_shader(mat4 vp, vec4 camera_position, vec2 screen_size, float threshold, float area_multiplier, float curvature_multiplier, uint node_index)
 	{
+		if (refine_node != -1 && refine_node != node_index)
+			return;
+
 		if (terrain_buffer->data[node_index].new_points_count != 0)  // TODO: Remove when moving to GPU
 			return;
 		//terrain_buffer->data[node_index].new_points_count = 0;
@@ -1936,6 +1959,9 @@ namespace cputri
 
 	void triangulate_shader(const uint node_index)
 	{
+		if (refine_node != -1 && refine_node != node_index)
+			return;
+
 		const uint thid = gl_GlobalInvocationID.x;
 
 		const vec2 node_min = terrain_buffer->data[node_index].min;

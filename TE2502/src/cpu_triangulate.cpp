@@ -1928,7 +1928,7 @@ namespace cputri
 						// Find participation index of old node
 						for (uint jj = 0; jj < participation_count; ++jj)
 						{
-							if (old_old_triangle_index == participating_nodes[jj])
+							if (old_node_index == participating_nodes[jj])
 							{
 								old_participation_index = jj;
 								break;

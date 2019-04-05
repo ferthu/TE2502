@@ -1995,7 +1995,7 @@ namespace cputri
 								{
 									// Set connection
 									s_edges[i].connection = border_index;
-									terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[border_index + bb] = s_edges[i].future_index;
+									terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[border_index * 3 + bb] = s_edges[i].future_index;
 
 									// Set indices
 									s_edges[i].p1_index = inds[bb];
@@ -2005,7 +2005,7 @@ namespace cputri
 									bool border_triangle = false;
 									for (uint cc = 0; cc < 3; ++cc)
 									{
-										if (terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[border_index + cc] == INVALID)
+										if (terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[border_index * 3 + cc] == INVALID)
 										{
 											border_triangle = true;
 											break;

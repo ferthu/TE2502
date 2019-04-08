@@ -47,9 +47,11 @@ namespace cputri
 
 	void process_triangles(Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);
 
-	void draw_terrain(Frustum& frustum, DebugDrawer& dd, Camera& camera);
+	void draw_terrain(Frustum& frustum, DebugDrawer& dd, Camera& camera, Window& window);
 
 	void intersect(Frustum& frustum, DebugDrawer& dd, glm::vec3 camera_pos);
 
 	void intersect(Frustum& frustum, DebugDrawer& dd, AabbXZ aabb, uint32_t level, uint32_t x, uint32_t y);
+
+	int intersect_triangle(glm::vec3 r_o, glm::vec3 r_d, glm::vec3 p0, glm::vec3 p1, glm::vec3 p2, float* t);
 }

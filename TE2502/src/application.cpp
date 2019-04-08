@@ -405,7 +405,7 @@ void Application::run(bool auto_triangulate)
 		update(delta_time.count());
 
 #ifdef CPUTRI
-		cputri::run(m_debug_drawer, *m_main_camera, *m_window, m_show_imgui);
+		cputri::run(m_debug_drawer, *m_main_camera, *m_current_camera, *m_window, m_show_imgui);
 #endif
 
 		draw(auto_triangulate);

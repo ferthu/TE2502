@@ -570,12 +570,12 @@ namespace cputri
 	int show_connections = -1;
 	int refine_node = -1;
 
-	void run(DebugDrawer& dd, Camera& camera, Window& window, bool show_imgui)
+	void run(DebugDrawer& dd, Camera& main_camera, Camera& current_camera, Window& window, bool show_imgui)
 	{
-		Frustum fr = camera.get_frustum();
-		cputri::intersect(fr, dd, camera.get_pos());
+		Frustum fr = main_camera.get_frustum();
+		cputri::intersect(fr, dd, main_camera.get_pos());
 
-		cputri::draw_terrain(fr, dd, camera, window);
+		cputri::draw_terrain(fr, dd, current_camera, window);
 
 		static float threshold = 0.0f;
 		static float area_mult = 1.0f;
@@ -593,7 +593,7 @@ namespace cputri
 			ImGui::Begin("cputri");
 			if (ImGui::Button("Refine"))
 			{
-				cputri::process_triangles(camera, window, threshold, area_mult, curv_mult);
+				cputri::process_triangles(main_camera, window, threshold, area_mult, curv_mult);
 				triangulate();
 			}
 			if (ImGui::Button("Clear Terrain"))

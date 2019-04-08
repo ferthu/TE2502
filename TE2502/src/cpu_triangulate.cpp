@@ -2093,8 +2093,16 @@ namespace cputri
 									terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[border_index * 3 + bb] = s_edges[i].future_index;
 
 									// Set indices
-									s_edges[i].p1_index = inds[bb];
-									s_edges[i].p2_index = inds[(bb + 1) % 3];
+									if (p[bb] == vec3(s_edges[i].p1))
+									{
+										s_edges[i].p1_index = inds[bb];
+										s_edges[i].p2_index = inds[(bb + 1) % 3];
+									}
+									else
+									{
+										s_edges[i].p2_index = inds[bb];
+										s_edges[i].p1_index = inds[(bb + 1) % 3];
+									}
 
 									// Check if neighbour triangle is still a border triangle
 									bool border_triangle = false;

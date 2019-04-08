@@ -34,6 +34,8 @@ public:
 	// Get camera pitch (up/down)
 	inline float get_pitch() const { return m_pitch; }
 
+	inline float get_fov() const { return m_fov; }
+
 	// Set new camera position
 	// Is preferrably called before camera.update()
 	void set_pos(const glm::vec3& new_pos);

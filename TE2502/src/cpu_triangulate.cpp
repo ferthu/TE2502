@@ -575,7 +575,7 @@ namespace cputri
 		Frustum fr = camera.get_frustum();
 		cputri::intersect(fr, dd, camera.get_pos());
 
-		cputri::draw_terrain(fr, dd, camera);
+		cputri::draw_terrain(fr, dd, camera, window);
 
 		static float threshold = 0.0f;
 		static float area_mult = 1.0f;
@@ -853,6 +853,47 @@ namespace cputri
 		}
 	}
 
+	const float EPSILON = 1e-5f;
+	int intersect_triangle(glm::vec3 r_o, glm::vec3 r_d, glm::vec3 p0, glm::vec3 p1, glm::vec3 p2, float * t)
+	{
+		vec3 edge1, edge2, tvec, pvec, qvec;
+		float det, inv_det, u, v;
+
+		//find vecotrs fo two edges sharing vert0
+		edge1 = p1 - p0;
+		edge2 = p2 - p0;
+
+		//begin calculationg determinant
+		pvec = cross(r_d, edge2);
+
+		//if determinant is near zero, ray lies in plane of triangle
+		det = dot(edge1, pvec);
+
+		if (det > -EPSILON && det < EPSILON)
+			return 0;
+		inv_det = 1.0f / det;
+
+		//calculate distance from vert0 to ray origin
+		tvec = r_o - p0;
+
+		u = dot(tvec, pvec) * inv_det;
+		if (u < 0.0f || u > 1.0f)
+			return 0;
+
+		//prepare to test V parameter
+		qvec = cross(tvec, edge1);
+
+		//calculate V parameter and test bounds
+		v = dot(r_d, qvec) * inv_det;
+		if (v < 0.0f || u + v > 1.0f)
+			return 0;
+
+		//calculate t, ray intersection triangle
+		*t = dot(edge2, qvec) * inv_det;
+
+		return 1;
+	}
+
 	void intersect(Frustum& frustum, DebugDrawer& dd, AabbXZ aabb, uint level, uint x, uint y)
 	{
 		if (level == quadtree_levels)
@@ -920,17 +961,71 @@ namespace cputri
 
 	std::vector<vec3> draw_points;
 
-	void draw_terrain(Frustum& frustum, DebugDrawer& dd, Camera& camera)
+	void draw_terrain(Frustum& frustum, DebugDrawer& dd, Camera& camera, Window& window)
 	{
+		static vec3 ori;
+		static vec3 dir;
 		if (show)
 		{
 			for (size_t ii = 0; ii < num_nodes; ii++)
 			{
 				if (quadtree.buffer_index_filled[ii] && (ii == temp || temp == -1))
 				{
+					int hovered_triangle = -1;
+					const float height = -100.0f;
+
+
+					// If C is pressed, do ray-triangle intersection and show connection of hovered triangle
+					if (glfwGetKey(window.get_glfw_window(), GLFW_KEY_C) == GLFW_PRESS
+						&& !ImGui::GetIO().WantCaptureMouse)
+					{
+						vec3 ray_o = camera.get_pos();
+						vec3 ray_dir;
+
+						ori = ray_o;
+						
+
+						vec2 mouse_pos;
+						// Get mouse pos
+						const bool focused = glfwGetWindowAttrib(window.get_glfw_window(), GLFW_FOCUSED) != 0;
+						if (focused)
+						{
+							double mouse_x, mouse_y;
+							glfwGetCursorPos(window.get_glfw_window(), &mouse_x, &mouse_y);
+							mouse_pos = vec2((float)mouse_x, (float)mouse_y);
+						}
+
+						int w, h;
+						glfwGetWindowSize(window.get_glfw_window(), &w, &h);
+						vec2 window_size = vec2(w, h);
+						const float deg_to_rad = 3.1415f / 180.0f;
+						const float fov = camera.get_fov();	// In degrees
+						float px = 2.0f * (mouse_pos.x + 0.5f - window_size.x / 2) / window_size.x * tan(fov / 2.0f * deg_to_rad);
+						float py = 2.0f * (mouse_pos.y + 0.5f - window_size.y / 2) / window_size.y * tan(fov / 2.0f * deg_to_rad) * window_size.y / window_size.x;
+						ray_dir = vec3(px, py, 1);
+						ray_dir = normalize(vec3(inverse(camera.get_view()) * vec4(normalize(ray_dir), 0.0f)));
+
+						dir = ray_dir;
+
+						float d = 9999999999.0f;
+						float max_d = 9999999999.0f;
+
+						// Perform ray-triangle intersection
+						for (uint ind = 0; ind < terrain_buffer->data[ii].index_count; ind += 3)
+						{
+							vec3 p0 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 0]]) + vec3(0.0f, height, 0.0f);
+							vec3 p1 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 1]]) + vec3(0.0f, height, 0.0f);
+							vec3 p2 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 2]]) + vec3(0.0f, height, 0.0f);
+
+							if (intersect_triangle(ray_o, ray_dir, p0, p1, p2, &d) && d < max_d && d >= 0.0f)
+							{
+								hovered_triangle = ind / 3;
+							}
+						}
+					}
+
 					for (uint ind = vistris_start * 3; ind < terrain_buffer->data[ii].index_count && ind < (uint)vistris_end * 3; ind += 3)
 					{
-						const float height = -100.0f;
 
 						vec3 p0 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 0]]) + vec3(0.0f, height, 0.0f);
 						vec3 p1 = vec3(terrain_buffer->data[ii].positions[terrain_buffer->data[ii].indices[ind + 1]]) + vec3(0.0f, height, 0.0f);
@@ -962,7 +1057,7 @@ namespace cputri
 							}
 						}
 
-						if (show_connections == ind / 3)
+						if (show_connections == ind / 3 || hovered_triangle == ind / 3)
 						{
 							glm::vec3 h = { 0, -20, 0 };
 

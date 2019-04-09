@@ -570,12 +570,12 @@ namespace cputri
 	int show_connections = -1;
 	int refine_node = -1;
 
-	void run(DebugDrawer& dd, Camera& camera, Window& window, bool show_imgui)
+	void run(DebugDrawer& dd, Camera& main_camera, Camera& current_camera, Window& window, bool show_imgui)
 	{
-		Frustum fr = camera.get_frustum();
-		cputri::intersect(fr, dd, camera.get_pos());
+		Frustum fr = main_camera.get_frustum();
+		cputri::intersect(fr, dd, main_camera.get_pos());
 
-		cputri::draw_terrain(fr, dd, camera, window);
+		cputri::draw_terrain(fr, dd, current_camera, window);
 
 		static float threshold = 0.0f;
 		static float area_mult = 1.0f;
@@ -593,7 +593,7 @@ namespace cputri
 			ImGui::Begin("cputri");
 			if (ImGui::Button("Refine"))
 			{
-				cputri::process_triangles(camera, window, threshold, area_mult, curv_mult);
+				cputri::process_triangles(main_camera, window, threshold, area_mult, curv_mult);
 				triangulate();
 			}
 			if (ImGui::Button("Clear Terrain"))
@@ -2595,8 +2595,16 @@ namespace cputri
 									terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[border_index * 3 + bb] = s_edges[i].future_index;
 
 									// Set indices
-									s_edges[i].p1_index = inds[bb];
-									s_edges[i].p2_index = inds[(bb + 1) % 3];
+									if (p[bb] == vec3(s_edges[i].p1))
+									{
+										s_edges[i].p1_index = inds[bb];
+										s_edges[i].p2_index = inds[(bb + 1) % 3];
+									}
+									else
+									{
+										s_edges[i].p2_index = inds[bb];
+										s_edges[i].p1_index = inds[(bb + 1) % 3];
+									}
 
 									// Check if neighbour triangle is still a border triangle
 									bool border_triangle = false;

@@ -10,7 +10,7 @@ namespace cputri
 
 	void destroy();
 
-	void run(DebugDrawer& dd, Camera& camera, Window& window, bool show_imgui);
+	void run(DebugDrawer& dd, Camera& main_camera, Camera& current_camera, Window& window, bool show_imgui);
 
 	// Finds a free chunk in m_buffer and returns it index, or INVALID if none was found
 	uint32_t find_chunk();

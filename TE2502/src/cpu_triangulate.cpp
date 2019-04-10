@@ -570,14 +570,13 @@ namespace cputri
 	int show_connections = -1;
 	int refine_node = -1;
 	int sideshow_bob = 0;
-	vec3 fritjof0;
-	vec3 fritjof1;
 
-	std::vector<vec3> draw_tris;
+	bool do_triangulation = false;
 
 	void run(DebugDrawer& dd, Camera& main_camera, Camera& current_camera, Window& window, bool show_imgui)
 	{
 		Frustum fr = main_camera.get_frustum();
+		do_triangulation = false;
 		cputri::intersect(fr, dd, main_camera.get_pos());
 
 		cputri::draw_terrain(fr, dd, current_camera, window);
@@ -594,18 +593,6 @@ namespace cputri
 			ImGui::SliderInt("Show Connections", &show_connections, -1, 200);
 			ImGui::SliderInt("Refine Node", &refine_node, -1, TERRAIN_GENERATE_NUM_NODES - 1);
 			ImGui::SliderInt("Sideshow", &sideshow_bob, -1, 8);
-			ImGui::DragFloat3("Fritjof0", (float*)&fritjof0);
-			ImGui::DragFloat3("Fritjof1", (float*)&fritjof1);
-
-			if (ImGui::Button("Clear Drawtris"))
-				draw_tris.clear();
-
-			float a = fritjof0.z - fritjof1.z;
-			float b = fritjof1.x - fritjof0.x;
-			float c = -0.5f*(a*(fritjof0.x + fritjof1.x) + b * (fritjof0.z + fritjof1.z));
-			dd.draw_line(fritjof0, fritjof1, { 0.0f, 1.0f, 0.0f });
-
-			ImGui::Text("Edge Eq: %f", a * current_camera.get_pos().x + b * current_camera.get_pos().z + c);
 
 			ImGui::End();
 
@@ -613,6 +600,10 @@ namespace cputri
 			if (ImGui::Button("Refine"))
 			{
 				cputri::process_triangles(main_camera, window, threshold, area_mult, curv_mult);
+				triangulate();
+			}
+			else if (do_triangulation)
+			{
 				triangulate();
 			}
 			if (ImGui::Button("Clear Terrain"))
@@ -815,9 +806,34 @@ namespace cputri
 				{
 					for (int tx = xx; tx < nodes_per_side; tx += 3)
 					{
-						uint index = quadtree.node_index_to_buffer_index[ty * nodes_per_side + tx];  // TODO: Still needed?
-						if (index != INVALID)
+						bool all_valid = true;
+						// Check self and neighbour nodes
+						for (int y = -1; y <= 1; ++y)
+						{
+							for (int x = -1; x <= 1; ++x)
+							{
+								const int nx = tx + x;
+								const int ny = ty + y;
+								if (nx >= 0 && nx < nodes_per_side && ny >= 0 && ny < nodes_per_side)
+								{
+									const uint neighbour_index = quadtree.node_index_to_buffer_index[ny * nodes_per_side + nx];
+									if (neighbour_index == INVALID)
+									{
+										all_valid = false;
+									}
+								}
+								else
+								{
+									all_valid = false;
+								}
+							}
+						}
+
+						if (all_valid)
+						{
+							uint index = quadtree.node_index_to_buffer_index[ty * nodes_per_side + tx];
 							triangulate_shader(index);
+						}
 					}
 				}
 			}
@@ -869,6 +885,7 @@ namespace cputri
 		for (uint i = 0; i < quadtree.num_generate_nodes; i++)
 		{
 			generate_shader(quadtree.generate_nodes[i].index, quadtree.generate_nodes[i].min, quadtree.generate_nodes[i].max);
+			do_triangulation = true;
 		}
 	}
 
@@ -984,13 +1001,6 @@ namespace cputri
 		static vec3 dir;
 		if (show)
 		{
-			for (uint dt = 0; dt < draw_tris.size(); dt += 4)
-			{
-				dd.draw_line(draw_tris[dt + 0], draw_tris[dt + 1], draw_tris[dt + 3]);
-				dd.draw_line(draw_tris[dt + 1], draw_tris[dt + 2], draw_tris[dt + 3]);
-				dd.draw_line(draw_tris[dt + 2], draw_tris[dt + 0], draw_tris[dt + 3]);
-			}
-
 			for (size_t ii = 0; ii < num_nodes; ii++)
 			{
 				if (quadtree.buffer_index_filled[ii] && (ii == temp || temp == -1))
@@ -1064,7 +1074,7 @@ namespace cputri
 						//dd.draw_line(mid, p1, { 0, 1, 0 });
 						//dd.draw_line(mid, p2, { 0, 1, 0 });
 
-						if (show_cc)
+						if (show_cc || hovered_triangle == ind / 3)
 						{
 							const uint tri_index = ind / 3;
 							const uint steps = 20;
@@ -1990,7 +2000,7 @@ namespace cputri
 								{
 									const vec4 e2p1 = terrain_buffer->data[neighbour_index].positions[terrain_buffer->data[neighbour_index].indices[border_triangle_index * 3 + 1]];
 									const vec4 e2p2 = terrain_buffer->data[neighbour_index].positions[terrain_buffer->data[neighbour_index].indices[border_triangle_index * 3 + 2]];
-									const vec3 neighbour_middle = (e2p0 + e2p1 + e2p2) / 3.f;
+									const vec4 neighbour_middle = (e2p0 + e2p1 + e2p2) / 3.f;
 									// 
 									if (is_same_edge(e1p1, e1p2, test_middle, e2p0, e2p1, neighbour_middle, neighbour_index, border_triangle_index * 3 + 0, found_matching_edge)
 										|| is_same_edge(e1p1, e1p2, test_middle, e2p1, e2p2, neighbour_middle, neighbour_index, border_triangle_index * 3 + 1, found_matching_edge)
@@ -2000,10 +2010,21 @@ namespace cputri
 										found = true;
 										++found_sides;
 
-										draw_tris.push_back(sides[0] + vec4(0, -6, 0, 0));
-										draw_tris.push_back(sides[1] + vec4(0, -6, 0, 0));
-										draw_tris.push_back(sides[2] + vec4(0, -6, 0, 0));
-										draw_tris.push_back({ 0.0, 1.0f, 0.5f });
+										found_matching_edge = (ss + 2) % 3;
+
+										//const vec2 circumcenter = terrain_buffer->data[neighbour_index].triangles[border_triangle_index].circumcentre;
+										//const float cr2 = terrain_buffer->data[neighbour_index].triangles[border_triangle_index].circumradius2;
+										//const float dx = circumcenter.x - sides[found_matching_edge].x;
+										//const float dy = circumcenter.y - sides[found_matching_edge].z;
+
+										//if (dx * dx + dy * dy < cr2)
+										//{
+										//	vec4 new_point = (sides[found_matching_edge] + neighbour_middle) / 2.f;
+										//	new_point.w = curvature(new_point);
+										//	const uint cnt = terrain_buffer->data[node_index].new_points_count++;
+										//	terrain_buffer->data[node_index].new_points[cnt] = new_point;
+										//	terrain_buffer->data[node_index].new_points_triangles[cnt] = test_triangle;
+										//}
 									}
 								}
 							}
@@ -2044,21 +2065,9 @@ namespace cputri
 						statically_inserted = true;
 				}
 			}
-			if (statically_inserted)
-			{
-				draw_tris.push_back(sides[0] + vec4(0, -3, 0, 0));
-				draw_tris.push_back(sides[1] + vec4(0, -3, 0, 0));
-				draw_tris.push_back(sides[2] + vec4(0, -3, 0, 0));
-				draw_tris.push_back({ 0.5, 0.0f, 1.0f });
-			}
 			// Otherwise 
 			if (!statically_inserted && found_sides == 0)
 			{
-				draw_tris.push_back(sides[0]);
-				draw_tris.push_back(sides[1]);
-				draw_tris.push_back(sides[2]);
-				draw_tris.push_back({1, 0.5f, 0.5f});
-
 				s_triangles_to_remove[s_triangles_removed++] = test_triangle;
 				for (ss = 0; ss < 3; ++ss)
 				{
@@ -2082,8 +2091,6 @@ namespace cputri
 							g_triangles_to_test[g_test_count] = connection_index;
 							++g_test_count;
 						}
-
-						//terrain_buffer->data[node_index].border_triangle_indices[terrain_buffer->data[node_index].border_count++] = terrain_buffer->data[node_index].triangle_connections[test_triangle * 3 + ss];
 					}
 				}
 			}
@@ -2116,8 +2123,8 @@ namespace cputri
 
 	void triangle_process_shader(mat4 vp, vec4 camera_position, vec2 screen_size, float threshold, float area_multiplier, float curvature_multiplier, uint node_index)
 	{
-		//if (refine_node != -1 && refine_node != node_index)
-		//	return;
+		if (refine_node != -1 && refine_node != node_index)
+			return;
 
 		if (terrain_buffer->data[node_index].new_points_count != 0)  // TODO: Remove when moving to GPU
 			return;
@@ -2437,8 +2444,8 @@ namespace cputri
 
 	void triangulate_shader(const uint node_index)
 	{
-		//if (refine_node != -1 && refine_node != node_index)
-		//	return;
+		if (refine_node != -1 && refine_node != node_index)
+			return;
 
 		const uint thid = gl_GlobalInvocationID.x;
 
@@ -3102,7 +3109,9 @@ namespace cputri
 						}
 
 						if (!found)
+						{
 							int a = 234234;
+						}
 
 						if (is_border && !already_added && terrain_buffer->data[ltg[s_edges[i].node_index]].border_count < MAX_BORDER_TRIANGLE_COUNT)
 						{
@@ -3113,8 +3122,6 @@ namespace cputri
 
 					if (s_edges[i].old_triangle_index != INVALID)
 						replace_connection_index(ltg[s_edges[i].node_index], s_edges[i].connection, s_edges[i].old_triangle_index, s_edges[i].future_index);
-
-					//terrain_buffer->data[ltg[s_edges[i].node_index]].index_count += 3;
 				}
 
 				remove_old_triangles();

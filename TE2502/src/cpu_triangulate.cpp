@@ -1710,10 +1710,11 @@ namespace cputri
 		c = -0.5f*(a*(v0.x + v1.x) + b * (v0.z + v1.z));
 	}
 
-	bool is_same_edge(vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, bool& found_matching_edge)
+	bool is_same_edge(vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, uint neighbour_node_index, uint neighbour_border_index, bool& found_matching_edge)
 	{
-		if ((e1p1 == e2p1 && e1p2 == e2p2) ||
-			(e1p2 == e2p1 && e1p1 == e2p2))
+		if (((e1p1 == e2p1 && e1p2 == e2p2) ||
+			(e1p2 == e2p1 && e1p1 == e2p2)) && 
+			terrain_buffer->data[neighbour_node_index].triangle_connections[neighbour_border_index] >= INVALID - 8)
 		{
 			found_matching_edge = true;
 			float a, b, c;
@@ -1991,9 +1992,9 @@ namespace cputri
 									const vec4 e2p2 = terrain_buffer->data[neighbour_index].positions[terrain_buffer->data[neighbour_index].indices[border_triangle_index * 3 + 2]];
 									const vec3 neighbour_middle = (e2p0 + e2p1 + e2p2) / 3.f;
 									// 
-									if (is_same_edge(e1p1, e1p2, test_middle, e2p0, e2p1, neighbour_middle, found_matching_edge)
-										|| is_same_edge(e1p1, e1p2, test_middle, e2p1, e2p2, neighbour_middle, found_matching_edge)
-										|| is_same_edge(e1p1, e1p2, test_middle, e2p2, e2p0, neighbour_middle, found_matching_edge))
+									if (is_same_edge(e1p1, e1p2, test_middle, e2p0, e2p1, neighbour_middle, neighbour_index, border_triangle_index * 3 + 0, found_matching_edge)
+										|| is_same_edge(e1p1, e1p2, test_middle, e2p1, e2p2, neighbour_middle, neighbour_index, border_triangle_index * 3 + 1, found_matching_edge)
+										|| is_same_edge(e1p1, e1p2, test_middle, e2p2, e2p0, neighbour_middle, neighbour_index, border_triangle_index * 3 + 2, found_matching_edge))
 									{
 										terrain_buffer->data[node_index].triangle_connections[test_triangle * 3 + ss] = INVALID - (4 + y * 3 + x);
 										found = true;

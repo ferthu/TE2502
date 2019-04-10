@@ -3090,10 +3090,10 @@ namespace cputri
 							{
 								found = true;
 								if (s_edges[i].node_index == s_edges[test_index].node_index)
-									terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[index_count + 2 - ss] = s_edges[test_index].future_index;
+									terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[index + 2 - ss] = s_edges[test_index].future_index;
 								else
 								{
-									terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[index_count + 2 - ss] = INVALID - (4 + (int)s_edges[test_index].node_index - (int)s_edges[i].node_index);
+									terrain_buffer->data[ltg[s_edges[i].node_index]].triangle_connections[index + 2 - ss] = INVALID - (4 + (int)s_edges[test_index].node_index - (int)s_edges[i].node_index);
 									is_border = true;
 								}
 								break;

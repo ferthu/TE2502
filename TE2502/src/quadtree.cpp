@@ -165,7 +165,7 @@ Quadtree::Quadtree(
 
 	terrain_processing_filter_setup(queue, tfile);
 
-	error_metric_setup(window, queue);
+	//error_metric_setup(window, queue);
 	create_pipelines(window);
 }
 

@@ -124,14 +124,14 @@ Application::Application() :
 #ifdef RAY_MARCH_WINDOW
 	m_ray_march_window = new Window(1080, 720, "TE2502 - Ray March", m_vulkan_context, false);
 #endif
-	m_window = new Window(1080, 720, "TE2502 - Main", m_vulkan_context, true);
+	m_window = new Window(1800, 900, "TE2502 - Main", m_vulkan_context, true);
 	m_main_camera = new Camera(m_window->get_glfw_window());
 	m_debug_camera = new Camera(m_window->get_glfw_window());
 	m_current_camera = m_main_camera;
 
 	m_path_handler.attach_camera(m_main_camera);
 
-	glfwSetWindowPos(m_window->get_glfw_window(), 840, 100);
+	glfwSetWindowPos(m_window->get_glfw_window(), 100, 100);
 
 #ifdef RAY_MARCH_WINDOW
 	glfwSetWindowPos(m_ray_march_window->get_glfw_window(), 0, 100);

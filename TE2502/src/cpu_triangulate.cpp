@@ -2756,9 +2756,13 @@ namespace cputri
 				{
 					if (ltg[pp] != INVALID)
 					{
-						if (terrain_buffer->data[ltg[pp]].index_count + s_new_triangle_count * 3 >= num_indices ||
-							terrain_buffer->data[ltg[pp]].vertex_count + s_new_triangle_count * 2 >= num_vertices ||
-							terrain_buffer->data[ltg[pp]].border_count + s_new_triangle_count >= max_border_triangle_count)
+						int offset = 0;
+						if (pp == 4)
+							offset = 500;
+
+						if (terrain_buffer->data[ltg[pp]].index_count + s_new_triangle_count * 3 >= num_indices - offset ||
+							terrain_buffer->data[ltg[pp]].vertex_count + s_new_triangle_count * 2 >= num_vertices - offset ||
+							terrain_buffer->data[ltg[pp]].border_count + s_new_triangle_count >= max_border_triangle_count - offset)
 						{
 							skip = true;
 							break;

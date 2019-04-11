@@ -53,13 +53,15 @@ Quadtree::Quadtree(
 	m_num_draw_nodes = 0;
 	m_draw_nodes = new uint32_t[max_nodes];
 
-	m_node_memory_size = 
-		sizeof(VkDrawIndexedIndirectCommand) + 
-		sizeof(BufferNodeHeader) + 
+	m_node_memory_size =
+		sizeof(VkDrawIndexedIndirectCommand) +
+		sizeof(BufferNodeHeader) +
 		max_node_indices * sizeof(uint32_t) + // Indices
 		max_node_vertices * sizeof(glm::vec4) + // Vertices
 		(max_node_indices / 3) * sizeof(Triangle) + // Circumcentre and circumradius
-		max_node_new_points * sizeof(glm::vec4); // New points
+		max_node_indices * sizeof(uint32_t) + // Connections
+		max_node_new_points * sizeof(glm::vec4) + // New points
+		max_node_new_points * sizeof(uint32_t); // New points triangles
 
 	// Add space for an additional two vec2's to store the quadtree min and max
 	m_cpu_index_buffer_size = (1 << levels) * (1 << levels) * sizeof(uint32_t) + sizeof(glm::vec2) * 2;
@@ -102,8 +104,15 @@ Quadtree::Quadtree(
 
 	m_generation_set_layout = DescriptorSetLayout(context);
 	m_generation_set_layout.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	m_generation_set_layout.add_uniform_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
 	m_generation_set_layout.create();
-	m_descriptor_set = DescriptorSet(context, m_generation_set_layout);
+	m_generate_descriptor_set = DescriptorSet(context, m_generation_set_layout);
+
+	m_triangulation_set_layout = DescriptorSetLayout(context);
+	m_triangulation_set_layout.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	m_triangulation_set_layout.create();
+	m_triangulation_descriptor_set = DescriptorSet(context, m_triangulation_set_layout);
+
 	m_generation_pipeline_layout = PipelineLayout(context);
 	m_generation_pipeline_layout.add_descriptor_set_layout(m_generation_set_layout);
 	VkPushConstantRange push;
@@ -585,8 +594,8 @@ void Quadtree::draw_error_metric(
 		for (uint32_t i = 0; i < m_num_draw_nodes; i++)
 		{
 			queue.cmd_bind_index_buffer(m_buffer.get_buffer(), get_index_offset_of_node(m_draw_nodes[i]));
-		queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), get_vertex_offset_of_node(m_draw_nodes[i]));
-		queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), get_offset_of_node(m_draw_nodes[i]));
+			queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), get_vertex_offset_of_node(m_draw_nodes[i]));
+			queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), get_offset_of_node(m_draw_nodes[i]));
 		}
 
 		// Render newly generated terrain
@@ -648,7 +657,10 @@ void Quadtree::create_pipelines(Window& window)
 void Quadtree::triangulate()
 {
 	m_triangulation_queue.cmd_bind_compute_pipeline(m_triangulation_pipeline->m_pipeline);
-	m_triangulation_queue.cmd_bind_descriptor_set_compute(m_triangulation_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
+	m_triangulation_descriptor_set.clear();
+	m_triangulation_descriptor_set.add_storage_buffer(m_buffer);
+	m_triangulation_descriptor_set.bind();
+	m_triangulation_queue.cmd_bind_descriptor_set_compute(m_triangulation_pipeline_layout.get_pipeline_layout(), 0, m_triangulation_descriptor_set.get_descriptor_set());
 
 	for (unsigned i = 0; i < m_num_draw_nodes; ++i)
 	{
@@ -680,10 +692,11 @@ void Quadtree::generate()
 {
 	// Dispatch terrain generation
 	m_triangulation_queue.cmd_bind_compute_pipeline(m_generation_pipeline->m_pipeline);
-	m_descriptor_set.clear();
-	m_descriptor_set.add_storage_buffer(m_buffer);
-	m_descriptor_set.bind();
-	m_triangulation_queue.cmd_bind_descriptor_set_compute(m_generation_pipeline_layout.get_pipeline_layout(), 0, m_descriptor_set.get_descriptor_set());
+	m_generate_descriptor_set.clear();
+	m_generate_descriptor_set.add_storage_buffer(m_buffer);
+	m_generate_descriptor_set.add_uniform_buffer(m_triangle_processing_filter_gpu_buffer);
+	m_generate_descriptor_set.bind();
+	m_triangulation_queue.cmd_bind_descriptor_set_compute(m_generation_pipeline_layout.get_pipeline_layout(), 0, m_generate_descriptor_set.get_descriptor_set());
 
 	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
 	{
@@ -784,7 +797,9 @@ void Quadtree::move_from(Quadtree&& other)
 	m_quadtree_shift_distance = other.m_quadtree_shift_distance;
 
 	m_generation_set_layout = std::move(other.m_generation_set_layout);
-	m_descriptor_set = std::move(other.m_descriptor_set);
+	m_triangulation_set_layout = std::move(other.m_triangulation_set_layout);
+	m_triangulation_descriptor_set = std::move(other.m_triangulation_descriptor_set);
+	m_generate_descriptor_set = std::move(other.m_generate_descriptor_set);
 	m_generation_pipeline_layout = std::move(other.m_generation_pipeline_layout);
 	m_generation_pipeline = std::move(other.m_generation_pipeline);
 

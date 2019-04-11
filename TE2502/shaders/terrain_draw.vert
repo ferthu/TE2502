@@ -14,6 +14,6 @@ layout(push_constant) uniform frame_data_t
 } frame_data;
 
 void main() {
-	gl_Position = frame_data.camera_vp * pos;
+	gl_Position = frame_data.camera_vp * vec4(pos.xyz, 1.0f);
 	world_pos = pos.xyz;
 }

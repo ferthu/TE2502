@@ -1226,12 +1226,6 @@ namespace cputri
 	uint triangles_to_test[TEST_TRIANGLE_BUFFER_SIZE];
 	uint test_count;
 
-	bool is_internal(uint node_index, uint connection_index)
-	{
-		uint index = terrain_buffer->data[node_index].triangle_connections[connection_index];
-		return index < INVALID - 10;
-	}
-
 	void g_remove_old_triangles(uint node_index)
 	{
 		// Remove old triangles
@@ -1946,9 +1940,6 @@ namespace cputri
 
 
 
-
-		// TODO: Make sure INVALID is used correctly everywhere
-
 		// TODO: How big should these arrays be?
 		uint g_seen_triangles[200];
 		uint g_seen_triangle_count = 0;
@@ -2150,6 +2141,7 @@ namespace cputri
 			{
 				const int nx = cx + x;
 				const int ny = cy + y;
+				if (nx >= 0 && nx < (int)nodes_per_side && ny >= 0 && ny < (int)nodes_per_side)
 				if (nx >= 0 && nx < (int)nodes_per_side && ny >= 0 && ny < (int)nodes_per_side)
 				{
 					const uint neighbour_index = quadtree.node_index_to_buffer_index[ny * nodes_per_side + nx];

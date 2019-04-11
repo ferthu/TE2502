@@ -3,44 +3,50 @@ const uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
 const uint num_nodes = TERRAIN_GENERATE_NUM_NODES;
 const uint num_new_points = TRIANGULATE_MAX_NEW_NORMAL_POINTS;
 const uint quadtree_levels = QUADTREE_LEVELS;
-const uint max_new_border_points = TRIANGULATE_MAX_NEW_BORDER_POINTS;
 const uint max_border_triangle_count = MAX_BORDER_TRIANGLE_COUNT;
+
+const float ADJUST_PERCENTAGE = 0.35f;
+
+const uint INVALID = ~0u;
 
 struct Triangle
 {
 	vec2 circumcentre;
-	float circumradius;
 	float circumradius2;
+	uint pad;
 };
+
+// 13 is number of uints from [index_count, border_count]
+const uint header_size = 13 + MAX_BORDER_TRIANGLE_COUNT;
+const uint terrain_pad_size = 4 - (header_size % 4);
 
 struct terrain_data_t
 {
-	uint index_count;
-	uint instance_count;
-	uint first_index;
-	int  vertex_offset;
-	uint first_instance;
+		uint index_count;
+		uint instance_count;
+		uint first_index;
+		int  vertex_offset;
+		uint first_instance;
 
-	// struct BufferNodeHeader {
-		uint vertex_count;
-		uint new_points_count;
-		uint pad;
+		// struct BufferNodeHeader {
+			uint vertex_count;
+			uint new_points_count;
+			uint pad;
 
-		vec2 min;
-		vec2 max;
-		
-		uint new_border_point_count[4];
-		vec4 new_border_points[4u * max_new_border_points];
-		uint border_count[4];
-		uint border_triangle_indices[4u * max_border_triangle_count];
-		float border_max[4];
-		float border_diffs[4u * max_border_triangle_count];
-	// }
+			vec2 min;
+			vec2 max;
+
+			uint border_count;
+			uint border_triangle_indices[MAX_BORDER_TRIANGLE_COUNT];
+			uint pad2[terrain_pad_size];
+		// }
 
 	uint indices[num_indices];
 	vec4 positions[num_vertices];
 	Triangle triangles[num_indices / 3u];
+	uint triangle_connections[num_indices];
 	vec4 new_points[num_new_points];
+	uint new_points_triangles[num_new_points];
 };
 
 const uint quadtree_data_size = (1u << quadtree_levels) * (1u << quadtree_levels) + 4u;

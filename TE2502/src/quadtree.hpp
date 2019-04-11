@@ -119,9 +119,13 @@ private:
 	struct TriangulationData
 	{
 		uint32_t node_index;
-	}; 
-#define MAX_BORDER_TRIANGLE_COUNT 500
-#define TRIANGULATE_MAX_NEW_BORDER_POINTS 500
+	};
+
+#define MAX_BORDER_TRIANGLE_COUNT 2000
+
+	// 13 is number of uints from [index_count, border_count] in terrain_data_t
+	static const uint32_t m_terrain_pad_size = 4 - ((13 + MAX_BORDER_TRIANGLE_COUNT) % 4);
+
 	struct BufferNodeHeader
 	{
 		uint32_t vertex_count;
@@ -131,12 +135,9 @@ private:
 		glm::vec2 min;
 		glm::vec2 max;
 
-		uint32_t new_border_point_count[4];
-		glm::vec4 new_border_points[4 * TRIANGULATE_MAX_NEW_BORDER_POINTS];
-		uint32_t border_count[4];
-		uint32_t border_triangle_indices[4 * MAX_BORDER_TRIANGLE_COUNT];
-		float border_max[4];
-		float border_diffs[4 * MAX_BORDER_TRIANGLE_COUNT];
+		uint32_t border_count;
+		uint32_t border_triangle_indices[MAX_BORDER_TRIANGLE_COUNT];
+		uint32_t pad2[m_terrain_pad_size];
 	};
 	struct Triangle
 	{
@@ -188,8 +189,6 @@ private:
 	// Contains terrain indices + vertices for quadtree nodes
 	GPUBuffer m_buffer;
 
-
-
 	// Rendered buffer
 	GPUBuffer m_render_buffer;
 	GPUMemory m_render_memory;
@@ -200,7 +199,9 @@ private:
 	TriangleProcessingFrameData m_triangle_processing_frame_data;
 
 	DescriptorSetLayout m_generation_set_layout;
-	DescriptorSet m_descriptor_set;
+	DescriptorSetLayout m_triangulation_set_layout;
+	DescriptorSet m_triangulation_descriptor_set;
+	DescriptorSet m_generate_descriptor_set;
 	PipelineLayout m_generation_pipeline_layout;
 	PipelineLayout m_triangulation_pipeline_layout;
 	std::unique_ptr<Pipeline> m_generation_pipeline;

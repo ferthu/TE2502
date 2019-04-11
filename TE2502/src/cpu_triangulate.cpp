@@ -794,7 +794,7 @@ namespace cputri
 		memset(quadtree.node_index_to_buffer_index, INVALID, (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
 		memset(quadtree.buffer_index_filled, 0, num_nodes * sizeof(bool));
 
-		for (uint ii = 0; ii < (1 << quadtree_levels) * (1 << quadtree_levels); ii++)
+		for (uint ii = 0; ii < (1u << quadtree_levels) * (1u << quadtree_levels); ii++)
 		{
 			terrain_buffer->data[ii].instance_count = 0;
 		}
@@ -1663,7 +1663,7 @@ namespace cputri
 				terrain_buffer->data[node_index].triangle_connections[index * 3 + 1] = terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + 1];
 				terrain_buffer->data[node_index].triangle_connections[index * 3 + 2] = terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + 2];
 
-				for (uint ii = 0; ii < j; ++ii)
+				for (int ii = 0; ii < j; ++ii)
 				{
 					if (s_triangles_to_remove[ii] == last_triangle)
 						s_triangles_to_remove[ii] = index;
@@ -1700,7 +1700,7 @@ namespace cputri
 				terrain_buffer->data[node_index].triangle_connections[index * 3 + 1] = terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + 1];
 				terrain_buffer->data[node_index].triangle_connections[index * 3 + 2] = terrain_buffer->data[node_index].triangle_connections[last_triangle * 3 + 2];
 
-				for (uint ii = 0; ii < j; ++ii)
+				for (int ii = 0; ii < j; ++ii)
 				{
 					if (s_triangles_to_remove[ii] == last_triangle)
 						s_triangles_to_remove[ii] = index;
@@ -2150,7 +2150,7 @@ namespace cputri
 			{
 				const int nx = cx + x;
 				const int ny = cy + y;
-				if (nx >= 0 && nx < nodes_per_side && ny >= 0 && ny < nodes_per_side)
+				if (nx >= 0 && nx < (int)nodes_per_side && ny >= 0 && ny < (int)nodes_per_side)
 				{
 					const uint neighbour_index = quadtree.node_index_to_buffer_index[ny * nodes_per_side + nx];
 					if (neighbour_index == INVALID)

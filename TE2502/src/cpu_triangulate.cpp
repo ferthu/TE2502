@@ -793,6 +793,11 @@ namespace cputri
 	{
 		memset(quadtree.node_index_to_buffer_index, INVALID, (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
 		memset(quadtree.buffer_index_filled, 0, num_nodes * sizeof(bool));
+
+		for (uint ii = 0; ii < (1 << quadtree_levels) * (1 << quadtree_levels); ii++)
+		{
+			terrain_buffer->data[ii].instance_count = 0;
+		}
 	}
 
 	void triangulate()
@@ -2128,6 +2133,38 @@ namespace cputri
 
 		if (terrain_buffer->data[node_index].new_points_count != 0)  // TODO: Remove when moving to GPU
 			return;
+
+		const vec2 node_min = terrain_buffer->data[node_index].min;
+		const vec2 node_max = terrain_buffer->data[node_index].max;
+		const float side = node_max.x - node_min.x;
+
+		const int cx = int((node_min.x - terrain_buffer->quadtree_min.x + 1) / side);  // current node x
+		const int cy = int((node_min.y - terrain_buffer->quadtree_min.y + 1) / side);  // current node z/y
+
+		const uint nodes_per_side = 1 << quadtree_levels;
+
+		// Check self and neighbour nodes
+		for (int y = -1; y <= 1; ++y)
+		{
+			for (int x = -1; x <= 1; ++x)
+			{
+				const int nx = cx + x;
+				const int ny = cy + y;
+				if (nx >= 0 && nx < nodes_per_side && ny >= 0 && ny < nodes_per_side)
+				{
+					const uint neighbour_index = quadtree.node_index_to_buffer_index[ny * nodes_per_side + nx];
+					if (neighbour_index == INVALID)
+					{
+						return;
+					}
+				}
+				else
+				{
+					return;
+				}
+			}
+		}
+
 		//terrain_buffer->data[node_index].new_points_count = 0;
 		std::array<vec4, max_new_normal_points + 1> new_points;
 		std::array<uint, max_new_normal_points + 1> triangle_indices;

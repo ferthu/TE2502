@@ -50,7 +50,7 @@ public:
 	void draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool draw_to_screen, float area_multiplier, float curvature_multiplier, bool wireframe);
 
 	// Resets all terrain data
-	void clear_terrain();
+	void clear_terrain(GraphicsQueue& queue);
 
 	// Create Vulkan pipelines
 	void create_pipelines(Window& window);
@@ -208,6 +208,8 @@ private:
 	std::unique_ptr<Pipeline> m_triangulation_pipeline;
 	std::unique_ptr<Pipeline> m_triangulate_borders_pipeline;
 
+	std::unique_ptr<Pipeline> m_clear_pipeline;
+
 	RenderPass m_render_pass;
 	PipelineLayout m_draw_pipeline_layout;
 	std::unique_ptr<Pipeline> m_draw_pipeline;
@@ -275,13 +277,19 @@ private:
 		uint32_t quadtree_index;
 	};
 
+	struct DrawInfo
+	{
+		uint32_t buffer_index = INVALID;
+		uint32_t quadtree_index;
+	};
+
 	// Number and array of indices to nodes that needs to generate terrain
 	uint32_t m_num_generate_nodes;
 	GenerateInfo* m_generate_nodes;
 
 	// Number and array of indices to nodes that needs to draw terrain
 	uint32_t m_num_draw_nodes;
-	uint32_t* m_draw_nodes;
+	DrawInfo* m_draw_nodes;
 
 	// Number of bytes in buffer per node
 	VkDeviceSize m_node_memory_size;

@@ -10,7 +10,7 @@
 
 layout(set = 0, binding = 1) uniform curvature_filter_t
 {
-	float log_filter[CURVATURE_FILTER_RADIUS * 2 + 1];
+	float log_filter[(CURVATURE_FILTER_RADIUS * 2 + 1) * (CURVATURE_FILTER_RADIUS * 2 + 1)];
 } curvature_filter;
 
 layout(local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;

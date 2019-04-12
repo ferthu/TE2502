@@ -362,7 +362,7 @@ void Application::run(bool auto_triangulate)
 		if (!q_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_Q) == GLFW_PRESS)
 		{
 			q_pressed = true;
-			m_quadtree.clear_terrain();
+			m_quadtree.clear_terrain(m_main_queue);
 		}
 		else if (q_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_Q) == GLFW_RELEASE)
 			q_pressed = false;
@@ -457,7 +457,7 @@ void Application::update(const float dt)
 		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.01f, 0.0f, 3.0f);
 		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.1f, 10.0f);
 		if (ImGui::Button("Clear Terrain"))
-			m_quadtree.clear_terrain();
+			m_quadtree.clear_terrain(m_main_queue);
 
 		ImGui::Text((m_path_handler.get_mode() == MODE::CREATING) ? "Making path" : (m_path_handler.get_mode() == MODE::FOLLOWING) ? "Following path" : "");
 
@@ -477,7 +477,7 @@ void Application::update(const float dt)
 		}
 		if (current_item != "" && m_path_handler.get_mode() == MODE::NOTHING && ImGui::Button("Follow"))
 		{
-			m_quadtree.clear_terrain();
+			m_quadtree.clear_terrain(m_main_queue);
 			m_path_handler.follow_path(current_item);
 		}
 		ImGui::End();

@@ -5,7 +5,7 @@
 #include "terrain_buffer.include"
 #include "terrain.include"
 
-#define WORK_GROUP_SIZE 1024
+#define WORK_GROUP_SIZE 128
 layout(local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
 layout(push_constant) uniform frame_data_t
@@ -21,7 +21,7 @@ layout(push_constant) uniform frame_data_t
 
 layout(set = 0, binding = 1) uniform curvature_filter_t
 {
-	float log_filter[CURVATURE_FILTER_RADIUS * 2 + 1];
+	float log_filter[(CURVATURE_FILTER_RADIUS * 2 + 1) * (CURVATURE_FILTER_RADIUS * 2 + 1)];
 } curvature_filter;
 
 
@@ -39,10 +39,9 @@ float curvature(in vec3 p)
 	const int filter_radius = CURVATURE_FILTER_RADIUS;
 	const int filter_side = CURVATURE_FILTER_RADIUS * 2 + 1;
 
-	float camera_distance = distance(p, frame_data.camera_position.xyz);
-	float sample_step = 5.5 + pow(camera_distance * 0.5, 0.6);
+	float sample_step = 1.0f;
 
-	float curvature = 0.0;
+	float curvature = 0.0f;
 
 	for (int x = -filter_radius; x <= filter_radius; x++)
 	{
@@ -55,6 +54,194 @@ float curvature(in vec3 p)
 	return abs(curvature);
 }
 
-void main(void)
+const uint max_new_normal_points = TRIANGULATE_MAX_NEW_NORMAL_POINTS / WORK_GROUP_SIZE;
+shared uint s_counts[WORK_GROUP_SIZE];
+shared uint s_total;
+
+void main()
 {
+	const uint node_index = frame_data.node_index;
+
+	const vec2 node_min = terrain_buffer.data[node_index].min;
+	const vec2 node_max = terrain_buffer.data[node_index].max;
+	const float side = node_max.x - node_min.x;
+
+	const int cx = int((node_min.x - terrain_buffer.quadtree_min.x + 1) / side);  // current node x
+	const int cy = int((node_min.y - terrain_buffer.quadtree_min.y + 1) / side);  // current node z/y
+
+	const uint nodes_per_side = 1 << quadtree_levels;
+
+	// Check self and neighbour nodes
+	for (int y = -1; y <= 1; ++y)
+	{
+		for (int x = -1; x <= 1; ++x)
+		{
+			const int nx = cx + x;
+			const int ny = cy + y;
+			if (nx >= 0 && nx < int(nodes_per_side) && ny >= 0 && ny < int(nodes_per_side))
+			if (nx >= 0 && nx < int(nodes_per_side) && ny >= 0 && ny < int(nodes_per_side))
+			{
+				const uint neighbour_index = terrain_buffer.quadtree_index_map[ny * nodes_per_side + nx];
+				if (neighbour_index == INVALID)
+				{
+					return;
+				}
+			}
+			else
+			{
+				return;
+			}
+		}
+	}
+
+	//terrain_buffer.data[node_index].new_points_count = 0;
+	vec4 new_points[max_new_normal_points + 1];
+	uint triangle_indices[max_new_normal_points + 1];
+
+	const uint thid = gl_GlobalInvocationID.x;
+
+	const uint index_count = terrain_buffer.data[node_index].index_count;
+
+	uint new_point_count = 0;
+
+	// For every triangle
+	for (uint i = thid * 3; i + 3 <= index_count && new_point_count < max_new_normal_points; i += WORK_GROUP_SIZE * 3)
+	{
+		// Get vertices
+		vec4 v0 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i]];
+		vec4 v1 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i + 1]];
+		vec4 v2 = terrain_buffer.data[node_index].positions[terrain_buffer.data[node_index].indices[i + 2]];
+
+		// Get clipspace coordinates
+		vec4 c0 = frame_data.vp * vec4(vec3(v0), 1.0f);
+		vec4 c1 = frame_data.vp * vec4(vec3(v1), 1.0f);
+		vec4 c2 = frame_data.vp * vec4(vec3(v2), 1.0f);
+
+		// Check if any vertex is visible (shitty clipping)
+		if (clip(c0) || clip(c1) || clip(c2))
+		{
+			// Calculate screen space area
+
+			c0 /= c0.w;
+			c1 /= c1.w;
+			c2 /= c2.w;
+
+			// a, b, c is triangle side lengths
+			float a = distance(vec2(c0.x, c0.y), vec2(c1.x, c1.y));
+			float b = distance(vec2(c0.x, c0.y), vec2(c2.x, c2.y));
+			float c = distance(vec2(c1.x, c1.y), vec2(c2.x, c2.y));
+
+			// s is semiperimeter
+			float s = (a + b + c) * 0.5f;
+
+			float area = pow(s * (s - a) * (s - b) * (s - c), frame_data.area_multiplier);
+
+			vec3 mid = (vec3(v0) + vec3(v1) + vec3(v2)) / 3.0f;
+			float curv0 = v0.w;		// Curvature is stored in w coordinate
+			float curv1 = v1.w;
+			float curv2 = v2.w;
+
+			float inv_total_curv = 1.0f / (curv0 + curv1 + curv2);
+
+			// Create linear combination of corners based on curvature
+			vec3 curv_point = (curv0 * inv_total_curv * vec3(v0)) + (curv1 * inv_total_curv * vec3(v1)) + (curv2 * inv_total_curv * vec3(v2));
+
+			// Linearly interpolate between triangle middle and curv_point
+			vec3 new_pos = mix(mid, curv_point, 0.5);
+
+			// Y position of potential new point
+			float terrain_y = -terrain(vec2(new_pos.x, new_pos.z)) - 0.5f;
+
+			// Transform terrain_y and curv_point to clip space
+			vec4 clip_terrain_y = frame_data.vp * vec4(new_pos.x, terrain_y, new_pos.z, 1.0);
+			vec4 clip_curv_point = frame_data.vp * vec4(curv_point, 1.0);
+			clip_terrain_y /= clip_terrain_y.w;
+			clip_curv_point /= clip_curv_point.w;
+
+			// Screen space distance between current triangle point and new point
+			float screen_space_dist = pow(distance(vec2(clip_terrain_y.x, clip_terrain_y.y), vec2(clip_curv_point.x, clip_curv_point.y)), frame_data.curvature_multiplier);
+
+			// A new point should be added
+			if (screen_space_dist * area >= frame_data.threshold)
+			{
+				const vec4 point = vec4(new_pos.x, terrain_y, new_pos.z, curvature(vec3(new_pos.x, terrain_y, new_pos.z)));
+				new_points[new_point_count] = point;
+				triangle_indices[new_point_count] = i / 3;
+				++new_point_count;
+			}
+		}
+	}
+
+
+
+
+	////// PREFIX SUM
+
+	const uint n = WORK_GROUP_SIZE;
+
+	// Load into shared memory
+	s_counts[thid] = new_point_count;
+
+	barrier();
+	memoryBarrierShared();
+
+	if (thid == 0)
+		s_total = s_counts[n - 1];
+
+	barrier();
+	memoryBarrierShared();
+
+	int offset = 1;
+	for (uint d = n >> 1; d > 0; d >>= 1) // Build sum in place up the tree
+	{
+		barrier();
+		memoryBarrierShared();
+		if (thid < d)
+		{
+			uint ai = offset * (2 * thid + 1) - 1;
+			uint bi = offset * (2 * thid + 2) - 1;
+			s_counts[bi] += s_counts[ai];
+		}
+		offset *= 2;
+	}
+	if (thid == 0) { s_counts[n - 1] = 0; } // Clear the last element
+	for (int d = 1; d < n; d *= 2)			// Traverse down tree & build scan
+	{
+		offset >>= 1;
+		barrier();
+		memoryBarrierShared();
+		if (int(thid) < d)
+		{
+			uint ai = offset * (2 * thid + 1) - 1;
+			uint bi = offset * (2 * thid + 2) - 1;
+
+			uint t = s_counts[ai];
+			s_counts[ai] = s_counts[bi];
+			s_counts[bi] += t;
+		}
+	}
+	barrier();
+	memoryBarrierShared();
+
+	uint prev_count = terrain_buffer.data[node_index].new_points_count;
+
+	barrier();
+	memoryBarrierShared();
+	memoryBarrierBuffer();
+
+	// Make sure the total is saved as well
+	if (thid == 0)
+	{
+		s_total += s_counts[n - 1];
+		terrain_buffer.data[node_index].new_points_count += s_total;
+		terrain_buffer.data[node_index].new_points_count = min(terrain_buffer.data[node_index].new_points_count, num_new_points);
+	}
+
+	// Write points to output storage buffer
+	const uint base_offset = prev_count + s_counts[thid];
+	for (uint i = 0; i < new_point_count && base_offset + i < num_new_points; ++i)
+	{
+		terrain_buffer.data[node_index].new_points[base_offset + i] = new_points[i];
+		terrain_buffer.data[node_index].new_points_triangles[base_offset + i] = triangle_indices[i];
+	}
 }

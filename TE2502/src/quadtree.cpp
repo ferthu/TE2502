@@ -174,8 +174,41 @@ Quadtree::Quadtree(
 
 	terrain_processing_filter_setup(queue, tfile);
 
+	m_clear_set_layout = DescriptorSetLayout(*m_context);
+	m_clear_set_layout.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	m_clear_set_layout.add_uniform_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	m_clear_set_layout.create();
+
+	m_clear_descriptor_set = DescriptorSet(*m_context, m_clear_set_layout);
+
+	m_clear_pipeline_layout = PipelineLayout(*m_context);
+	m_clear_pipeline_layout.add_descriptor_set_layout(m_clear_set_layout);
+	m_clear_pipeline_layout.create(nullptr);
+
+	terrain_clear_setup(queue);
+
 	//error_metric_setup(window, queue);
 	create_pipelines(window);
+}
+
+void Quadtree::terrain_clear_setup(GraphicsQueue& queue)
+{
+	const uint32_t size = ((1 << m_levels) * (1 << m_levels) + 1) * sizeof(uint32_t);
+
+	m_clear_cpu_memory = m_context->allocate_host_memory(size + 512);
+	m_clear_gpu_memory = m_context->allocate_device_memory(size + 512);
+	m_clear_cpu_buffer =
+		GPUBuffer(
+			*m_context, size,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			m_clear_cpu_memory);
+	m_clear_gpu_buffer =
+		GPUBuffer(
+			*m_context, size,
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			m_clear_gpu_memory);
+
+	vkMapMemory(m_context->get_device(), m_clear_cpu_buffer.get_memory(), 0, size, 0, (void**)&m_nodes_to_clear);
 }
 
 void Quadtree::terrain_processing_filter_setup(GraphicsQueue& queue, TFile& tfile)
@@ -614,26 +647,6 @@ void Quadtree::clear_terrain(GraphicsQueue& queue)
 {
 	memset(m_node_index_to_buffer_index, INVALID, (1 << m_levels) * (1 << m_levels) * sizeof(uint32_t));
 	memset(m_buffer_index_filled, 0, m_max_nodes * sizeof(bool));
-
-	queue.wait();
-	m_triangulation_queue.wait();
-
-	m_triangulation_queue.start_recording();
-	// Bind pipeline
-	m_triangulation_queue.cmd_bind_compute_pipeline(m_clear_pipeline->m_pipeline);
-
-	m_triangulation_descriptor_set.clear();
-	m_triangulation_descriptor_set.add_storage_buffer(m_buffer);
-	m_triangulation_descriptor_set.bind();
-
-	// Bind descriptor set
-	m_triangulation_queue.cmd_bind_descriptor_set_compute(m_triangulation_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_triangulation_descriptor_set.get_descriptor_set());
-
-	m_triangulation_queue.cmd_dispatch(1, 1, 1);
-
-	m_triangulation_queue.end_recording();
-	m_triangulation_queue.submit();
-	m_triangulation_queue.wait();
 }
 
 void Quadtree::create_pipelines(Window& window)
@@ -673,7 +686,7 @@ void Quadtree::create_pipelines(Window& window)
 
 	m_triangle_processing_compute_pipeline = m_context->create_compute_pipeline("triangle_processing", m_triangle_processing_pipeline_layout, nullptr);
 
-	m_clear_pipeline = m_context->create_compute_pipeline("terrain_clear", m_triangulation_pipeline_layout, nullptr);
+	m_clear_pipeline = m_context->create_compute_pipeline("terrain_clear", m_clear_pipeline_layout, nullptr);
 }
 
 void Quadtree::triangulate()
@@ -802,57 +815,108 @@ void Quadtree::generate()
 		0,
 		m_cpu_index_buffer_size);
 
-	// Dispatch terrain generation
-	m_triangulation_queue.cmd_bind_compute_pipeline(m_generation_pipeline->m_pipeline);
-	m_generate_descriptor_set.clear();
-	m_generate_descriptor_set.add_storage_buffer(m_buffer);
-	m_generate_descriptor_set.add_uniform_buffer(m_triangle_processing_filter_gpu_buffer);
-	m_generate_descriptor_set.bind();
-	m_triangulation_queue.cmd_bind_descriptor_set_compute(m_generation_pipeline_layout.get_pipeline_layout(), 0, m_generate_descriptor_set.get_descriptor_set());
-
-	for (uint32_t y = 0; y < 3; ++y)
+	if (m_num_generate_nodes > 0)
 	{
-		for (uint32_t x = 0; x < 3; ++x)
+		const uint32_t size = ((1 << m_levels) * (1 << m_levels) + 1) * sizeof(uint32_t);
+
+		// Fill clear buffer
+		m_nodes_to_clear[0] = m_num_generate_nodes;
+		for (unsigned i = 0; i < m_num_generate_nodes; ++i)
 		{
-			for (unsigned i = 0; i < m_num_generate_nodes; ++i)
+			uint32_t new_index = find_chunk();
+			if (new_index != INVALID)
 			{
-				int node_x = m_generate_nodes[i].quadtree_index % (1u << m_levels);
-				int node_y = m_generate_nodes[i].quadtree_index / (1u << m_levels);
+				m_generate_nodes[i].buffer_index = new_index;
 
+				m_buffer_index_filled[m_generate_nodes[i].buffer_index] = true;
+				m_node_index_to_buffer_index[m_generate_nodes[i].quadtree_index] = m_generate_nodes[i].buffer_index;
 
-				if (node_x % 3 == x && node_y % 3 == y)
+				m_nodes_to_clear[i + 1] = m_generate_nodes[i].buffer_index;
+			}
+		}
+
+		// Copy clear buffer to GPU
+		m_triangulation_queue.cmd_copy_buffer(
+			m_clear_cpu_buffer.get_buffer(),
+			m_clear_gpu_buffer.get_buffer(),
+			(m_num_generate_nodes + 1) * sizeof(uint32_t));
+
+		m_triangulation_queue.cmd_buffer_barrier(m_clear_gpu_buffer.get_buffer(),
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0,
+			VK_WHOLE_SIZE);
+
+		// Bind pipeline
+		m_triangulation_queue.cmd_bind_compute_pipeline(m_clear_pipeline->m_pipeline);
+
+		m_clear_descriptor_set.clear();
+		m_clear_descriptor_set.add_storage_buffer(m_buffer);
+		m_clear_descriptor_set.add_uniform_buffer(m_clear_gpu_buffer);
+		m_clear_descriptor_set.bind();
+
+		// Bind descriptor set
+		m_triangulation_queue.cmd_bind_descriptor_set_compute(m_clear_pipeline->m_pipeline_layout.get_pipeline_layout(), 0, m_clear_descriptor_set.get_descriptor_set());
+
+		// Dispatch clearing
+		m_triangulation_queue.cmd_dispatch(1, 1, 1);
+
+		m_triangulation_queue.cmd_buffer_barrier(m_buffer.get_buffer(),
+			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0,
+			VK_WHOLE_SIZE);
+
+		// Dispatch terrain generation
+		m_triangulation_queue.cmd_bind_compute_pipeline(m_generation_pipeline->m_pipeline);
+		m_generate_descriptor_set.clear();
+		m_generate_descriptor_set.add_storage_buffer(m_buffer);
+		m_generate_descriptor_set.add_uniform_buffer(m_triangle_processing_filter_gpu_buffer);
+		m_generate_descriptor_set.bind();
+		m_triangulation_queue.cmd_bind_descriptor_set_compute(m_generation_pipeline_layout.get_pipeline_layout(), 0, m_generate_descriptor_set.get_descriptor_set());
+
+		for (uint32_t y = 0; y < 3; ++y)
+		{
+			for (uint32_t x = 0; x < 3; ++x)
+			{
+				for (unsigned i = 0; i < m_num_generate_nodes; ++i)
 				{
-					uint32_t new_index = find_chunk();
-					if (new_index != INVALID)
+					int node_x = m_generate_nodes[i].quadtree_index % (1u << m_levels);
+					int node_y = m_generate_nodes[i].quadtree_index / (1u << m_levels);
+
+
+					if (node_x % 3 == x && node_y % 3 == y)
 					{
-						m_push_data.node_index = new_index;
-						m_push_data.min = m_generate_nodes[i].min;
-						m_push_data.max = m_generate_nodes[i].max;
+						if (m_generate_nodes[i].buffer_index != INVALID)
+						{
+							m_push_data.node_index = m_generate_nodes[i].buffer_index;
+							m_push_data.min = m_generate_nodes[i].min;
+							m_push_data.max = m_generate_nodes[i].max;
 
-						m_generate_nodes[i].buffer_index = new_index;
+							m_triangulation_queue.cmd_push_constants(
+								m_generation_pipeline_layout.get_pipeline_layout(),
+								VK_SHADER_STAGE_COMPUTE_BIT,
+								sizeof(GenerationData),
+								&m_push_data);
 
-						m_buffer_index_filled[new_index] = true;
-						m_node_index_to_buffer_index[m_generate_nodes[i].quadtree_index] = new_index;
+							m_triangulation_queue.cmd_dispatch(1, 1, 1);
 
-						m_triangulation_queue.cmd_push_constants(
-							m_generation_pipeline_layout.get_pipeline_layout(),
-							VK_SHADER_STAGE_COMPUTE_BIT,
-							sizeof(GenerationData),
-							&m_push_data);
-
-						m_triangulation_queue.cmd_dispatch(1, 1, 1);
-
-						m_triangulation_queue.cmd_buffer_barrier(m_buffer.get_buffer(),
-							VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-							VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-							VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-							VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-							m_cpu_index_buffer_size + m_generate_nodes[i].buffer_index * m_node_memory_size,
-							m_node_memory_size);
-					}
-					else
-					{
-						// No space left. Ignore
+							m_triangulation_queue.cmd_buffer_barrier(m_buffer.get_buffer(),
+								VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+								VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+								VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+								VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+								m_cpu_index_buffer_size + m_generate_nodes[i].buffer_index * m_node_memory_size,
+								m_node_memory_size);
+						}
+						else
+						{
+							// No space left. Ignore
+						}
 					}
 				}
 			}
@@ -971,6 +1035,17 @@ void Quadtree::move_from(Quadtree&& other)
 	m_triangle_processing_pipeline_layout = std::move(other.m_triangle_processing_pipeline_layout);
 	m_triangle_processing_compute_pipeline = std::move(other.m_triangle_processing_compute_pipeline);
 
+	m_clear_set_layout = std::move(other.m_clear_set_layout);
+	m_clear_descriptor_set = std::move(other.m_clear_descriptor_set);
+	m_clear_pipeline_layout = std::move(other.m_clear_pipeline_layout);
+
+	m_clear_cpu_memory = std::move(other.m_clear_cpu_memory);
+	m_clear_gpu_memory = std::move(other.m_clear_gpu_memory);
+	m_clear_cpu_buffer = std::move(other.m_clear_cpu_buffer);
+	m_clear_gpu_buffer = std::move(other.m_clear_gpu_buffer);
+	m_nodes_to_clear = other.m_nodes_to_clear;
+	other.m_nodes_to_clear = nullptr;
+
 	m_render_buffer = std::move(other.m_render_buffer);
 	m_render_memory = std::move(other.m_render_memory);
 	m_triangulation_queue = std::move(other.m_triangulation_queue);
@@ -993,6 +1068,11 @@ void Quadtree::destroy()
 	{
 		vkDestroySemaphore(m_context->get_device(), m_triangulation_semaphore, m_context->get_allocation_callbacks());
 		m_triangulation_semaphore = VK_NULL_HANDLE;
+	}
+	if (m_nodes_to_clear != nullptr)
+	{
+		vkUnmapMemory(m_context->get_device(), m_clear_cpu_buffer.get_memory());
+		m_nodes_to_clear = nullptr;
 	}
 
 	delete[] m_render_node_index_to_buffer_index;

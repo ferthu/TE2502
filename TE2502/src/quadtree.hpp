@@ -165,6 +165,8 @@ private:
 
 	void terrain_processing_filter_setup(GraphicsQueue& queue, TFile& tfile);
 
+	void terrain_clear_setup(GraphicsQueue& queue);
+
 	// Get offset for indices for index i in m_buffer
 	VkDeviceSize get_index_offset_of_node(uint32_t i);
 
@@ -208,8 +210,6 @@ private:
 	std::unique_ptr<Pipeline> m_triangulation_pipeline;
 	std::unique_ptr<Pipeline> m_triangulate_borders_pipeline;
 
-	std::unique_ptr<Pipeline> m_clear_pipeline;
-
 	RenderPass m_render_pass;
 	PipelineLayout m_draw_pipeline_layout;
 	std::unique_ptr<Pipeline> m_draw_pipeline;
@@ -235,6 +235,18 @@ private:
 	DescriptorSet m_triangle_processing_set;
 	PipelineLayout m_triangle_processing_pipeline_layout;
 	std::unique_ptr<Pipeline> m_triangle_processing_compute_pipeline;
+
+	// Terrain clearing
+	DescriptorSetLayout m_clear_set_layout;
+	DescriptorSet m_clear_descriptor_set;
+	PipelineLayout m_clear_pipeline_layout;
+	std::unique_ptr<Pipeline> m_clear_pipeline;
+
+	GPUMemory m_clear_cpu_memory;
+	GPUMemory m_clear_gpu_memory;
+	GPUBuffer m_clear_cpu_buffer;
+	GPUBuffer m_clear_gpu_buffer;
+	uint32_t* m_nodes_to_clear;	// First element is number of nodes to clear
 
 	// Max number of indices and vertices per node
 	VkDeviceSize m_max_indices;

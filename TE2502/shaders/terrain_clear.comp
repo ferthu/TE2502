@@ -7,14 +7,22 @@
 
 #define WORK_GROUP_SIZE 128
 
+const uint quadtree_size = (1u << quadtree_levels) * (1u << quadtree_levels);
+
+layout(set = 0, binding = 1) uniform clear_buffer_t
+{
+	uint clear_count;
+	uint clear_nodes[quadtree_size];
+} clear_buffer;
+
 layout(local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
 void main()
 {
 	const uint thid = gl_GlobalInvocationID.x;
 
-	for (uint ii = thid; ii < num_nodes; ii += WORK_GROUP_SIZE)
+	for (uint ii = thid; ii < clear_buffer.clear_count; ii += WORK_GROUP_SIZE)
 	{
-		terrain_buffer.data[ii].instance_count = 0;
+		terrain_buffer.data[clear_buffer.clear_nodes[ii]].instance_count = 0;
 	}
 }

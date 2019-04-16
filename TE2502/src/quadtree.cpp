@@ -176,7 +176,7 @@ Quadtree::Quadtree(
 
 	m_clear_set_layout = DescriptorSetLayout(*m_context);
 	m_clear_set_layout.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
-	m_clear_set_layout.add_uniform_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
+	m_clear_set_layout.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
 	m_clear_set_layout.create();
 
 	m_clear_descriptor_set = DescriptorSet(*m_context, m_clear_set_layout);
@@ -193,7 +193,7 @@ Quadtree::Quadtree(
 
 void Quadtree::terrain_clear_setup(GraphicsQueue& queue)
 {
-	const uint32_t size = ((1 << m_levels) * (1 << m_levels) + 1) * sizeof(uint32_t);
+	uint32_t size = ((1 << m_levels) * (1 << m_levels) + 1) * sizeof(uint32_t);
 
 	m_clear_cpu_memory = m_context->allocate_host_memory(size + 512);
 	m_clear_gpu_memory = m_context->allocate_device_memory(size + 512);
@@ -205,7 +205,7 @@ void Quadtree::terrain_clear_setup(GraphicsQueue& queue)
 	m_clear_gpu_buffer =
 		GPUBuffer(
 			*m_context, size,
-			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 			m_clear_gpu_memory);
 
 	vkMapMemory(m_context->get_device(), m_clear_cpu_buffer.get_memory(), 0, size, 0, (void**)&m_nodes_to_clear);
@@ -840,21 +840,21 @@ void Quadtree::generate()
 			m_clear_cpu_buffer.get_buffer(),
 			m_clear_gpu_buffer.get_buffer(),
 			(m_num_generate_nodes + 1) * sizeof(uint32_t));
-
+		
 		m_triangulation_queue.cmd_buffer_barrier(m_clear_gpu_buffer.get_buffer(),
 			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
+			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			0,
 			VK_WHOLE_SIZE);
-
+		
 		// Bind pipeline
 		m_triangulation_queue.cmd_bind_compute_pipeline(m_clear_pipeline->m_pipeline);
 
 		m_clear_descriptor_set.clear();
 		m_clear_descriptor_set.add_storage_buffer(m_buffer);
-		m_clear_descriptor_set.add_uniform_buffer(m_clear_gpu_buffer);
+		m_clear_descriptor_set.add_storage_buffer(m_clear_gpu_buffer);
 		m_clear_descriptor_set.bind();
 
 		// Bind descriptor set

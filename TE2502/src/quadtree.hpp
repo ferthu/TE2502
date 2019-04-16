@@ -72,8 +72,6 @@ public:
 
 	RenderPass& get_render_pass();
 
-	void derp();
-
 private:
 	// Adds new vertices to terrain buffer when needed
 	void process_triangles(Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);

@@ -6,7 +6,7 @@
 #include "terrain.include"
 #include "circumcircle.include"
 
-#define WORK_GROUP_SIZE 3
+#define WORK_GROUP_SIZE 1
 
 layout(set = 0, binding = 1) uniform curvature_filter_t
 {

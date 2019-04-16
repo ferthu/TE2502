@@ -5,7 +5,7 @@
 #include "terrain_buffer.include"
 #include "circumcircle.include"
 
-#define WORK_GROUP_SIZE 1
+#define WORK_GROUP_SIZE 32
 
 layout(local_size_x = WORK_GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
@@ -30,9 +30,9 @@ struct BorderEdge
 	uint pad[2];
 };
 
-const uint max_border_edges = 100;
-const uint max_triangles_to_remove = 100;
-shared BorderEdge s_edges[max_border_edges * 3];
+const uint max_edges = 15;
+const uint max_triangles_to_remove = 10;
+shared BorderEdge s_edges[max_edges * 3];
 shared uint s_owning_node[max_triangles_to_remove];
 
 shared uint s_triangles_removed;
@@ -205,8 +205,6 @@ void main()
 	const int cx = int((node_min.x - terrain_buffer.quadtree_min.x + 1) / side);  // current node x
 	const int cy = int((node_min.y - terrain_buffer.quadtree_min.y + 1) / side);  // current node z/y
 
-	uint nodes_new_points_count[9];
-
 	for (int y = -1; y <= 1; ++y)
 	{
 		for (int x = -1; x <= 1; ++x)
@@ -243,7 +241,6 @@ void main()
 		// Reset
 		for (uint ii = 0; ii < 9; ++ii)
 		{
-			nodes_new_points_count[ii] = 0;
 			new_triangle_index_count[ii] = 0;
 		}
 
@@ -258,6 +255,8 @@ void main()
 		test_triangle_owners[0] = SELF_INDEX;
 
 		bool finish = false;
+		if (thid == 0)
+		{
 		while (test_count != 0 && !finish)
 		{
 			const uint triangle_index = triangles_to_test[--test_count];
@@ -281,7 +280,7 @@ void main()
 
 				// Store edges to be removed
 				uint tr = atomicAdd(s_triangles_removed, 1);
-				if (tr >= max_triangles_to_remove || tr >= max_border_edges)
+				if (tr >= max_triangles_to_remove || tr >= max_edges)
 				{
 					finish = true;
 					break;
@@ -323,7 +322,7 @@ void main()
 				// Add neighbour triangles to be tested
 				for (uint ss = 0; ss < 3 && !finish; ++ss)
 				{
-					const uint index = terrain_buffer.data[global_owner_index].triangle_connections[triangle_index * 3 + ss];
+					const uint index = s_edges[ec + ss].connection;
 
 					if (index <= INVALID - 9)
 					{
@@ -363,12 +362,12 @@ void main()
 						}
 
 						// Check neighbour nodes
+						const vec2 adjusted_max = node_max + vec2(side) * ADJUST_PERCENTAGE;
+						const vec2 adjusted_min = node_min - vec2(side) * ADJUST_PERCENTAGE;
 						for (uint nn = 0; nn < 9 && !finish; ++nn)
 						{
 							if (nn != SELF_INDEX)
 							{
-								const vec2 adjusted_max = node_max + vec2(side) * ADJUST_PERCENTAGE;
-								const vec2 adjusted_min = node_min - vec2(side) * ADJUST_PERCENTAGE;
 								if (current_point.x >= adjusted_min.x && current_point.x <= adjusted_max.x
 									&& current_point.z >= adjusted_min.y && current_point.z <= adjusted_max.y)
 								{
@@ -404,6 +403,11 @@ void main()
 				}
 			}
 		}
+		}
+
+		barrier();
+		memoryBarrierShared();
+		memoryBarrierBuffer();
 
 		if (finish)
 		{
@@ -411,8 +415,9 @@ void main()
 			continue;
 		}
 
-		//barrier();
-		//memoryBarrierShared();
+		barrier();
+		memoryBarrierShared();
+		memoryBarrierBuffer();
 
 		// Delete all doubly specified edges from edge buffer (this leaves the edges of the enclosing polygon only)
 		const uint edge_count = s_triangles_removed * 3;
@@ -436,8 +441,8 @@ void main()
 			i += WORK_GROUP_SIZE;
 		}
 
-		//barrier();
-		//memoryBarrierShared();
+		barrier();
+		memoryBarrierShared();
 
 		// Count the number of new triangles to create
 		if (thid == 0)
@@ -449,7 +454,6 @@ void main()
 				if (s_edges[j].p1.y != INVALID_HEIGHT)
 				{
 					s_valid_indices[s_new_triangle_count++] = j;
-					nodes_new_points_count[s_edges[j].node_index]++;
 				}
 			}
 		}
@@ -774,20 +778,6 @@ void main()
 				vec3 Q = vec3(s_edges[i].p2);
 				vec3 R = vec3(current_point);
 
-				//vec2 PQ = normalize(vec2(Q.x, Q.z) - vec2(P.x, P.z));
-				//vec2 PR = normalize(vec2(R.x, R.z) - vec2(P.x, P.z));
-				//vec2 RQ = normalize(vec2(Q.x, Q.z) - vec2(R.x, R.z));
-
-				//float d1 = abs(dot(PQ, PR));
-				//float d2 = abs(dot(PR, RQ));
-				//float d3 = abs(dot(RQ, PQ));
-
-				// Skip this triangle because it is too narrow (should only happen at borders)
-				//if (d1 > EPSILON || d2 > EPSILON || d3 > EPSILON)
-				//{
-				//	continue;
-				//}
-
 				// Make sure winding order is correct
 				const vec3 nor = cross(R - P, Q - P);
 				if (nor.y > 0)
@@ -836,7 +826,6 @@ void main()
 				for (uint ss = 0; ss < 2; ++ss)  // The two other sides
 				{
 					bool is_border = false;
-					bool found = false;
 					// Search through all other new triangles that have been added to find possible neighbours/connections
 					for (uint ee = 0; ee < s_new_triangle_count; ++ee)
 					{
@@ -846,7 +835,6 @@ void main()
 						// Check each pair of points in the triangle if they match
 						if (edges[ss] == s_edges[test_index].p1 || edges[ss] == s_edges[test_index].p2)
 						{
-							found = true;
 							if (s_edges[i].node_index == s_edges[test_index].node_index)
 								terrain_buffer.data[ltg[s_edges[i].node_index]].triangle_connections[index + 2 - ss] = s_edges[test_index].future_index;
 							else
@@ -856,11 +844,6 @@ void main()
 							}
 							break;
 						}
-					}
-
-					if (!found)
-					{
-						int a = 234234;
 					}
 
 					if (is_border && !already_added && terrain_buffer.data[ltg[s_edges[i].node_index]].border_count < MAX_BORDER_TRIANGLE_COUNT)

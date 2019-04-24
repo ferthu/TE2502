@@ -187,7 +187,6 @@ Quadtree::Quadtree(
 
 	terrain_clear_setup(queue);
 
-	//error_metric_setup(window, queue);
 	create_pipelines(window);
 }
 
@@ -564,85 +563,6 @@ void Quadtree::process_triangles(Camera& camera, Window& window, float em_thresh
 
 }
 
-void Quadtree::draw_error_metric(
-	GraphicsQueue& queue,
-	Frustum& frustum,
-	DebugDrawer& dd,
-	Framebuffer& framebuffer,
-	Camera& camera,
-	bool draw_to_screen,
-	float area_multiplier,
-	float curvature_multiplier,
-	bool wireframe)
-{
-	// Draw error metric image
-	m_em_push_data.vp = camera.get_vp();
-	m_em_push_data.camera_pos = glm::vec4(camera.get_pos(), 1.0f);
-	m_em_push_data.screen_size = glm::vec2(m_em_framebuffer.get_width(), m_em_framebuffer.get_width());
-	m_em_push_data.area_multiplier = area_multiplier;
-	m_em_push_data.curvature_multiplier = curvature_multiplier;
-
-	queue.cmd_push_constants(m_em_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(ErrorMetricData), &m_em_push_data);
-
-	queue.cmd_bind_graphics_pipeline(m_em_pipeline->m_pipeline);
-	queue.cmd_begin_render_pass(m_em_render_pass, m_em_framebuffer);
-
-	// Render nonupdated terrain
-	for (uint32_t i = 0; i < m_num_draw_nodes; i++)
-	{
-		queue.cmd_bind_index_buffer(m_buffer.get_buffer(), get_index_offset_of_node(m_draw_nodes[i].buffer_index));
-		queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), get_vertex_offset_of_node(m_draw_nodes[i].buffer_index));
-		queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), get_offset_of_node(m_draw_nodes[i].buffer_index));
-	}
-
-	// Render newly generated terrain
-	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
-	{
-		if (m_generate_nodes[i].buffer_index != INVALID)
-		{
-			queue.cmd_bind_index_buffer(m_buffer.get_buffer(), get_index_offset_of_node(m_generate_nodes[i].buffer_index));
-			queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), get_vertex_offset_of_node(m_generate_nodes[i].buffer_index));
-			queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), get_offset_of_node(m_generate_nodes[i].buffer_index));
-		}
-	}
-
-	queue.cmd_end_render_pass();
-
-	// If drawing to screen as well, do the same thing again on swapchain framebuffer
-	if (draw_to_screen)
-	{
-		// Draw error metric image
-		m_em_push_data.screen_size = glm::vec2(framebuffer.get_width(), framebuffer.get_width());
-
-		queue.cmd_push_constants(m_em_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(ErrorMetricData), &m_em_push_data);
-
-		if (!wireframe)
-			queue.cmd_bind_graphics_pipeline(m_em_wireframe_pipeline->m_pipeline);
-		else
-			queue.cmd_bind_graphics_pipeline(m_em_pipeline->m_pipeline);
-
-		queue.cmd_begin_render_pass(m_em_render_pass, framebuffer);
-
-		// Render nonupdated terrain
-		for (uint32_t i = 0; i < m_num_draw_nodes; i++)
-		{
-			queue.cmd_bind_index_buffer(m_buffer.get_buffer(), get_index_offset_of_node(m_draw_nodes[i].buffer_index));
-			queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), get_vertex_offset_of_node(m_draw_nodes[i].buffer_index));
-			queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), get_offset_of_node(m_draw_nodes[i].buffer_index));
-		}
-
-		// Render newly generated terrain
-		for (uint32_t i = 0; i < m_num_generate_nodes; i++)
-		{
-			queue.cmd_bind_index_buffer(m_buffer.get_buffer(), get_index_offset_of_node(m_generate_nodes[i].buffer_index));
-			queue.cmd_bind_vertex_buffer(m_buffer.get_buffer(), get_vertex_offset_of_node(m_generate_nodes[i].buffer_index));
-			queue.cmd_draw_indexed_indirect(m_buffer.get_buffer(), get_offset_of_node(m_generate_nodes[i].buffer_index));
-		}
-
-		queue.cmd_end_render_pass();
-	}
-}
-
 void Quadtree::clear_terrain(GraphicsQueue& queue)
 {
 	memset(m_node_index_to_buffer_index, INVALID, (1 << m_levels) * (1 << m_levels) * sizeof(uint32_t));
@@ -929,24 +849,9 @@ PipelineLayout& Quadtree::get_triangle_processing_layout()
 	return m_triangle_processing_pipeline_layout;
 }
 
-ImageView& Quadtree::get_em_image_view()
-{
-	return m_em_image_view;
-}
-
 GPUBuffer& Quadtree::get_buffer()
 {
 	return m_buffer;
-}
-
-GPUImage& Quadtree::get_em_image()
-{
-	return m_em_image;
-}
-
-GPUImage& Quadtree::get_em_depth_image()
-{
-	return m_em_depth_image;
 }
 
 RenderPass& Quadtree::get_render_pass()
@@ -995,17 +900,6 @@ void Quadtree::move_from(Quadtree&& other)
 
 	m_buffer_index_filled = other.m_buffer_index_filled;
 	other.m_buffer_index_filled = nullptr;
-
-	m_em_memory = std::move(other.m_em_memory);
-	m_em_image = std::move(other.m_em_image);
-	m_em_image_view = std::move(other.m_em_image_view);
-	m_em_depth_image = std::move(other.m_em_depth_image);
-	m_em_depth_image_view = std::move(other.m_em_depth_image_view);
-	m_em_framebuffer = std::move(other.m_em_framebuffer);
-	m_em_pipeline_layout = std::move(other.m_em_pipeline_layout);
-	m_em_render_pass = std::move(other.m_em_render_pass);
-	m_em_pipeline = std::move(other.m_em_pipeline);
-	m_em_wireframe_pipeline = std::move(other.m_em_wireframe_pipeline);
 
 	m_triangulation_pipeline_layout = std::move(other.m_triangulation_pipeline_layout);
 	m_triangulation_pipeline = std::move(other.m_triangulation_pipeline);
@@ -1154,57 +1048,6 @@ uint32_t Quadtree::get_offset(uint32_t node_x, uint32_t node_z)
 	assert(node_z >= 0u && node_z < (1u << m_levels));
 
 	return m_node_index_to_buffer_index[node_x + (1u << m_levels) * node_z];
-}
-
-void Quadtree::error_metric_setup(Window& window, GraphicsQueue& queue)
-{
-	m_em_memory = m_context->allocate_device_memory(window.get_size().x * window.get_size().y * 8 + 1000000);
-	m_em_image = GPUImage(*m_context, VkExtent3D{ window.get_size().x , window.get_size().y, 1 }, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT, m_em_memory);
-	m_em_depth_image = GPUImage(*m_context, VkExtent3D{ window.get_size().x , window.get_size().y, 1 }, VK_FORMAT_D32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, m_em_memory);
-	m_em_image_view = ImageView(*m_context, m_em_image, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
-	m_em_depth_image_view = ImageView(*m_context, m_em_depth_image, VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT);
-	m_em_framebuffer = Framebuffer(*m_context);
-	m_em_framebuffer.add_attachment(m_em_image_view);
-	m_em_framebuffer.add_attachment(m_em_depth_image_view);
-
-	m_em_render_pass = RenderPass(*m_context, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, true, true, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-	m_em_framebuffer.create(m_em_render_pass.get_render_pass(), window.get_size().x, window.get_size().y);
-
-	m_em_pipeline_layout = PipelineLayout(*m_context);
-
-	VkPushConstantRange push;
-	push.offset = 0;
-	push.size = sizeof(ErrorMetricData);
-	push.stageFlags = VK_SHADER_STAGE_GEOMETRY_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-	m_em_pipeline_layout.create(&push);
-
-	// Transfer image layouts
-	queue.start_recording();
-
-	queue.cmd_image_barrier(m_em_image.get_image(),
-		0,
-		0,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
-
-	queue.cmd_image_barrier(m_em_depth_image.get_image(),
-		0,
-		0,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-		VK_IMAGE_ASPECT_DEPTH_BIT,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
-
-	queue.end_recording();
-	queue.submit();
-	queue.wait();
 }
 
 VkDeviceSize Quadtree::get_index_offset_of_node(uint32_t i)

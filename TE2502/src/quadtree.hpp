@@ -45,10 +45,6 @@ public:
 	// Performs frustum culling and draws/generates visible terrain
 	void draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool wireframe);
 
-
-	// Performs frustum culling and draws/generates visible terrain to error metric image
-	void draw_error_metric(GraphicsQueue& queue, Frustum& frustum, DebugDrawer& dd, Framebuffer& framebuffer, Camera& camera, bool draw_to_screen, float area_multiplier, float curvature_multiplier, bool wireframe);
-
 	// Resets all terrain data
 	void clear_terrain(GraphicsQueue& queue);
 
@@ -58,17 +54,9 @@ public:
 	// Re-triangulate the terrain using the new points that have been previously added
 	void triangulate(Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier, bool refine, DebugDrawer& dd);
 
-
 	PipelineLayout& get_triangle_processing_layout();
 
-	// Return the image view of the error metric image
-	ImageView& get_em_image_view();
-
 	GPUBuffer& get_buffer();
-
-	GPUImage& get_em_image();
-
-	GPUImage& get_em_depth_image();
 
 	RenderPass& get_render_pass();
 
@@ -160,9 +148,6 @@ private:
 	// For a node at the given position, return its index into m_buffer
 	uint32_t get_offset(uint32_t node_x, uint32_t node_z);
 
-	// Set up error metric objects
-	void error_metric_setup(Window& window, GraphicsQueue& queue);
-
 	void terrain_processing_filter_setup(GraphicsQueue& queue, TFile& tfile);
 
 	void terrain_clear_setup(GraphicsQueue& queue);
@@ -214,17 +199,6 @@ private:
 	PipelineLayout m_draw_pipeline_layout;
 	std::unique_ptr<Pipeline> m_draw_pipeline;
 	std::unique_ptr<Pipeline> m_draw_wireframe_pipeline;
-
-	GPUMemory m_em_memory;
-	GPUImage m_em_image;
-	GPUImage m_em_depth_image;
-	ImageView m_em_image_view;
-	ImageView m_em_depth_image_view;
-	Framebuffer m_em_framebuffer;
-	PipelineLayout m_em_pipeline_layout;
-	RenderPass m_em_render_pass;
-	std::unique_ptr<Pipeline> m_em_pipeline;
-	std::unique_ptr<Pipeline> m_em_wireframe_pipeline;
 
 	// Triangle processing
 	GPUMemory m_triangle_processing_filter_cpu_memory;

@@ -1754,7 +1754,7 @@ namespace cputri
 			terrain_buffer->data[node_index].first_instance = 0;
 
 			terrain_buffer->data[node_index].vertex_count = 4;
-			terrain_buffer->data[node_index].new_points_count = 0; //GRID_SIDE * GRID_SIDE;
+			terrain_buffer->data[node_index].new_points_count = GRID_SIDE * GRID_SIDE;
 
 			terrain_buffer->data[node_index].min = min;
 			terrain_buffer->data[node_index].max = max;
@@ -1795,11 +1795,9 @@ namespace cputri
 			terrain_buffer->data[node_index].triangle_connections[3 + 1] = INVALID;
 			terrain_buffer->data[node_index].triangle_connections[3 + 2] = 0;
 
-			//terrain_buffer->data[node_index].border_triangle_indices[0] = 0;
-			//terrain_buffer->data[node_index].border_triangle_indices[1] = 1;
+			terrain_buffer->data[node_index].border_triangle_indices[0] = 0;
+			terrain_buffer->data[node_index].border_triangle_indices[1] = 1;
 		}
-
-		return;
 
 		//barrier();
 		//memoryBarrierBuffer();

@@ -1,5 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/transform.hpp>
 #include <GLFW/glfw3.h>
 #include "graphics/debug_drawer.hpp"
 #include "math/geometry.hpp"

@@ -35,10 +35,10 @@ namespace cputri
 	#define TERRAIN_GENERATE_TOTAL_SIDE_LENGTH 1000
 	#define TERRAIN_GENERATE_NUM_INDICES 3000
 	#define TERRAIN_GENERATE_NUM_VERTICES 1000
-	#define TERRAIN_GENERATE_NUM_NODES 16
+	#define TERRAIN_GENERATE_NUM_NODES 64
 	#define TERRAIN_GENERATE_GRID_SIDE 3
 	#define TRIANGULATE_MAX_NEW_POINTS 1024
-	#define QUADTREE_LEVELS 2
+	#define QUADTREE_LEVELS 3
 	#define MAX_BORDER_TRIANGLE_COUNT 2000
 	#define ADJUST_PERCENTAGE 0.35f
 	
@@ -812,32 +812,33 @@ namespace cputri
 					for (int tx = xx; tx < nodes_per_side; tx += 3)
 					{
 						bool all_valid = true;
-						// Check self and neighbour nodes
-						for (int y = -1; y <= 1; ++y)
-						{
-							for (int x = -1; x <= 1; ++x)
-							{
-								const int nx = tx + x;
-								const int ny = ty + y;
-								if (nx >= 0 && nx < nodes_per_side && ny >= 0 && ny < nodes_per_side)
-								{
-									const uint neighbour_index = quadtree.node_index_to_buffer_index[ny * nodes_per_side + nx];
-									if (neighbour_index == INVALID)
-									{
-										all_valid = false;
-									}
-								}
-								else
-								{
-									all_valid = false;
-								}
-							}
-						}
+						//// Check self and neighbour nodes
+						//for (int y = -1; y <= 1; ++y)
+						//{
+						//	for (int x = -1; x <= 1; ++x)
+						//	{
+						//		const int nx = tx + x;
+						//		const int ny = ty + y;
+						//		if (nx >= 0 && nx < nodes_per_side && ny >= 0 && ny < nodes_per_side)
+						//		{
+						//			const uint neighbour_index = quadtree.node_index_to_buffer_index[ny * nodes_per_side + nx];
+						//			if (neighbour_index == INVALID)
+						//			{
+						//				all_valid = false;
+						//			}
+						//		}
+						//		else
+						//		{
+						//			all_valid = false;
+						//		}
+						//	}
+						//}
 
 						if (all_valid)
 						{
 							uint index = quadtree.node_index_to_buffer_index[ty * nodes_per_side + tx];
-							triangulate_shader(index);
+							if (index < 1000)
+								triangulate_shader(index);
 						}
 					}
 				}
@@ -2144,26 +2145,26 @@ namespace cputri
 		const uint nodes_per_side = 1 << quadtree_levels;
 
 		// Check self and neighbour nodes
-		for (int y = -1; y <= 1; ++y)
-		{
-			for (int x = -1; x <= 1; ++x)
-			{
-				const int nx = cx + x;
-				const int ny = cy + y;
-				if (nx >= 0 && nx < (int)nodes_per_side && ny >= 0 && ny < (int)nodes_per_side)
-				{
-					const uint neighbour_index = quadtree.node_index_to_buffer_index[ny * nodes_per_side + nx];
-					if (neighbour_index == INVALID)
-					{
-						return;
-					}
-				}
-				else
-				{
-					return;
-				}
-			}
-		}
+		//for (int y = -1; y <= 1; ++y)
+		//{
+		//	for (int x = -1; x <= 1; ++x)
+		//	{
+		//		const int nx = cx + x;
+		//		const int ny = cy + y;
+		//		if (nx >= 0 && nx < (int)nodes_per_side && ny >= 0 && ny < (int)nodes_per_side)
+		//		{
+		//			const uint neighbour_index = quadtree.node_index_to_buffer_index[ny * nodes_per_side + nx];
+		//			if (neighbour_index == INVALID)
+		//			{
+		//				return;
+		//			}
+		//		}
+		//		else
+		//		{
+		//			return;
+		//		}
+		//	}
+		//}
 
 		//terrain_buffer->data[node_index].new_points_count = 0;
 		std::array<vec4, max_new_normal_points + 1> new_points;

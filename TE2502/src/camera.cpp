@@ -1,7 +1,5 @@
 #define NOMINMAX
 #include "camera.hpp"
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -81,6 +79,7 @@ void Camera::update(const float dt, bool mouse_locked, DebugDrawer& dd)
 	m_view = glm::translate(camera_rotation, glm::vec3{ -m_position });
 
 	m_perspective = calculate_perspective(m_fov, m_near, m_far, (float)m_window_width, (float)m_window_height);
+
 	m_vp = m_perspective * m_view;
 
 	float big_fov = std::min(m_fov * m_fov_multiplier, 179.0f);

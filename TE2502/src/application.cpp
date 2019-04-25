@@ -254,7 +254,7 @@ Application::Application() :
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-	m_debug_drawer = DebugDrawer(m_vulkan_context, 110000);
+	m_debug_drawer = DebugDrawer(m_vulkan_context, 1100000);
 
 	create_pipelines();
 
@@ -450,6 +450,11 @@ void Application::update(const float dt)
 		ImGui::Text(text.c_str());
 		text = "Debug Position: " + std::to_string(m_debug_camera->get_pos().x) + ", " + std::to_string(m_debug_camera->get_pos().y) + ", " + std::to_string(m_debug_camera->get_pos().z);
 		ImGui::Text(text.c_str());
+		float y = m_main_camera->get_yaw(), p = m_main_camera->get_pitch();
+		ImGui::InputFloat("Yaw", &y);
+		ImGui::InputFloat("Pitch", &p);
+		m_main_camera->set_yaw_pitch(y, p);
+		m_main_camera->set_pos({ 0, -1000, 0 });
 		ImGui::Checkbox("Draw Ray Marched View", &m_draw_ray_march);
 		ImGui::Checkbox("Wireframe", &m_draw_wireframe);
 		ImGui::Checkbox("Refine", &m_triangulate);

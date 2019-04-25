@@ -390,24 +390,24 @@ void Quadtree::draw_terrain(GraphicsQueue& queue, Frustum& frustum, DebugDrawer&
 
 	queue.cmd_push_constants(m_draw_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(GenerationData), &m_push_data);
 
-	// Render nonupdated terrain
-	for (uint32_t i = 0; i < m_num_draw_nodes; i++)
-	{
-		queue.cmd_bind_index_buffer(m_render_buffer.get_buffer(), get_index_offset_of_node(m_draw_nodes[i]));
-		queue.cmd_bind_vertex_buffer(m_render_buffer.get_buffer(), get_vertex_offset_of_node(m_draw_nodes[i]));
-		queue.cmd_draw_indexed_indirect(m_render_buffer.get_buffer(), get_offset_of_node(m_draw_nodes[i]));
-	}
+	//// Render nonupdated terrain
+	//for (uint32_t i = 0; i < m_num_draw_nodes; i++)
+	//{
+	//	queue.cmd_bind_index_buffer(m_render_buffer.get_buffer(), get_index_offset_of_node(m_draw_nodes[i]));
+	//	queue.cmd_bind_vertex_buffer(m_render_buffer.get_buffer(), get_vertex_offset_of_node(m_draw_nodes[i]));
+	//	queue.cmd_draw_indexed_indirect(m_render_buffer.get_buffer(), get_offset_of_node(m_draw_nodes[i]));
+	//}
 
-	// Render newly generated terrain
-	for (uint32_t i = 0; i < m_num_generate_nodes; i++)
-	{
-		if (m_generate_nodes[i].buffer_index != INVALID)
-		{
-			queue.cmd_bind_index_buffer(m_render_buffer.get_buffer(), get_index_offset_of_node(m_generate_nodes[i].buffer_index));
-			queue.cmd_bind_vertex_buffer(m_render_buffer.get_buffer(), get_vertex_offset_of_node(m_generate_nodes[i].buffer_index));
-			queue.cmd_draw_indexed_indirect(m_render_buffer.get_buffer(), get_offset_of_node(m_generate_nodes[i].buffer_index));
-		}
-	}
+	//// Render newly generated terrain
+	//for (uint32_t i = 0; i < m_num_generate_nodes; i++)
+	//{
+	//	if (m_generate_nodes[i].buffer_index != INVALID)
+	//	{
+	//		queue.cmd_bind_index_buffer(m_render_buffer.get_buffer(), get_index_offset_of_node(m_generate_nodes[i].buffer_index));
+	//		queue.cmd_bind_vertex_buffer(m_render_buffer.get_buffer(), get_vertex_offset_of_node(m_generate_nodes[i].buffer_index));
+	//		queue.cmd_draw_indexed_indirect(m_render_buffer.get_buffer(), get_offset_of_node(m_generate_nodes[i].buffer_index));
+	//	}
+	//}
 
 	// End renderpass
 	queue.cmd_end_render_pass();

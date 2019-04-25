@@ -550,6 +550,7 @@ void Application::draw_main(bool auto_triangulate)
 
 	// Fritjof stuff
 	m_quadtree.triangulate(
+		m_main_queue,
 		*m_main_camera, 
 		*m_window, 
 		m_em_threshold, 

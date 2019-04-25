@@ -52,7 +52,7 @@ public:
 	void create_pipelines(Window& window);
 
 	// Re-triangulate the terrain using the new points that have been previously added
-	void triangulate(Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier, bool refine, DebugDrawer& dd);
+	void triangulate(GraphicsQueue& queue, Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier, bool refine, DebugDrawer& dd);
 
 	PipelineLayout& get_triangle_processing_layout();
 
@@ -64,16 +64,13 @@ public:
 
 private:
 	// Adds new vertices to terrain buffer when needed
-	void process_triangles(Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);
+	void process_triangles(GraphicsQueue& queue, Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);
 
 	// Re-triangulate the terrain using the new points that have been previously added
-	void triangulate();
+	void triangulate(GraphicsQueue& queue);
 
 	// Generates new terrain
-	void generate();
-
-	// Copies triangulate buffer to render buffer if necessary
-	void copy_triangulate_buffer();
+	void generate(GraphicsQueue& queue);
 
 	struct GenerationData
 	{
@@ -175,13 +172,6 @@ private:
 
 	// Contains terrain indices + vertices for quadtree nodes
 	GPUBuffer m_buffer;
-
-	// Rendered buffer
-	GPUBuffer m_render_buffer;
-	GPUMemory m_render_memory;
-	ComputeQueue m_triangulation_queue;
-	uint32_t* m_render_node_index_to_buffer_index;
-	VkSemaphore m_triangulation_semaphore = VK_NULL_HANDLE;
 
 	TriangleProcessingFrameData m_triangle_processing_frame_data;
 

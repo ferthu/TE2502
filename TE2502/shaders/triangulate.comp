@@ -30,6 +30,8 @@ struct BorderEdge
 	uint pad[2];
 };
 
+const uint max_points_per_frame = 1;
+
 const uint max_border_edges = 100;
 const uint max_triangles_to_remove = 100;
 shared BorderEdge s_edges[max_border_edges * 3];
@@ -236,7 +238,8 @@ void main()
 	const uint new_points_count = terrain_buffer.data[node_index].new_points_count;
 		
 	uint counter = 0;
-	for (uint n = 0; n < new_points_count && n < num_vertices; ++n)
+	//for (uint n = 0; n < new_points_count && n < num_vertices; ++n)
+	for (int n = int(new_points_count) - 1; n >= 0 && counter < max_points_per_frame; --n, ++counter)
 	{
 		const vec4 current_point = terrain_buffer.data[node_index].new_points[n];
 
@@ -891,5 +894,5 @@ void main()
 		memoryBarrierBuffer();
 	}
 
-	terrain_buffer.data[node_index].new_points_count = 0;
+	terrain_buffer.data[node_index].new_points_count -= min(terrain_buffer.data[node_index].new_points_count, max_points_per_frame);
 }

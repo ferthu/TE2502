@@ -33,8 +33,8 @@ namespace cputri
 	typedef uint32_t uint;
 
 	#define TERRAIN_GENERATE_TOTAL_SIDE_LENGTH 1000
-	#define TERRAIN_GENERATE_NUM_INDICES 3000
-	#define TERRAIN_GENERATE_NUM_VERTICES 1000
+	#define TERRAIN_GENERATE_NUM_INDICES 12000
+	#define TERRAIN_GENERATE_NUM_VERTICES 4000
 	#define TERRAIN_GENERATE_NUM_NODES 16
 	#define TERRAIN_GENERATE_GRID_SIDE 3
 	#define TRIANGULATE_MAX_NEW_POINTS 1024
@@ -886,6 +886,12 @@ namespace cputri
 		// Gather status of nodes
 		intersect(frustum, dd, AabbXZ{ quadtree.quadtree_minmax[0],
 			quadtree.quadtree_minmax[1] }, 0, 0, 0);
+
+		for (uint i = 0; i < quadtree.num_generate_nodes; i++)
+		{
+			terrain_buffer->data[quadtree.generate_nodes[i].index].instance_count = 0;
+			terrain_buffer->data[quadtree.generate_nodes[i].index].new_points_count = 0;
+		}
 
 		for (uint i = 0; i < quadtree.num_generate_nodes; i++)
 		{
@@ -2141,7 +2147,6 @@ namespace cputri
 			{
 				const int nx = cx + x;
 				const int ny = cy + y;
-				if (nx >= 0 && nx < (int)nodes_per_side && ny >= 0 && ny < (int)nodes_per_side)
 				if (nx >= 0 && nx < (int)nodes_per_side && ny >= 0 && ny < (int)nodes_per_side)
 				{
 					const uint neighbour_index = quadtree.node_index_to_buffer_index[ny * nodes_per_side + nx];

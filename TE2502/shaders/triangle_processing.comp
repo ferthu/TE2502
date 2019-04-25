@@ -62,6 +62,9 @@ void main()
 {
 	const uint node_index = frame_data.node_index;
 
+	if (terrain_buffer.data[node_index].new_points_count != 0)
+		return;
+
 	const vec2 node_min = terrain_buffer.data[node_index].min;
 	const vec2 node_max = terrain_buffer.data[node_index].max;
 	const float side = node_max.x - node_min.x;

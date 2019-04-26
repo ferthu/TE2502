@@ -8,7 +8,7 @@
 #include "graphics/pipeline_layout.hpp"
 #include "quadtree.hpp"
 
-#include "cpu_triangulate.hpp"
+#include "algorithm/cpu_triangulate.hpp"
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"

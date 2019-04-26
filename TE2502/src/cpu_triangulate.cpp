@@ -57,7 +57,7 @@ namespace cputri
 	int vistris_start = 0;
 	int vistris_end = 99999999;
 	bool show_cc = false;
-	bool show = false;
+	bool show = true;
 
 	struct Triangle
 	{
@@ -565,8 +565,8 @@ namespace cputri
 		delete[] quadtree.buffer_index_filled;
 	}
 
-	int temp = 0;
-	int vertices_per_refine = 1;
+	int temp = -1;
+	int vertices_per_refine = 8000;
 	int show_connections = -1;
 	int refine_node = -1;
 	int sideshow_bob = 0;
@@ -1012,7 +1012,9 @@ namespace cputri
 		static vec3 dir;
 		if (show)
 		{
-			for (size_t ii = 0; ii < num_nodes; ii++)
+			ImGui::Begin("Hovered tris");
+
+			for (uint32_t ii = 0; ii < num_nodes; ii++)
 			{
 				if (quadtree.buffer_index_filled[ii] && (ii == temp || temp == -1))
 				{
@@ -1067,6 +1069,9 @@ namespace cputri
 								hovered_triangle = ind / 3;
 							}
 						}
+
+						if (hovered_triangle != -1)
+							ImGui::Text("Node %u: %u", ii, hovered_triangle);
 					}
 
 					for (uint ind = vistris_start * 3; ind < terrain_buffer->data[ii].index_count && ind < (uint)vistris_end * 3; ind += 3)
@@ -1184,6 +1189,8 @@ namespace cputri
 					}
 				}
 			}
+
+			ImGui::End();
 		}
 	}
 

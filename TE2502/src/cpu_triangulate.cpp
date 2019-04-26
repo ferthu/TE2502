@@ -2380,6 +2380,16 @@ namespace cputri
 
 			const uint last_triangle = terrain_buffer->data[global_node_index].index_count / 3 - 1;
 
+			// Loop through remaining triangles to remove and update any that are equal to last_triangle
+			for (uint ii = 0; ii < j; ++ii)
+			{
+				if (s_triangles_to_remove[ii] == last_triangle && s_owning_node[j] == s_owning_node[ii])
+				{
+					s_triangles_to_remove[ii] = index;
+					break;
+				}
+			}
+
 			for (uint ii = 0; ii < 3; ++ii)
 			{
 				replace_connection_index(global_node_index, terrain_buffer->data[global_node_index].triangle_connections[last_triangle * 3 + ii], last_triangle, index);
@@ -2488,6 +2498,10 @@ namespace cputri
 		if (refine_node != -1 && refine_node != node_index)
 			return;
 
+		const uint new_points_count = terrain_buffer->data[node_index].new_points_count;
+		if (new_points_count == 0)
+			return;
+
 		const uint thid = gl_GlobalInvocationID.x;
 
 		const vec2 node_min = terrain_buffer->data[node_index].min;
@@ -2526,8 +2540,6 @@ namespace cputri
 
 		// barrier();
 		// memoryBarrierShared();
-
-		const uint new_points_count = terrain_buffer->data[node_index].new_points_count;
 		
 		uint counter = 0;
 		for (int n = (int)new_points_count - 1; n >= 0 && counter < (uint)vertices_per_refine; --n, ++counter)
@@ -2904,7 +2916,7 @@ namespace cputri
 						// Remove connection from old neighbour
 						replace_connection_index(ltg[old_node_index], s_edges[i].connection, old_old_triangle_index, INVALID - (4 + (int)s_edges[i].node_index - (int)old_node_index));
 
-						const uint border_count = terrain_buffer->data[ltg[s_edges[i].node_index]].border_count;
+						uint border_count = terrain_buffer->data[ltg[s_edges[i].node_index]].border_count;
 
 						bool connected = false;
 
@@ -2962,6 +2974,7 @@ namespace cputri
 										terrain_buffer->data[ltg[s_edges[i].node_index]].border_triangle_indices[border_tri] =
 											terrain_buffer->data[ltg[s_edges[i].node_index]].border_triangle_indices[terrain_buffer->data[ltg[s_edges[i].node_index]].border_count - 1];
 										--terrain_buffer->data[ltg[s_edges[i].node_index]].border_count;
+										--border_count;
 									}
 
 									connected = true;

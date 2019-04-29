@@ -163,6 +163,8 @@ namespace triangulate
 			}
 		}
 
+		g.triangles_removed = 0;
+
 		uint counter = 0;
 		//for (int n = (int)new_points_count - 1; n >= 0 && counter < (uint)vertices_per_refine; --n, ++counter)
 		for (uint n = 0; n < new_points_count && n < TERRAIN_GENERATE_NUM_VERTICES; ++n)

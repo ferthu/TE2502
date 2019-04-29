@@ -100,6 +100,8 @@ namespace generate
 
 		const uint new_points_count = tb->data[node_index].new_points_count;
 
+		g.triangles_removed = 0;
+
 		for (uint n = 0; n < new_points_count && n < TERRAIN_GENERATE_NUM_VERTICES; ++n)
 		{
 			const vec4 current_point = tb->data[node_index].new_points[n];

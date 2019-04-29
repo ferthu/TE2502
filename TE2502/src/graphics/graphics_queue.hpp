@@ -44,6 +44,8 @@ public:
 
 	void cmd_draw(uint32_t num_vertices, uint32_t num_instances = 1, uint32_t vertex_offset = 0, uint32_t instance_offset = 0);
 
+	void cmd_draw_indexed(uint32_t num_indices, uint32_t num_instances = 1, uint32_t index_offset = 0, uint32_t vertex_offset = 0, uint32_t instance_offset = 0);
+
 	void cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& framebuffer);
 
 	void cmd_end_render_pass();

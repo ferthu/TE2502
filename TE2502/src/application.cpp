@@ -19,85 +19,6 @@
 #include <array>
 
 //#define RAY_MARCH_WINDOW
-#define CPUTRI
-
-ComputeQueue q1;
-GPUMemory mem1;
-GPUBuffer buf1;
-DescriptorSetLayout dsl1;
-DescriptorSet ds1;
-PipelineLayout pl1;
-std::unique_ptr<Pipeline> p1;
-
-ComputeQueue q2;
-GPUMemory mem2;
-GPUBuffer buf2;
-DescriptorSetLayout dsl2;
-DescriptorSet ds2;
-PipelineLayout pl2;
-std::unique_ptr<Pipeline> p2;
-
-void test(VulkanContext& context)
-{
-	return;
-	const uint32_t size1 = 128;
-	q1 = context.create_compute_queue();
-	mem1 = context.allocate_device_memory(size1 * sizeof(float) + 1000);
-	buf1 = GPUBuffer(context, size1 * sizeof(float), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, mem1);
-	dsl1 = DescriptorSetLayout(context);
-	dsl1.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
-	dsl1.create();
-	ds1 = DescriptorSet(context, dsl1);
-	ds1.add_storage_buffer(buf1);
-	ds1.bind();
-	pl1 = PipelineLayout(context);
-	pl1.add_descriptor_set_layout(dsl1);
-	pl1.create(nullptr);
-	p1 = context.create_compute_pipeline("test1", pl1, nullptr);
-
-	const uint32_t size2 = 4096;
-	q2 = context.create_compute_queue();
-	mem2 = context.allocate_device_memory(size2 * sizeof(float) + 1000);
-	buf2 = GPUBuffer(context, size2 * sizeof(float), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, mem2);
-	dsl2 = DescriptorSetLayout(context);
-	dsl2.add_storage_buffer(VK_SHADER_STAGE_COMPUTE_BIT);
-	dsl2.create();
-	ds2 = DescriptorSet(context, dsl2);
-	ds2.add_storage_buffer(buf2);
-	ds2.bind();
-	pl2 = PipelineLayout(context);
-	pl2.add_descriptor_set_layout(dsl2);
-	pl2.create(nullptr);
-	p2 = context.create_compute_pipeline("test2", pl2, nullptr);
-
-	for (size_t ii = 0; ii < 10000; ++ii)
-	{
-		if (q2.is_done())
-		{
-			q2.start_recording();
-			q2.cmd_bind_descriptor_set_compute(pl2.get_pipeline_layout(), 0, ds2.get_descriptor_set());
-			q2.cmd_bind_compute_pipeline(p2->m_pipeline);
-			q2.cmd_dispatch(1, 1, 1);
-			q2.end_recording();
-			q2.submit();
-			printf("O");
-		}
-
-		if (q1.is_done())
-		{
-			q1.start_recording();
-			q1.cmd_bind_descriptor_set_compute(pl1.get_pipeline_layout(), 0, ds1.get_descriptor_set());
-			q1.cmd_bind_compute_pipeline(p1->m_pipeline);
-			q1.cmd_dispatch(1, 1, 1);
-			q1.end_recording();
-			q1.submit();
-			printf("_");
-		}
-		Sleep(1);
-	}
-
-	printf("\ndone\n");
-}
 
 void error_callback(int error, const char* description)
 {
@@ -166,26 +87,6 @@ Application::Application() :
 
 	imgui_setup();
 
-
-	// Set up terrain generation/drawing
-	float total_side_length = float(m_tfile.get_u32("TERRAIN_GENERATE_TOTAL_SIDE_LENGTH"));
-	VkDeviceSize num_indices = m_tfile.get_u64("TERRAIN_GENERATE_NUM_INDICES");
-	VkDeviceSize num_vertices = m_tfile.get_u64("TERRAIN_GENERATE_NUM_VERTICES");
-	VkDeviceSize num_nodes = m_tfile.get_u64("TERRAIN_GENERATE_NUM_NODES");
-	VkDeviceSize num_new_points = m_tfile.get_u64("TRIANGULATE_MAX_NEW_NORMAL_POINTS");
-	uint32_t num_levels = m_tfile.get_u32("QUADTREE_LEVELS");
-	m_quadtree = Quadtree(
-		m_vulkan_context, 
-		total_side_length,
-		num_levels, 
-		num_nodes, 
-		num_indices, 
-		num_vertices, 
-		num_new_points, 
-		*m_window, 
-		m_main_queue, 
-		m_tfile);
-
 #ifdef RAY_MARCH_WINDOW
 	m_ray_march_window_states.swapchain_framebuffers.resize(m_ray_march_window->get_swapchain_size());
 	for (uint32_t i = 0; i < m_ray_march_window->get_swapchain_size(); i++)
@@ -195,6 +96,24 @@ Application::Application() :
 		m_ray_march_window_states.swapchain_framebuffers[i].create(m_imgui_vulkan_state.render_pass, m_ray_march_window->get_size().x, m_ray_march_window->get_size().y);
 	}
 #endif
+
+	VkPushConstantRange push;
+	push.offset = 0;
+	push.size = sizeof(DrawData);
+	push.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+	m_render_pass = RenderPass(
+		m_vulkan_context,
+		VK_FORMAT_B8G8R8A8_UNORM,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		true,
+		true,
+		true,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	m_draw_pipeline_layout = PipelineLayout(m_vulkan_context);
+	m_draw_pipeline_layout.create(&push);
 
 	m_window_states.depth_memory = m_vulkan_context.allocate_device_memory(m_window->get_size().x * m_window->get_size().y * 2 * m_window->get_swapchain_size() * 4 + 1024);
 	m_window_states.swapchain_framebuffers.resize(m_window->get_swapchain_size());
@@ -215,7 +134,7 @@ Application::Application() :
 		m_window_states.swapchain_framebuffers[i] = Framebuffer(m_vulkan_context);
 		m_window_states.swapchain_framebuffers[i].add_attachment(m_window->get_swapchain_image_view(i));
 		m_window_states.swapchain_framebuffers[i].add_attachment(m_window_states.depth_image_views[i]);
-		m_window_states.swapchain_framebuffers[i].create(m_quadtree.get_render_pass().get_render_pass(), m_window->get_size().x, m_window->get_size().y);
+		m_window_states.swapchain_framebuffers[i].create(m_render_pass.get_render_pass(), m_window->get_size().x, m_window->get_size().y);
 
 		m_imgui_vulkan_state.swapchain_framebuffers[i] = Framebuffer(m_vulkan_context);
 		m_imgui_vulkan_state.swapchain_framebuffers[i].add_attachment(m_window->get_swapchain_image_view(i));
@@ -263,9 +182,9 @@ Application::Application() :
 	m_ray_march_thread = std::thread(&Application::draw_ray_march, this);
 #endif
 
-#ifdef CPUTRI
 	cputri::setup(m_tfile);
-#endif
+
+	cputri::gpu_data_setup(m_vulkan_context, m_gpu_buffer_memory, m_cpu_buffer_memory, m_gpu_buffer, m_cpu_buffer);
 }
 
 Application::~Application()
@@ -289,9 +208,7 @@ Application::~Application()
 
 	glfwTerminate();
 
-#ifdef CPUTRI
-	cputri::destroy();
-#endif
+	cputri::destroy(m_vulkan_context, m_cpu_buffer);
 }
 
 void Application::run(bool auto_triangulate)
@@ -303,8 +220,6 @@ void Application::run(bool auto_triangulate)
 	bool q_pressed = false;
 	bool left_mouse_clicked = false;
 	bool k_pressed = false;
-
-	test(m_vulkan_context);
 
 	while (!glfwWindowShouldClose(m_window->get_glfw_window()))
 	{
@@ -362,7 +277,7 @@ void Application::run(bool auto_triangulate)
 		if (!q_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_Q) == GLFW_PRESS)
 		{
 			q_pressed = true;
-			m_quadtree.clear_terrain(m_main_queue);
+			cputri::clear_terrain();
 		}
 		else if (q_pressed && glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_Q) == GLFW_RELEASE)
 			q_pressed = false;
@@ -404,9 +319,18 @@ void Application::run(bool auto_triangulate)
 			   		 	  	  
 		update(delta_time.count());
 
-#ifdef CPUTRI
-		cputri::run(m_debug_drawer, *m_main_camera, *m_current_camera, *m_window, m_show_imgui);
-#endif
+
+		bool tri_button = false;
+		if (m_show_imgui)
+		{
+			ImGui::Begin("Triangulate");
+			if (ImGui::Button("Set"))
+				tri_button = true;
+			ImGui::End();
+		}
+
+		bool triangulate = tri_button || m_triangulate || m_triangulate_button_held || auto_triangulate;
+		cputri::run(m_debug_drawer, *m_main_camera, *m_current_camera, *m_window, m_show_imgui, triangulate);
 
 		draw(auto_triangulate);
 	}
@@ -457,7 +381,7 @@ void Application::update(const float dt)
 		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.01f, 0.0f, 3.0f);
 		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.1f, 10.0f);
 		if (ImGui::Button("Clear Terrain"))
-			m_quadtree.clear_terrain(m_main_queue);
+			cputri::clear_terrain();
 
 		ImGui::Text((m_path_handler.get_mode() == MODE::CREATING) ? "Making path" : (m_path_handler.get_mode() == MODE::FOLLOWING) ? "Following path" : "");
 
@@ -477,7 +401,7 @@ void Application::update(const float dt)
 		}
 		if (current_item != "" && m_path_handler.get_mode() == MODE::NOTHING && ImGui::Button("Follow"))
 		{
-			m_quadtree.clear_terrain(m_main_queue);
+			cputri::clear_terrain();
 			m_path_handler.follow_path(current_item);
 		}
 		ImGui::End();
@@ -538,30 +462,29 @@ void Application::draw_main(bool auto_triangulate)
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
 
-
-	bool tri_button = false;
-	if (m_show_imgui)
-	{
-		ImGui::Begin("Triangulate");
-		if (ImGui::Button("Set"))
-			tri_button = true;
-		ImGui::End();
-	}
-
-	// Fritjof stuff
-	m_quadtree.triangulate(
-		m_main_queue,
-		*m_main_camera, 
-		*m_window, 
-		m_em_threshold, 
-		m_em_area_multiplier,
-		m_em_curvature_multiplier, 
-		tri_button || m_triangulate || m_triangulate_button_held || auto_triangulate,
-		m_debug_drawer);
-
 	// Draw
-	Frustum fr = m_main_camera->get_frustum();
-	m_quadtree.draw_terrain(m_main_queue, fr, m_debug_drawer, m_window_states.swapchain_framebuffers[index], *m_current_camera, m_draw_wireframe);
+	{
+		m_draw_data.vp = m_current_camera->get_vp();
+		m_draw_data.camera_pos = glm::vec4(m_current_camera->get_pos(), 1.0f);
+
+		cputri::upload(m_main_queue, m_gpu_buffer, m_cpu_buffer);
+
+		// Start renderpass
+		if (!m_draw_wireframe)
+			m_main_queue.cmd_bind_graphics_pipeline(m_draw_pipeline->m_pipeline);
+		else
+			m_main_queue.cmd_bind_graphics_pipeline(m_draw_wireframe_pipeline->m_pipeline);
+
+		m_main_queue.cmd_begin_render_pass(m_render_pass, m_window_states.swapchain_framebuffers[index]);
+
+		m_main_queue.cmd_push_constants(m_draw_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(DrawData), &m_draw_data);
+
+		// Draw terrain
+		cputri::draw(m_main_queue, m_gpu_buffer, m_cpu_buffer);
+
+		// End renderpass
+		m_main_queue.cmd_end_render_pass();
+	}
 
 	m_main_queue.cmd_image_barrier(
 		image,
@@ -959,5 +882,30 @@ void Application::create_pipelines()
 	debug_attributes.add_attribute(3);
 	m_debug_pipeline = m_vulkan_context.create_graphics_pipeline("debug", m_window->get_size(), m_debug_pipeline_layout, debug_attributes, m_debug_render_pass, true, false, nullptr, nullptr, VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
 
-	m_quadtree.create_pipelines(*m_window);
+	VertexAttributes va(m_vulkan_context);
+	va.add_buffer();
+	va.add_attribute(4);
+	m_draw_pipeline = m_vulkan_context.create_graphics_pipeline(
+		"terrain_draw",
+		m_window->get_size(),
+		m_draw_pipeline_layout,
+		va,
+		m_render_pass,
+		true,
+		false,
+		nullptr,
+		nullptr);
+
+	m_draw_wireframe_pipeline = m_vulkan_context.create_graphics_pipeline(
+		"terrain_draw",
+		m_window->get_size(),
+		m_draw_pipeline_layout,
+		va,
+		m_render_pass,
+		true,
+		false,
+		nullptr,
+		nullptr,
+		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		VK_POLYGON_MODE_LINE);
 }

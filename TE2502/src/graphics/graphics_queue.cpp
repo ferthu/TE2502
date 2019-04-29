@@ -111,6 +111,11 @@ void GraphicsQueue::cmd_draw(uint32_t num_vertices, uint32_t num_instances, uint
 	vkCmdDraw(m_command_buffer, num_vertices, num_instances, vertex_offset, instance_offset);
 }
 
+void GraphicsQueue::cmd_draw_indexed(uint32_t num_indices, uint32_t num_instances, uint32_t index_offset, uint32_t vertex_offset, uint32_t instance_offset)
+{
+	vkCmdDrawIndexed(m_command_buffer, num_indices, num_instances, index_offset, vertex_offset, instance_offset);
+}
+
 float post_process(float color)
 {
 	return (1.0f - expf(-color * 6.0f)) * 1.0024f;

@@ -113,13 +113,33 @@ private:
 	std::unique_ptr<Pipeline> m_ray_march_compute_pipeline;
 	ComputeQueue m_ray_march_compute_queue;
 
+	// Drawing
+	RenderPass m_render_pass;
+	PipelineLayout m_draw_pipeline_layout;
+	std::unique_ptr<Pipeline> m_draw_pipeline;
+	std::unique_ptr<Pipeline> m_draw_wireframe_pipeline;
+
+	// CPU and GPU terrain memory
+	GPUMemory m_gpu_buffer_memory;
+	GPUBuffer m_gpu_buffer;
+	GPUMemory m_cpu_buffer_memory;
+	GPUBuffer m_cpu_buffer;
+
+	struct DrawData
+	{
+		glm::mat4 vp;
+		glm::vec4 camera_pos;
+		glm::vec2 min;			// Min corner
+		glm::vec2 max;			// Max corner
+		uint32_t node_index;    // Previouly ("buffer_slot")
+	};
+
+	DrawData m_draw_data;
+
 	// Error metric parameters
 	float m_em_area_multiplier = 0.f;
 	float m_em_curvature_multiplier = 0.f;
 	float m_em_threshold = 0.1f;
-
-	// Terrain generation/drawing
-	Quadtree m_quadtree;
 
 	// Debug drawing
 	PipelineLayout m_debug_pipeline_layout;

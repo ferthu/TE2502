@@ -76,52 +76,12 @@ namespace cputri
 		cpu_index_buffer_size = (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint) + sizeof(vec2) * 2;
 		cpu_index_buffer_size += 64 - (cpu_index_buffer_size % 64);
 
-		tb = (TerrainBuffer*) new char[cpu_index_buffer_size + quadtree.node_memory_size * num_nodes + 1000];
-
-		quadtree.node_index_to_buffer_index = (uint*)tb;
-
-		// Point to the end of cpu index buffer
-		quadtree.quadtree_minmax = (vec2*) (((char*)quadtree.node_index_to_buffer_index) + (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
-
-		quadtree.total_side_length = TERRAIN_GENERATE_TOTAL_SIDE_LENGTH;
-		float half_length = quadtree.total_side_length * 0.5f;
-		quadtree.quadtree_minmax[0] = vec2(-half_length, -half_length);
-		quadtree.quadtree_minmax[1] = vec2(half_length, half_length);
-
-		// (1 << levels) is number of nodes per axis
-		memset(quadtree.node_index_to_buffer_index, INVALID, (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
-
-		quadtree.node_size = vec2(quadtree.total_side_length / (1 << quadtree_levels), quadtree.total_side_length / (1 << quadtree_levels));
-
-		// Create filter kernel
-		const float gaussian_width = 1.0f;
-
-		float sum = 0.0f;
-
-		for (int64_t x = -filter_radius; x <= filter_radius; x++)
-		{
-			for (int64_t y = -filter_radius; y <= filter_radius; y++)
-			{
-				// https://homepages.inf.ed.ac.uk/rbf/HIPR2/log.htm
-				float t = -((x * x + y * y) / (2.0f * gaussian_width * gaussian_width));
-				float log = -(1.0f / (pi<float>() * powf(gaussian_width, 4.0f))) * (1.0f + t) * exp(t);
-
-				log_filter[(y + filter_radius) * filter_side + (x + filter_radius)] = log;
-				sum += log;
-			}
-		}
-
-		// Normalize filter
-		float correction = 1.0f / sum;
-		for (uint64_t i = 0; i < filter_side * filter_side; i++)
-		{
-			log_filter[i] *= correction;
-		}
+		filter_setup();
 	}
 
-	void destroy()
+	void destroy(VulkanContext& context, GPUBuffer& cpu_buffer)
 	{
-		delete[] tb;
+		vkUnmapMemory(context.get_device(), cpu_buffer.get_memory());
 		delete[] quadtree.draw_nodes;
 		delete[] quadtree.generate_nodes;
 		delete[] quadtree.buffer_index_filled;
@@ -129,7 +89,7 @@ namespace cputri
 
 	bool do_triangulation = false;
 
-	void run(DebugDrawer& dd, Camera& main_camera, Camera& current_camera, Window& window, bool show_imgui)
+	void run(DebugDrawer& dd, Camera& main_camera, Camera& current_camera, Window& window, bool show_imgui, bool refine)
 	{
 		Frustum fr = main_camera.get_frustum();
 		do_triangulation = false;
@@ -153,7 +113,7 @@ namespace cputri
 			ImGui::End();
 
 			ImGui::Begin("cputri");
-			if (ImGui::Button("Refine"))
+			if (ImGui::Button("Refine") || refine)
 			{
 				cputri::process_triangles(main_camera, window, threshold, area_mult, curv_mult);
 				triangulate();
@@ -181,6 +141,97 @@ namespace cputri
 		}
 	}
 
+	void draw(GraphicsQueue& queue, GPUBuffer& gpu_buffer, GPUBuffer& cpu_buffer)
+	{
+		// Render nonupdated terrain
+		for (uint32_t i = 0; i < quadtree.num_draw_nodes; i++)
+		{
+			queue.cmd_bind_index_buffer(gpu_buffer.get_buffer(), get_gpu_index_offset_of_node(quadtree.draw_nodes[i]));
+			queue.cmd_bind_vertex_buffer(gpu_buffer.get_buffer(), get_gpu_vertex_offset_of_node(quadtree.draw_nodes[i]));
+			queue.cmd_draw_indexed(tb->data[quadtree.draw_nodes[i]].index_count); // TODO: correct number of indices
+		}
+
+		// Render newly generated terrain
+		for (uint32_t i = 0; i < quadtree.num_generate_nodes; i++)
+		{
+			if (quadtree.generate_nodes[i].index != INVALID)
+			{
+				queue.cmd_bind_index_buffer(gpu_buffer.get_buffer(), get_gpu_index_offset_of_node(quadtree.generate_nodes[i].index));
+				queue.cmd_bind_vertex_buffer(gpu_buffer.get_buffer(), get_gpu_vertex_offset_of_node(quadtree.generate_nodes[i].index));
+				queue.cmd_draw_indexed(tb->data[quadtree.generate_nodes[i].index].index_count); // TODO: correct number of indices
+			}
+		}
+	}
+
+	void upload(GraphicsQueue& queue, GPUBuffer& gpu_buffer, GPUBuffer& cpu_buffer)
+	{
+		// Temp uploading
+		for (uint32_t i = 0; i < quadtree.num_draw_nodes; i++)
+		{
+			// Indices
+			queue.cmd_copy_buffer(cpu_buffer.get_buffer(), gpu_buffer.get_buffer(), num_indices * sizeof(uint),
+				get_cpu_index_offset_of_node(quadtree.draw_nodes[i]),
+				get_gpu_index_offset_of_node(quadtree.draw_nodes[i]));
+			queue.cmd_buffer_barrier(
+				gpu_buffer.get_buffer(),
+				VK_ACCESS_TRANSFER_WRITE_BIT,
+				VK_ACCESS_INDEX_READ_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+				get_gpu_index_offset_of_node(quadtree.draw_nodes[i]),
+				num_indices * sizeof(uint)
+			);
+
+			// Vertices
+			queue.cmd_copy_buffer(cpu_buffer.get_buffer(), gpu_buffer.get_buffer(), num_vertices * sizeof(vec4),
+				get_cpu_vertex_offset_of_node(quadtree.draw_nodes[i]),
+				get_gpu_vertex_offset_of_node(quadtree.draw_nodes[i]));
+			queue.cmd_buffer_barrier(
+				gpu_buffer.get_buffer(),
+				VK_ACCESS_TRANSFER_WRITE_BIT,
+				VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+				get_gpu_vertex_offset_of_node(quadtree.draw_nodes[i]),
+				num_vertices * sizeof(vec4)
+			);
+		}
+		for (uint32_t i = 0; i < quadtree.num_generate_nodes; i++)
+		{
+			if (quadtree.generate_nodes[i].index != INVALID)
+			{
+				// Indices
+				queue.cmd_copy_buffer(cpu_buffer.get_buffer(), gpu_buffer.get_buffer(),
+					num_indices * sizeof(uint),
+					get_cpu_index_offset_of_node(quadtree.generate_nodes[i].index),
+					get_gpu_index_offset_of_node(quadtree.generate_nodes[i].index));
+				queue.cmd_buffer_barrier(
+					gpu_buffer.get_buffer(),
+					VK_ACCESS_TRANSFER_WRITE_BIT,
+					VK_ACCESS_INDEX_READ_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+					get_gpu_index_offset_of_node(quadtree.generate_nodes[i].index),
+					num_indices * sizeof(uint)
+				);
+
+				// Vertices
+				queue.cmd_copy_buffer(cpu_buffer.get_buffer(), gpu_buffer.get_buffer(), num_vertices * sizeof(vec4),
+					get_cpu_vertex_offset_of_node(quadtree.generate_nodes[i].index),
+					get_gpu_vertex_offset_of_node(quadtree.generate_nodes[i].index));
+				queue.cmd_buffer_barrier(
+					gpu_buffer.get_buffer(),
+					VK_ACCESS_TRANSFER_WRITE_BIT,
+					VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+					get_gpu_vertex_offset_of_node(quadtree.generate_nodes[i].index),
+					num_vertices * sizeof(vec4)
+				);
+			}
+		}
+	}
+
 	uint find_chunk()
 	{
 		for (uint i = 0; i < num_nodes; i++)
@@ -200,20 +251,99 @@ namespace cputri
 		return quadtree.node_index_to_buffer_index[node_x + (1u << quadtree_levels) * node_z];
 	}
 
-	uint64_t get_index_offset_of_node(uint i)
+	uint64_t get_gpu_index_offset_of_node(uint i)
 	{
-		return get_offset_of_node(i) + sizeof(VkDrawIndexedIndirectCommand) + sizeof(BufferNodeHeader);
+		return get_gpu_vertex_offset_of_node(i) + num_vertices * sizeof(vec4);
 	}
 
-	uint64_t get_vertex_offset_of_node(uint i)
+	uint64_t get_gpu_vertex_offset_of_node(uint i)
 	{
-		return get_index_offset_of_node(i) + num_indices * sizeof(uint);
-
+		return get_gpu_offset_of_node(i);
 	}
 
-	uint64_t get_offset_of_node(uint i)
+	uint64_t get_gpu_offset_of_node(uint i)
+	{
+		return i * (num_indices * sizeof(uint) + num_vertices * sizeof(vec4));
+	}
+
+	uint64_t get_cpu_index_offset_of_node(uint i)
+	{
+		return get_cpu_offset_of_node(i) + sizeof(VkDrawIndexedIndirectCommand) + sizeof(BufferNodeHeader);
+	}
+
+	uint64_t get_cpu_vertex_offset_of_node(uint i)
+	{
+		return get_cpu_index_offset_of_node(i) + num_indices * sizeof(uint);
+	}
+
+	uint64_t get_cpu_offset_of_node(uint i)
 	{
 		return cpu_index_buffer_size + i * quadtree.node_memory_size;
+	}
+
+	void filter_setup()
+	{
+		// Create filter kernel
+		const float gaussian_width = 1.0f;
+
+		float sum = 0.0f;
+
+		for (int64_t x = -filter_radius; x <= filter_radius; x++)
+		{
+			for (int64_t y = -filter_radius; y <= filter_radius; y++)
+			{
+				// https://homepages.inf.ed.ac.uk/rbf/HIPR2/log.htm
+				float t = -((x * x + y * y) / (2.0f * gaussian_width * gaussian_width));
+				float log = -(1.0f / (pi<float>() * powf(gaussian_width, 4.0f))) * (1.0f + t) * exp(t);
+
+				log_filter[(y + filter_radius) * filter_side + (x + filter_radius)] = log;
+				sum += log;
+			}
+		}
+
+		// Normalize filter
+		float correction = 1.0f / sum;
+		for (uint64_t i = 0; i < filter_side * filter_side; i++)
+		{
+			log_filter[i] *= correction;
+		}
+	}
+
+	void gpu_data_setup(VulkanContext& context, GPUMemory& gpu_mem, GPUMemory& cpu_mem, GPUBuffer& gpu_buffer, GPUBuffer& cpu_buffer)
+	{
+		// Allocate GPU and CPU memory for draw data
+		gpu_mem = context.allocate_device_memory((num_indices * sizeof(uint) + num_vertices * sizeof(vec4)) * num_nodes + 1000);
+		cpu_mem = context.allocate_host_memory(cpu_index_buffer_size + quadtree.node_memory_size * num_nodes + 1000);
+
+		gpu_buffer = GPUBuffer(context,
+			(num_indices * sizeof(uint) + num_vertices * sizeof(vec4)) * num_nodes,
+			VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			gpu_mem);
+
+		cpu_buffer = GPUBuffer(context,
+			cpu_index_buffer_size + quadtree.node_memory_size * num_nodes,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			cpu_mem);
+
+		// Map CPU buffer to TerrainBuffer pointer
+		vkMapMemory(context.get_device(), cpu_buffer.get_memory(), 0, VK_WHOLE_SIZE, 0, (void**) &tb);
+
+
+		// Setup remaining quadtree variables
+		quadtree.node_index_to_buffer_index = (uint*)tb;
+
+		// Point to the end of cpu index buffer
+		quadtree.quadtree_minmax = (vec2*)(((char*)quadtree.node_index_to_buffer_index) + (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
+
+		quadtree.total_side_length = TERRAIN_GENERATE_TOTAL_SIDE_LENGTH;
+		float half_length = quadtree.total_side_length * 0.5f;
+		quadtree.quadtree_minmax[0] = vec2(-half_length, -half_length);
+		quadtree.quadtree_minmax[1] = vec2(half_length, half_length);
+
+		// (1 << levels) is number of nodes per axis
+		memset(quadtree.node_index_to_buffer_index, INVALID, (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
+
+		quadtree.node_size = vec2(quadtree.total_side_length / (1 << quadtree_levels), quadtree.total_side_length / (1 << quadtree_levels));
 	}
 
 	void shift_quadtree(glm::vec3 camera_pos)

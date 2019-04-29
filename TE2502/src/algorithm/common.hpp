@@ -19,7 +19,7 @@ constexpr auto TERRAIN_GENERATE_NUM_NODES = 16;
 constexpr auto TERRAIN_GENERATE_GRID_SIDE = 3;
 constexpr auto TRIANGULATE_MAX_NEW_POINTS = 1024;
 constexpr auto QUADTREE_LEVELS = 2;
-constexpr auto MAX_BORDER_TRIANGLE_COUNT = 2000;
+constexpr auto MAX_BORDER_TRIANGLE_COUNT = 200;
 constexpr auto ADJUST_PERCENTAGE = 0.35f;
 
 constexpr uint num_indices = TERRAIN_GENERATE_NUM_INDICES;
@@ -100,7 +100,8 @@ struct GenerateInfo
 	vec2 max;
 	uint index;
 };
-struct Quadtree {
+struct Quadtree
+{
 	// Number and array of indices to nodes that needs to generate terrain
 	uint num_generate_nodes;
 	GenerateInfo* generate_nodes;

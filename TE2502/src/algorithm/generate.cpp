@@ -11,6 +11,16 @@ namespace generate
 
 			const uint last_triangle = tb->data[node_index].index_count / 3 - 1;
 
+			// Loop through remaining triangles to remove and update any that are equal to last_triangle
+			for (uint ii = 0; ii < j; ++ii)
+			{
+				if (g.triangles_to_remove[ii] == last_triangle)
+				{
+					g.triangles_to_remove[ii] = index;
+					break;
+				}
+			}
+
 			for (uint ii = 0; ii < 3; ++ii)
 			{
 				replace_connection_index(tb, node_index, tb->data[node_index].triangle_connections[last_triangle * 3 + ii], last_triangle, index);
@@ -342,6 +352,16 @@ namespace generate
 
 			const uint last_triangle = tb->data[node_index].index_count / 3 - 1;
 
+			// Loop through remaining triangles to remove and update any that are equal to last_triangle
+			for (uint ii = 0; ii < j; ++ii)
+			{
+				if (g.triangles_to_remove[ii] == last_triangle)
+				{
+					g.triangles_to_remove[ii] = index;
+					break;
+				}
+			}
+
 			// Go through all valid connected triangles
 			for (uint ii = 0; ii < 3; ++ii)
 			{
@@ -396,6 +416,16 @@ namespace generate
 			const uint index = g.triangles_to_remove[j];
 
 			const uint last_triangle = tb->data[node_index].index_count / 3 - 1;
+
+			// Loop through remaining triangles to remove and update any that are equal to last_triangle
+			for (uint ii = 0; ii < j; ++ii)
+			{
+				if (g.triangles_to_remove[ii] == last_triangle)
+				{
+					g.triangles_to_remove[ii] = index;
+					break;
+				}
+			}
 
 			for (uint ii = 0; ii < 3; ++ii)
 			{

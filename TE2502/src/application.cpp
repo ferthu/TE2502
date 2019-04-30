@@ -367,13 +367,8 @@ void Application::update(const float dt, bool auto_triangulate)
 		text = "Debug Position: " + std::to_string(m_debug_camera->get_pos().x) + ", " + std::to_string(m_debug_camera->get_pos().y) + ", " + std::to_string(m_debug_camera->get_pos().z);
 		ImGui::Text(text.c_str());
 		ImGui::Checkbox("Draw Ray Marched View", &m_draw_ray_march);
+		ImGui::Checkbox("Draw Triangulated View", &m_draw_triangulated);
 		ImGui::Checkbox("Wireframe", &m_draw_wireframe);
-		ImGui::Checkbox("Refine", &m_triangulate);
-		ImGui::DragFloat("Area Multiplier", &m_em_area_multiplier, 0.0f, 0.0f, 3.0f);
-		ImGui::DragFloat("Curvature Multiplier", &m_em_curvature_multiplier, 0.01f, 0.0f, 3.0f);
-		ImGui::DragFloat("Threshold", &m_em_threshold, 0.01f, 0.1f, 10.0f);
-		if (ImGui::Button("Clear Terrain"))
-			cputri::clear_terrain();
 
 		ImGui::Text((m_path_handler.get_mode() == MODE::CREATING) ? "Making path" : (m_path_handler.get_mode() == MODE::FOLLOWING) ? "Following path" : "");
 
@@ -408,7 +403,7 @@ void Application::update(const float dt, bool auto_triangulate)
 	static float curv_mult = 1.0f;
 	static float threshold = 0.0f;
 
-	bool refine = false;
+	static bool refine = false;
 
 	if (m_show_imgui)
 	{
@@ -421,6 +416,7 @@ void Application::update(const float dt, bool auto_triangulate)
 		ImGui::End();
 
 		ImGui::Begin("cputri");
+		ImGui::Checkbox("Auto Refine", &m_triangulate);
 		if (ImGui::Button("Refine"))
 		{
 			refine = true;
@@ -434,8 +430,22 @@ void Application::update(const float dt, bool auto_triangulate)
 		ImGui::DragFloat("Curv mult", &curv_mult, 0.01f, 0.0f, 50.0f);
 		ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 50.0f);
 
-		ImGui::Checkbox("Show", &show_debug);
+		ImGui::Checkbox("Show Debug", &show_debug);
 		ImGui::End();
+
+		std::vector<std::string> hovered_tris = cputri::get_hovered_tris();
+
+		if (m_tri_data.show_hovered && m_tri_data.show_debug)
+		{
+			ImGui::Begin("Hovered Tris");
+
+			for (std::string& s : hovered_tris)
+			{
+				ImGui::Text(s.c_str());
+			}
+
+			ImGui::End();
+		}
 	}
 
 	// If triangulation thread is done, prepare it for another pass
@@ -479,9 +489,10 @@ void Application::update(const float dt, bool auto_triangulate)
 		m_tri_data.window_size = window_size;
 
 		m_tri_data.triangulate = refine;
+		refine = false;
 
 		m_tri_data.show_debug = show_debug;
-		m_tri_data.show_hovered = glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_C) == GLFW_PRESS && !ImGui::GetIO().WantCaptureMouse;
+		m_tri_data.show_hovered = glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_C) == GLFW_PRESS;
 		m_tri_data.show_node = show_node;
 		m_tri_data.refine_node = refine_node;
 		m_tri_data.refine_vertices = refine_vertices;
@@ -571,7 +582,8 @@ void Application::draw_main()
 		m_main_queue.cmd_push_constants(m_draw_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(DrawData), &m_draw_data);
 
 		// Draw terrain
-		cputri::draw(m_main_queue, m_gpu_buffer, m_cpu_buffer);
+		if (m_draw_triangulated)
+			cputri::draw(m_main_queue, m_gpu_buffer, m_cpu_buffer);
 
 		// End renderpass
 		m_main_queue.cmd_end_render_pass();

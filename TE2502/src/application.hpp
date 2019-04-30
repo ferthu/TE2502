@@ -139,11 +139,6 @@ private:
 
 	DrawData m_draw_data;
 
-	// Error metric parameters
-	float m_em_area_multiplier = 0.f;
-	float m_em_curvature_multiplier = 0.f;
-	float m_em_threshold = 0.1f;
-
 	// Debug drawing
 	PipelineLayout m_debug_pipeline_layout;
 	std::unique_ptr<Pipeline> m_debug_pipeline;
@@ -153,6 +148,7 @@ private:
 	bool m_show_imgui = true;
 	bool m_draw_ray_march = true;
 	bool m_draw_wireframe = true;
+	bool m_draw_triangulated = true;
 	bool m_triangulate = false;
 	bool m_triangulate_button_held = false;
 

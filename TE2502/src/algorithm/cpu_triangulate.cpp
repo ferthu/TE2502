@@ -32,6 +32,9 @@ namespace cputri
 
 	std::mutex shared_data_lock = std::mutex();
 
+	// Strings of hovered triangles
+	std::vector<std::string> hovered_tris;
+
 	generate::GlobalData gg;
 	triangulate::GlobalData tg;
 
@@ -629,6 +632,12 @@ namespace cputri
 		return 1;
 	}
 
+	std::vector<std::string> get_hovered_tris()
+	{
+		std::unique_lock<std::mutex> lock(shared_data_lock);
+		return hovered_tris;
+	}
+
 	void intersect(Frustum& frustum, DebugDrawer& dd, AabbXZ aabb, uint level, uint x, uint y)
 	{
 		if (level == quadtree_levels)
@@ -699,6 +708,8 @@ namespace cputri
 		// Lock debug drawing mutex for the duration of this function
 		std::unique_lock<std::mutex> lock(*tri_data->debug_draw_mutex);
 
+		hovered_tris.clear();
+
 		static vec3 ori;
 		static vec3 dir;
 		if (tri_data->show_debug)
@@ -742,6 +753,16 @@ namespace cputri
 							{
 								hovered_triangle = ind / 3;
 							}
+						}
+
+						// If a triangle from this node is hovered, add a message
+						if (hovered_triangle != -1)
+						{
+							std::string msg = "Node ";
+							msg += std::to_string(ii);	// Node index
+							msg += ": Triangle ";
+							msg += std::to_string(hovered_triangle);
+							hovered_tris.push_back(msg);
 						}
 					}
 

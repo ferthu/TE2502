@@ -102,4 +102,7 @@ namespace cputri
 	void intersect(Frustum& frustum, DebugDrawer& dd, AabbXZ aabb, uint level, uint x, uint y);
 
 	int intersect_triangle(glm::vec3 r_o, glm::vec3 r_d, glm::vec3 p0, glm::vec3 p1, glm::vec3 p2, float* t);
+
+	// Returns vector of messages indicating hovered triangles
+	std::vector<std::string> get_hovered_tris();
 }

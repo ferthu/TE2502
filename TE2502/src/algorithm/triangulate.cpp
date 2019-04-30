@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include "algorithm/triangulate.hpp"
 
 namespace triangulate
@@ -13,7 +14,7 @@ namespace triangulate
 			const uint last_triangle = tb->data[global_node_index].index_count / 3 - 1;
 
 			// Loop through remaining triangles to remove and update any that are equal to last_triangle
-			for (uint ii = 0; ii < j; ++ii)
+			for (int ii = 0; ii < j; ++ii)
 			{
 				if (g.triangles_to_remove[ii] == last_triangle && g.owning_node[j] == g.owning_node[ii])
 				{
@@ -125,10 +126,10 @@ namespace triangulate
 	}
 
 
-	void triangulate(TerrainBuffer* tb, GlobalData& g, cuint node_index)
+	void triangulate(TerrainBuffer* tb, GlobalData& g, cuint node_index, cputri::TriData* tri_data)
 	{
-		//if (refine_node != -1 && refine_node != node_index)
-		//	return;
+		if (tri_data->refine_node != -1 && tri_data->refine_node != node_index)
+			return;
 
 		const uint new_points_count = tb->data[node_index].new_points_count;
 		if (new_points_count == 0)
@@ -166,8 +167,8 @@ namespace triangulate
 		g.triangles_removed = 0;
 
 		uint counter = 0;
-		//for (int n = (int)new_points_count - 1; n >= 0 && counter < (uint)vertices_per_refine; --n, ++counter)
-		for (uint n = 0; n < new_points_count && n < TERRAIN_GENERATE_NUM_VERTICES; ++n)
+		for (int n = (int)new_points_count - 1; n >= 0 && counter < (uint)tri_data->refine_vertices; --n, ++counter)
+		//for (uint n = 0; n < new_points_count && n < TERRAIN_GENERATE_NUM_VERTICES; ++n)
 		{
 			const vec4 current_point = tb->data[node_index].new_points[n];
 
@@ -788,7 +789,7 @@ namespace triangulate
 			g.triangles_removed = 0;
 		}
 
-		tb->data[node_index].new_points_count = 0;
-		//tb->data[node_index].new_points_count -= std::min((uint)vertices_per_refine, new_points_count);
+		//tb->data[node_index].new_points_count = 0;
+		tb->data[node_index].new_points_count -= std::min((uint)tri_data->refine_vertices, new_points_count);
 	}
 }

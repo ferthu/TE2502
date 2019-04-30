@@ -6,8 +6,8 @@
 #include "graphics/gpu_image.hpp"
 #include "graphics/gpu_buffer.hpp"
 #include "graphics/pipeline_layout.hpp"
-#include "quadtree.hpp"
 
+#include "algorithm/common.hpp"
 #include "algorithm/cpu_triangulate.hpp"
 
 #include "imgui/imgui.h"
@@ -174,6 +174,7 @@ Application::Application() :
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 	m_debug_drawer = DebugDrawer(m_vulkan_context, 110000);
+	m_tri_debug_drawer = DebugDrawer(m_vulkan_context, 110000);
 
 	create_pipelines();
 
@@ -181,6 +182,8 @@ Application::Application() :
 	// Start ray march thread
 	m_ray_march_thread = std::thread(&Application::draw_ray_march, this);
 #endif
+
+	m_tri_thread = std::thread(&Application::triangulate_thread, this);
 
 	cputri::setup(m_tfile);
 
@@ -317,22 +320,9 @@ void Application::run(bool auto_triangulate)
 		// Reset debug drawer
 		m_debug_drawer.new_frame();
 			   		 	  	  
-		update(delta_time.count());
+		update(delta_time.count(), auto_triangulate);
 
-
-		bool tri_button = false;
-		if (m_show_imgui)
-		{
-			ImGui::Begin("Triangulate");
-			if (ImGui::Button("Set"))
-				tri_button = true;
-			ImGui::End();
-		}
-
-		bool triangulate = tri_button || m_triangulate || m_triangulate_button_held || auto_triangulate;
-		cputri::run(m_debug_drawer, *m_main_camera, *m_current_camera, *m_window, m_show_imgui, triangulate);
-
-		draw(auto_triangulate);
+		draw();
 	}
 
 	m_quit = true; 
@@ -340,10 +330,12 @@ void Application::run(bool auto_triangulate)
 	m_cv.notify_all();
 	m_ray_march_thread.join();
 #endif
+
+	m_tri_thread.join();
 }
 
 
-void Application::update(const float dt)
+void Application::update(const float dt, bool auto_triangulate)
 {
 	m_path_handler.update(dt);
 	m_current_camera->update(dt, m_window->get_mouse_locked(), m_debug_drawer);
@@ -406,9 +398,109 @@ void Application::update(const float dt)
 		}
 		ImGui::End();
 	}
+	
+	static bool show_debug = false;
+	static int show_node = -1;
+	static int refine_node = -1;
+	static int refine_vertices = 8000;
+	static int sideshow_bob = -1;
+	static float area_mult = 1.0f;
+	static float curv_mult = 1.0f;
+	static float threshold = 0.0f;
+
+	bool refine = false;
+
+	if (m_show_imgui)
+	{
+		ImGui::Begin("Lol");
+		ImGui::SliderInt("Index", &show_node, -1, 15);
+		ImGui::SliderInt("Vertices per refine", &refine_vertices, 1, 10);
+		ImGui::SliderInt("Refine Node", &refine_node, -1, num_nodes - 1);
+		ImGui::SliderInt("Sideshow", &sideshow_bob, -1, 8);
+
+		ImGui::End();
+
+		ImGui::Begin("cputri");
+		if (ImGui::Button("Refine"))
+		{
+			refine = true;
+		}
+		if (ImGui::Button("Clear Terrain"))
+		{
+			cputri::clear_terrain();
+		}
+
+		ImGui::DragFloat("Area mult", &area_mult, 0.01f, 0.0f, 50.0f);
+		ImGui::DragFloat("Curv mult", &curv_mult, 0.01f, 0.0f, 50.0f);
+		ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 50.0f);
+
+		ImGui::Checkbox("Show", &show_debug);
+		ImGui::End();
+	}
+
+	// If triangulation thread is done, prepare it for another pass
+	if (m_tri_done && m_tri_mutex.try_lock())
+	{
+		m_tri_done = false;
+
+		m_tri_debug_drawer.new_frame();
+
+		refine = refine || m_triangulate || m_triangulate_button_held || auto_triangulate;
+
+		// Fill TriData struct
+		m_tri_data.dd = &m_tri_debug_drawer;
+
+		m_tri_data.mc_fov = m_main_camera->get_fov();
+		m_tri_data.mc_pos = m_main_camera->get_pos();
+		m_tri_data.mc_view = m_main_camera->get_view();
+		m_tri_data.mc_vp = m_main_camera->get_big_vp();
+		m_tri_data.mc_frustum = m_main_camera->get_frustum();
+
+		m_tri_data.cc_fov = m_current_camera->get_fov();
+		m_tri_data.cc_pos = m_current_camera->get_pos();
+		m_tri_data.cc_view = m_current_camera->get_view();
+		m_tri_data.cc_vp = m_current_camera->get_big_vp();
+		m_tri_data.cc_frustum = m_current_camera->get_frustum();
+
+		vec2 mouse_pos;
+		// Get mouse pos
+		const bool focused = glfwGetWindowAttrib(m_window->get_glfw_window(), GLFW_FOCUSED) != 0;
+		if (focused)
+		{
+			double mouse_x, mouse_y;
+			glfwGetCursorPos(m_window->get_glfw_window(), &mouse_x, &mouse_y);
+			mouse_pos = vec2((float)mouse_x, (float)mouse_y);
+		}
+
+		int w, h;
+		glfwGetWindowSize(m_window->get_glfw_window(), &w, &h);
+		vec2 window_size = vec2(w, h);
+		m_tri_data.mouse_pos = mouse_pos;
+		m_tri_data.window_size = window_size;
+
+		m_tri_data.triangulate = refine;
+
+		m_tri_data.show_debug = show_debug;
+		m_tri_data.show_hovered = glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_C) == GLFW_PRESS && !ImGui::GetIO().WantCaptureMouse;
+		m_tri_data.show_node = show_node;
+		m_tri_data.refine_node = refine_node;
+		m_tri_data.refine_vertices = refine_vertices;
+		m_tri_data.sideshow_bob = sideshow_bob;
+		m_tri_data.area_mult = area_mult;
+		m_tri_data.curv_mult = curv_mult;
+		m_tri_data.threshold = threshold;
+
+		m_tri_data.debug_draw_mutex = &m_debug_draw_mutex;
+
+		// Start recording and upload triangulated data to GPU
+		m_main_queue.start_recording();
+		cputri::upload(m_main_queue, m_gpu_buffer, m_cpu_buffer);
+		
+		m_tri_mutex.unlock();
+	}
 }
 
-void Application::draw(bool auto_triangulate)
+void Application::draw()
 {
 #ifdef RAY_MARCH_WINDOW
 	// Start ray march thread
@@ -419,7 +511,7 @@ void Application::draw(bool auto_triangulate)
 	m_cv.notify_all();
 #endif
 
-	draw_main(auto_triangulate);
+	draw_main();
 
 #ifdef RAY_MARCH_WINDOW
 	// Wait for ray march thread
@@ -431,7 +523,7 @@ void Application::draw(bool auto_triangulate)
 #endif
 }
 
-void Application::draw_main(bool auto_triangulate)
+void Application::draw_main()
 {
 	const uint32_t index = m_window->get_next_image();
 	VkImage image = m_window->get_swapchain_image(index);
@@ -439,7 +531,8 @@ void Application::draw_main(bool auto_triangulate)
 
 	// RENDER-------------------
 
-	m_main_queue.start_recording();
+	if (!m_main_queue.is_recording())
+		m_main_queue.start_recording();
 
 	// Transfer images to layouts for rendering targets
 	m_main_queue.cmd_image_barrier(
@@ -466,8 +559,6 @@ void Application::draw_main(bool auto_triangulate)
 	{
 		m_draw_data.vp = m_current_camera->get_vp();
 		m_draw_data.camera_pos = glm::vec4(m_current_camera->get_pos(), 1.0f);
-
-		cputri::upload(m_main_queue, m_gpu_buffer, m_cpu_buffer);
 
 		// Start renderpass
 		if (!m_draw_wireframe)
@@ -533,6 +624,10 @@ void Application::draw_main(bool auto_triangulate)
 			//m_debug_drawer.draw_plane(frustum.m_far, far_pos, 1.0f, { 1,1,1 }, { 1,0,0 });
 		}
 
+		// ---------------------
+		// Standard debug drawer
+		// ---------------------
+
 		// Copy lines specified on CPU to GPU buffer
 		m_main_queue.cmd_copy_buffer(m_debug_drawer.get_cpu_buffer().get_buffer(),
 			m_debug_drawer.get_gpu_buffer().get_buffer(),
@@ -554,6 +649,38 @@ void Application::draw_main(bool auto_triangulate)
 
 		m_main_queue.cmd_end_render_pass();
 
+		// --------------------------
+		// Triangulation debug drawer
+		// --------------------------
+
+		// Lock triangulation debug drawing until frame is done
+		m_debug_draw_mutex.lock();
+
+		if (m_tri_debug_drawer.get_num_lines() > 0)
+		{
+			// Copy lines specified on CPU to GPU buffer
+			m_main_queue.cmd_copy_buffer(m_tri_debug_drawer.get_cpu_buffer().get_buffer(),
+				m_tri_debug_drawer.get_gpu_buffer().get_buffer(),
+				m_tri_debug_drawer.get_active_buffer_size());
+
+			// Memory barrier for GPU buffer
+			m_main_queue.cmd_buffer_barrier(m_tri_debug_drawer.get_gpu_buffer().get_buffer(),
+				VK_ACCESS_TRANSFER_WRITE_BIT,
+				VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
+		}
+
+		m_main_queue.cmd_begin_render_pass(m_debug_render_pass, m_window_states.swapchain_framebuffers[index]);
+
+		m_main_queue.cmd_bind_graphics_pipeline(m_debug_pipeline->m_pipeline);
+		m_main_queue.cmd_bind_vertex_buffer(m_tri_debug_drawer.get_gpu_buffer().get_buffer(), 0);
+		m_main_queue.cmd_push_constants(m_debug_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT, sizeof(DebugDrawingFrameData), &m_debug_draw_frame_data);
+		m_main_queue.cmd_draw(m_tri_debug_drawer.get_num_lines() * 2);
+
+		// End
+		m_main_queue.cmd_end_render_pass();
+
 		m_main_queue.cmd_image_barrier(
 			image,
 			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
@@ -569,6 +696,8 @@ void Application::draw_main(bool auto_triangulate)
 	m_main_queue.end_recording();
 	m_main_queue.submit();
 	m_main_queue.wait();
+
+	m_debug_draw_mutex.unlock();
 
 	imgui_draw(m_imgui_vulkan_state.swapchain_framebuffers[index], m_imgui_vulkan_state.done_drawing_semaphores[index]);
 
@@ -647,6 +776,22 @@ void Application::draw_ray_march()
 		m_ray_march_done = true;
 		lock.unlock();
 		m_cv.notify_all();
+	}
+}
+
+void Application::triangulate_thread()
+{
+	while (!m_quit)
+	{
+		if (!m_tri_done)
+		{
+			m_tri_mutex.lock();
+
+			cputri::run(&m_tri_data);
+			m_tri_done = true;
+
+			m_tri_mutex.unlock();
+		}
 	}
 }
 

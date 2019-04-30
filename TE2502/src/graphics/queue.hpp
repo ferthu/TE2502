@@ -32,6 +32,9 @@ public:
 	// Check if submitted work is complete
 	bool is_done();
 
+	// Returns true if currently recording
+	bool is_recording();
+
 	VkQueue get_queue() const;
 
 	VkFence get_fence() const;

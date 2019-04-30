@@ -112,6 +112,11 @@ void Queue::wait()
 	vkWaitForFences(m_context->get_device(), 1, &m_fence, VK_FALSE, ~0ull);
 }
 
+bool Queue::is_recording()
+{
+	return m_recording;
+}
+
 VkQueue Queue::get_queue() const
 {
 	return m_queue;

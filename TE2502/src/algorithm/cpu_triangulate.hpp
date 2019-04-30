@@ -4,15 +4,53 @@
 #include "tfile.hpp"
 #include "camera.hpp"
 
+#include <mutex>
+
 typedef uint32_t uint;
+using namespace glm;
 
 namespace cputri
 {
+	struct TriData
+	{
+		DebugDrawer* dd;
+
+		float mc_fov;
+		vec3 mc_pos;
+		mat4 mc_view;
+		mat4 mc_vp;
+		Frustum mc_frustum;
+
+		float cc_fov;
+		vec3 cc_pos;
+		mat4 cc_view;
+		mat4 cc_vp;
+		Frustum cc_frustum;
+
+		vec2 mouse_pos;
+		vec2 window_size;
+
+		bool triangulate;
+
+		bool show_debug;
+		bool show_hovered;
+		int show_node;
+		int refine_node;
+		// Max new vertices per refine step
+		int refine_vertices;
+		int sideshow_bob;
+		float area_mult;
+		float curv_mult;
+		float threshold;
+
+		std::mutex* debug_draw_mutex;
+	};
+
 	void setup(TFile& tfile);
 
 	void destroy(VulkanContext& context, GPUBuffer& cpu_buffer);
 
-	void run(DebugDrawer& dd, Camera& main_camera, Camera& current_camera, Window& window, bool show_imgui, bool refine);
+	void run(TriData* tri_data);
 
 	// Draws terrain. Requires an active render pass
 	void draw(GraphicsQueue& queue, GPUBuffer& gpu_buffer, GPUBuffer& cpu_buffer);
@@ -51,13 +89,13 @@ namespace cputri
 	// Shifts the quadtree if required
 	void shift_quadtree(glm::vec3 camera_pos);
 
-	void triangulate();
+	void triangulate(cputri::TriData* tri_data);
 
 	void clear_terrain();
 
-	void process_triangles(Camera& camera, Window& window, float em_threshold, float area_multiplier, float curvature_multiplier);
+	void process_triangles(TriData* tri_data);
 
-	void draw_terrain(Frustum& frustum, DebugDrawer& dd, Camera& camera, Window& window);
+	void draw_terrain(TriData* tri_data);
 
 	void intersect(Frustum& frustum, DebugDrawer& dd, glm::vec3 camera_pos);
 

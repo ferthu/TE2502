@@ -1,6 +1,7 @@
 #pragma once
 
 #include "algorithm/common.hpp"
+#include "algorithm/cpu_triangulate.hpp"
 
 namespace triangulate
 {
@@ -58,5 +59,5 @@ namespace triangulate
 
 	void remove_old_triangles(TerrainBuffer* tb, GlobalData& g);
 	void add_connection(GlobalData& g, cuint local_node_index, cuint connection_index);
-	void triangulate(TerrainBuffer* tb, GlobalData& g, cuint node_index);
+	void triangulate(TerrainBuffer* tb, GlobalData& g, cuint node_index, cputri::TriData* tri_data);
 }

@@ -14,9 +14,9 @@
 #include "graphics/framebuffer.hpp"
 #include "graphics/render_pass.hpp"
 #include "graphics/debug_drawer.hpp"
-#include "quadtree.hpp"
 #include "tfile.hpp"
 #include "path_handler.hpp"
+#include "algorithm/cpu_triangulate.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -32,14 +32,17 @@ public:
 	
 private:
 	// Update
-	void update(const float dt);
+	void update(const float dt, bool auto_triangulate = false);
 	
 	// Draw
-	void draw(bool auto_triangulate = false);
+	void draw();
 
-	void draw_main(bool auto_triangulate = false);
+	void draw_main();
 
 	void draw_ray_march();
+
+	// Triangulation loop
+	void triangulate_thread();
 
 	// Present queue on screen
 	void present(Window* window, VkQueue queue, const uint32_t index, VkSemaphore wait_for) const;
@@ -166,5 +169,13 @@ private:
 	TFile m_tfile;
 
 	std::mutex m_present_lock;
+
+	// Triangulation threading
+	cputri::TriData m_tri_data;
+	std::mutex m_tri_mutex;
+	std::thread m_tri_thread;
+	bool m_tri_done = true;
+	DebugDrawer m_tri_debug_drawer;
+	std::mutex m_debug_draw_mutex;
 };
 

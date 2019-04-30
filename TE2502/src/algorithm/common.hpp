@@ -44,7 +44,7 @@ struct BufferNodeHeader
 {
 	uint vertex_count;
 	uint new_points_count;
-	uint pad;
+	uint draw_index_count;
 
 	vec2 min;
 	vec2 max;
@@ -64,7 +64,7 @@ struct TerrainData
 	// struct BufferNodeHeader {
 	uint vertex_count;
 	uint new_points_count;
-	uint pad;
+	uint draw_index_count;
 
 	vec2 min;
 	vec2 max;

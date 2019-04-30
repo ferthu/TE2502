@@ -532,7 +532,8 @@ namespace cputri
 				tri_data->threshold,
 				tri_data->area_mult,
 				tri_data->curv_mult,
-				quadtree.draw_nodes[i]);
+				quadtree.draw_nodes[i],
+				tri_data);
 		}
 
 		// Newly generated terrain
@@ -547,7 +548,8 @@ namespace cputri
 				tri_data->threshold,
 				tri_data->area_mult,
 				tri_data->curv_mult,
-				quadtree.generate_nodes[i].index);
+				quadtree.generate_nodes[i].index,
+				tri_data);
 		}
 	}
 
@@ -566,19 +568,21 @@ namespace cputri
 			// Gather status of nodes
 			intersect(frustum, dd, AabbXZ{ quadtree.quadtree_minmax[0],
 				quadtree.quadtree_minmax[1] }, 0, 0, 0);
+
+			for (uint i = 0; i < quadtree.num_generate_nodes; i++)
+			{
+				tb->data[quadtree.generate_nodes[i].index].instance_count = 0;
+				tb->data[quadtree.generate_nodes[i].index].new_points_count = 0;
+				tb->data[quadtree.generate_nodes[i].index].draw_index_count = 0;
+			}
+
+			for (uint i = 0; i < quadtree.num_generate_nodes; i++)
+			{
+				generate::generate(tb, gg, log_filter, quadtree.generate_nodes[i].index, quadtree.generate_nodes[i].min, quadtree.generate_nodes[i].max);
+				do_triangulation = true;
+			}
 		}
 
-		for (uint i = 0; i < quadtree.num_generate_nodes; i++)
-		{
-			tb->data[quadtree.generate_nodes[i].index].instance_count = 0;
-			tb->data[quadtree.generate_nodes[i].index].new_points_count = 0;
-		}
-
-		for (uint i = 0; i < quadtree.num_generate_nodes; i++)
-		{
-			generate::generate(tb, gg, log_filter, quadtree.generate_nodes[i].index, quadtree.generate_nodes[i].min, quadtree.generate_nodes[i].max);
-			do_triangulation = true;
-		}
 
 		// Update draw index counts
 		{

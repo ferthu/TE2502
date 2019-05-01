@@ -12,15 +12,15 @@ typedef const uint32_t cuint;
 
 const uint INVALID = ~0u;
 
-constexpr auto TERRAIN_GENERATE_TOTAL_SIDE_LENGTH = 1000;
-constexpr auto TERRAIN_GENERATE_NUM_INDICES = 12000;
-constexpr auto TERRAIN_GENERATE_NUM_VERTICES = 4000;
-constexpr auto TERRAIN_GENERATE_NUM_NODES = 16;
-constexpr auto TERRAIN_GENERATE_GRID_SIDE = 3;
-constexpr auto TRIANGULATE_MAX_NEW_POINTS = 1024;
-constexpr auto QUADTREE_LEVELS = 2;
-constexpr auto MAX_BORDER_TRIANGLE_COUNT = 200;
-constexpr auto ADJUST_PERCENTAGE = 0.35f;
+constexpr float TERRAIN_GENERATE_TOTAL_SIDE_LENGTH = 1000;
+constexpr uint TERRAIN_GENERATE_NUM_INDICES = 12000;
+constexpr uint TERRAIN_GENERATE_NUM_VERTICES = 4000;
+constexpr uint TERRAIN_GENERATE_NUM_NODES = 16;
+constexpr uint TERRAIN_GENERATE_GRID_SIDE = 3;
+constexpr uint TRIANGULATE_MAX_NEW_POINTS = 1024;
+constexpr uint QUADTREE_LEVELS = 2;
+constexpr uint MAX_BORDER_TRIANGLE_COUNT = 2000;
+constexpr float ADJUST_PERCENTAGE = 0.35f;
 
 constexpr uint num_indices = TERRAIN_GENERATE_NUM_INDICES;
 constexpr uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;

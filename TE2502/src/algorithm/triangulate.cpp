@@ -688,21 +688,17 @@ namespace triangulate
 			// Add to the triangle list all triangles formed between the point and the edges of the enclosing polygon
 			for (uint ii = 0; ii < g.new_triangle_count; ++ii)
 			{
-				uint i = g.valid_indices[ii];
-				vec3 P = vec3(g.edges[i].p1);
-				vec3 Q = vec3(g.edges[i].p2);
-				vec3 R = vec3(current_point);
+				const uint i = g.valid_indices[ii];
+				const vec3 P = vec3(g.edges[i].p1);
+				const vec3 Q = vec3(g.edges[i].p2);
+				const vec3 R = vec3(current_point);
 
 				// Make sure winding order is correct
 				const vec3 nor = cross(R - P, Q - P);
 				if (nor.y > 0)
 				{
-					vec4 temp = g.edges[i].p1;
-					g.edges[i].p1 = g.edges[i].p2;
-					g.edges[i].p2 = temp;
-					uint temp2 = g.edges[i].p1_index;
-					g.edges[i].p1_index = g.edges[i].p2_index;
-					g.edges[i].p2_index = temp2;
+					std::swap(g.edges[i].p1, g.edges[i].p2);
+					std::swap(g.edges[i].p1_index, g.edges[i].p2_index);
 				}
 
 				// Set indices for the new triangle
@@ -716,13 +712,12 @@ namespace triangulate
 				++g.new_triangle_index_count[g.edges[i].node_index];
 
 				// Set circumcircles for the new triangle
-				float a = distance(vec2(P.x, P.z), vec2(Q.x, Q.z));
-				float b = distance(vec2(P.x, P.z), vec2(R.x, R.z));
-				float c = distance(vec2(R.x, R.z), vec2(Q.x, Q.z));
+				const float a = distance(vec2(P.x, P.z), vec2(Q.x, Q.z));
+				const float b = distance(vec2(P.x, P.z), vec2(R.x, R.z));
+				const float c = distance(vec2(R.x, R.z), vec2(Q.x, Q.z));
 
 				const vec2 cc_center = find_circum_center(vec2(P.x, P.z), vec2(Q.x, Q.z), vec2(R.x, R.z));
 				const float cc_radius2 = find_circum_radius_squared(a, b, c);
-				const float cc_radius = sqrt(cc_radius2);
 
 				tb->data[g.ltg[g.edges[i].node_index]].triangles[triangle_count].circumcentre = cc_center;
 				tb->data[g.ltg[g.edges[i].node_index]].triangles[triangle_count].circumradius2 = cc_radius2;

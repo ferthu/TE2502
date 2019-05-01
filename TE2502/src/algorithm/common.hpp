@@ -108,7 +108,7 @@ struct Quadtree
 
 	vec2 node_size;
 
-	const float quadtree_shift_distance = TERRAIN_GENERATE_TOTAL_SIDE_LENGTH / 2.f - TERRAIN_GENERATE_TOTAL_SIDE_LENGTH / (1 << quadtree_levels) / 2.f;
+	const float quadtree_shift_distance = TERRAIN_GENERATE_TOTAL_SIDE_LENGTH / 2.f - TERRAIN_GENERATE_TOTAL_SIDE_LENGTH / (1 << quadtree_levels);
 };
 
 void replace_connection_index(TerrainBuffer* tb, cuint node_index, cuint triangle_to_check, cuint index_to_replace, cuint new_value);

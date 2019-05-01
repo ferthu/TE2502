@@ -14,6 +14,8 @@ namespace triangulate
 
 			const uint last_triangle = tb->data[global_node_index].index_count / 3 - 1;
 
+			tb->data[global_node_index].lowest_indices_index_changed = min(tb->data[global_node_index].lowest_indices_index_changed, index * 3);
+
 			// Loop through remaining triangles to remove and update any that are equal to last_triangle
 			for (int ii = 0; ii < j; ++ii)
 			{
@@ -733,21 +735,17 @@ namespace triangulate
 			// Add to the triangle list all triangles formed between the point and the edges of the enclosing polygon
 			for (uint ii = 0; ii < g.new_triangle_count; ++ii)
 			{
-				uint i = g.valid_indices[ii];
-				vec3 P = vec3(g.edges[i].p1);
-				vec3 Q = vec3(g.edges[i].p2);
-				vec3 R = vec3(current_point);
+				const uint i = g.valid_indices[ii];
+				const vec3 P = vec3(g.edges[i].p1);
+				const vec3 Q = vec3(g.edges[i].p2);
+				const vec3 R = vec3(current_point);
 
 				// Make sure winding order is correct
 				const vec3 nor = cross(R - P, Q - P);
 				if (nor.y > 0)
 				{
-					vec4 temp = g.edges[i].p1;
-					g.edges[i].p1 = g.edges[i].p2;
-					g.edges[i].p2 = temp;
-					uint temp2 = g.edges[i].p1_index;
-					g.edges[i].p1_index = g.edges[i].p2_index;
-					g.edges[i].p2_index = temp2;
+					std::swap(g.edges[i].p1, g.edges[i].p2);
+					std::swap(g.edges[i].p1_index, g.edges[i].p2_index);
 				}
 
 				// Set indices for the new triangle
@@ -761,13 +759,12 @@ namespace triangulate
 				++g.new_triangle_index_count[g.edges[i].node_index];
 
 				// Set circumcircles for the new triangle
-				float a = distance(vec2(P.x, P.z), vec2(Q.x, Q.z));
-				float b = distance(vec2(P.x, P.z), vec2(R.x, R.z));
-				float c = distance(vec2(R.x, R.z), vec2(Q.x, Q.z));
+				const float a = distance(vec2(P.x, P.z), vec2(Q.x, Q.z));
+				const float b = distance(vec2(P.x, P.z), vec2(R.x, R.z));
+				const float c = distance(vec2(R.x, R.z), vec2(Q.x, Q.z));
 
 				const vec2 cc_center = find_circum_center(vec2(P.x, P.z), vec2(Q.x, Q.z), vec2(R.x, R.z));
 				const float cc_radius2 = find_circum_radius_squared(a, b, c);
-				const float cc_radius = sqrt(cc_radius2);
 
 				tb->data[g.ltg[g.edges[i].node_index]].triangles[triangle_count].circumcentre = cc_center;
 				tb->data[g.ltg[g.edges[i].node_index]].triangles[triangle_count].circumradius2 = cc_radius2;
@@ -786,7 +783,6 @@ namespace triangulate
 				for (uint ss = 0; ss < 2; ++ss)  // The two other sides
 				{
 					bool is_border = false;
-					bool found = false;
 					// Search through all other new triangles that have been added to find possible neighbours/connections
 					for (uint ee = 0; ee < g.new_triangle_count; ++ee)
 					{
@@ -796,7 +792,6 @@ namespace triangulate
 						// Check each pair of points in the triangle if they match
 						if (edges[ss] == g.edges[test_index].p1 || edges[ss] == g.edges[test_index].p2)
 						{
-							found = true;
 							if (g.edges[i].node_index == g.edges[test_index].node_index)
 							{
 								tb->data[g.ltg[g.edges[i].node_index]].triangle_connections[index + 2 - ss] = g.edges[test_index].future_index;
@@ -808,11 +803,6 @@ namespace triangulate
 							}
 							break;
 						}
-					}
-
-					if (!found)
-					{
-						int a = 234234;
 					}
 
 					if (is_border && !already_added && tb->data[g.ltg[g.edges[i].node_index]].border_count < MAX_BORDER_TRIANGLE_COUNT)
@@ -833,6 +823,7 @@ namespace triangulate
 			{
 				tb->data[g.ltg[participating_nodes[jj]]].positions[tb->data[g.ltg[participating_nodes[jj]]].vertex_count] = current_point;
 				++tb->data[g.ltg[participating_nodes[jj]]].vertex_count;
+				tb->data[g.ltg[participating_nodes[jj]]].has_data_to_copy = true;
 			}
 
 			g.triangles_removed = 0;

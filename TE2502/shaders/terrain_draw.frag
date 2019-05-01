@@ -114,7 +114,6 @@ vec3 TerrainColour(vec3 pos, vec3 normal)
 	// Grass. Use the normal to decide when to plonk grass down...
 	if (normal.y > .65)
 	{
-
 		m = vec3(Noise(matPos.xz*.023)*.5 + .15, Noise(matPos.xz*.03)*.6 + .25, 0.0);
 		m *= (normal.y - 0.65)*.6;
 		mat = mix(mat, m, clamp((normal.y - .65)*1.3 * (45.35 - matPos.y)*0.1, 0.0, 1.0));
@@ -143,8 +142,13 @@ vec3 PostEffects(vec3 rgb)
 void main()
 {
 	vec3 camera_pos = frame_data.camera_pos.xyz;
-	float dist = length(world_pos - camera_pos);
-
+	float dist = distance(world_pos, camera_pos);
+	if (dist > 1400)
+	{
+		out_color = vec4(PostEffects(vec3(0.1, 0.15, 0.3)), 1);
+		return;
+	}
+	
 	float p = min(.3, .0005 + .00005 * dist*dist);
 	vec3 nor = vec3(0.0, Terrain2(world_pos.xz), 0.0);
 	vec3 v2 = nor - vec3(p, Terrain2(world_pos.xz + vec2(p, 0.0)), 0.0);

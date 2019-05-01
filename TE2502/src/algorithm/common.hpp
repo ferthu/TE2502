@@ -12,19 +12,18 @@ typedef const uint32_t cuint;
 
 const uint INVALID = ~0u;
 
-constexpr float TERRAIN_GENERATE_TOTAL_SIDE_LENGTH = 10000;
+constexpr float TERRAIN_GENERATE_TOTAL_SIDE_LENGTH = 1000;
 constexpr uint TERRAIN_GENERATE_NUM_INDICES = 12000;
 constexpr uint TERRAIN_GENERATE_NUM_VERTICES = 4000;
-constexpr uint TERRAIN_GENERATE_NUM_NODES = 16;
 constexpr uint TERRAIN_GENERATE_GRID_SIDE = 3;
 constexpr uint TRIANGULATE_MAX_NEW_POINTS = 1024;
-constexpr uint QUADTREE_LEVELS = 2;
+constexpr uint QUADTREE_LEVELS = 4;
 constexpr uint MAX_BORDER_TRIANGLE_COUNT = 2000;
 constexpr float ADJUST_PERCENTAGE = 0.35f;
 
 constexpr uint num_indices = TERRAIN_GENERATE_NUM_INDICES;
 constexpr uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
-constexpr uint num_nodes = TERRAIN_GENERATE_NUM_NODES;
+constexpr uint num_nodes = (1 << QUADTREE_LEVELS) * (1 << QUADTREE_LEVELS);
 constexpr uint num_new_points = TRIANGULATE_MAX_NEW_POINTS;
 constexpr uint quadtree_levels = QUADTREE_LEVELS;
 constexpr uint max_border_triangle_count = MAX_BORDER_TRIANGLE_COUNT;
@@ -74,7 +73,7 @@ struct TerrainBuffer
 	std::array<uint, (1 << QUADTREE_LEVELS) * (1 << QUADTREE_LEVELS)> quadtree_index_map;
 	vec2 quadtree_min;
 	vec2 quadtree_max;
-	std::array<TerrainData, TERRAIN_GENERATE_NUM_NODES> data;
+	std::array<TerrainData, num_nodes> data;
 };
 
 

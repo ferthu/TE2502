@@ -14,7 +14,7 @@ namespace generate
 			const uint last_triangle = node.index_count / 3 - 1;
 
 			// Loop through remaining triangles to remove and update any that are equal to last_triangle
-			for (uint ii = 0; ii < j; ++ii)
+			for (uint ii = 0; ii < (uint)j; ++ii)
 			{
 				if (g.triangles_to_remove[ii] == last_triangle)
 				{
@@ -353,7 +353,7 @@ namespace generate
 			const uint last_triangle = node.index_count / 3 - 1;
 
 			// Loop through remaining triangles to remove and update any that are equal to last_triangle
-			for (uint ii = 0; ii < j; ++ii)
+			for (uint ii = 0; ii < (uint)j; ++ii)
 			{
 				if (g.triangles_to_remove[ii] == last_triangle)
 				{
@@ -420,7 +420,7 @@ namespace generate
 			const uint last_triangle = node.index_count / 3 - 1;
 
 			// Loop through remaining triangles to remove and update any that are equal to last_triangle
-			for (uint ii = 0; ii < j; ++ii)
+			for (uint ii = 0; ii < (uint)j; ++ii)
 			{
 				if (g.triangles_to_remove[ii] == last_triangle)
 				{

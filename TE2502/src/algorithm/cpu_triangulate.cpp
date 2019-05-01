@@ -60,6 +60,7 @@ namespace cputri
 
 		quadtree.node_memory_size = sizeof(TerrainData);
 
+
 		// Add space for an additional two vec2's to store the quadtree min and max
 		cpu_index_buffer_size = (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint) + sizeof(vec2) * 2;
 

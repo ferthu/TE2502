@@ -12,7 +12,7 @@ typedef const uint32_t cuint;
 
 const uint INVALID = ~0u;
 
-constexpr float TERRAIN_GENERATE_TOTAL_SIDE_LENGTH = 1000;
+constexpr float TERRAIN_GENERATE_TOTAL_SIDE_LENGTH = 10000;
 constexpr uint TERRAIN_GENERATE_NUM_INDICES = 12000;
 constexpr uint TERRAIN_GENERATE_NUM_VERTICES = 4000;
 constexpr uint TERRAIN_GENERATE_NUM_NODES = 16;

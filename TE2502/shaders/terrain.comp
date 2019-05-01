@@ -45,9 +45,9 @@ bool ray_march(in vec3 rO, in vec3 rD, out float resT)
 	float delta = 0.0;
 	bool fin = false;
 	vec2 distances;
-	for (int j = 0; j < 350; j++)
+	while (!fin && t < 1400)
 	{
-		if (fin || t > 1000.0) break;
+		//if (fin || t > 14000.0) break;
 		vec3 p = rO + t * rD;
 		float h = height_to_surface(p); // ...Get this positions height mapping.
 		// Are we inside, and close enough to fudge a hit?...

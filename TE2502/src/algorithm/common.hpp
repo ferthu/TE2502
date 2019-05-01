@@ -37,59 +37,43 @@ struct Triangle
 {
 	vec2 circumcentre;
 	float circumradius2;
-	uint pad;
-};
-
-struct BufferNodeHeader
-{
-	uint vertex_count;
-	uint new_points_count;
-	uint draw_index_count;
-
-	vec2 min;
-	vec2 max;
-
-	uint border_count;
-	std::array<uint, MAX_BORDER_TRIANGLE_COUNT> border_triangle_indices;
 };
 
 struct TerrainData
 {
-	uint index_count;
-	uint instance_count;
-	uint first_index;
-	int  vertex_offset;
-	uint first_instance;
-
-	// struct BufferNodeHeader {
-	uint vertex_count;
-	uint new_points_count;
-	uint draw_index_count;
-
-	vec2 min;
-	vec2 max;
-
-	uint border_count;
-	std::array<uint, MAX_BORDER_TRIANGLE_COUNT> border_triangle_indices;
-	// }
-
 	std::array<uint, TERRAIN_GENERATE_NUM_INDICES> indices;
 	std::array<vec4, TERRAIN_GENERATE_NUM_VERTICES> positions;
 	std::array<Triangle, TERRAIN_GENERATE_NUM_INDICES / 3> triangles;
 	std::array<uint, TERRAIN_GENERATE_NUM_INDICES> triangle_connections;
+	std::array<uint, MAX_BORDER_TRIANGLE_COUNT> border_triangle_indices;
 	std::array<vec4, TRIANGULATE_MAX_NEW_POINTS> new_points;
 	std::array<uint, TRIANGULATE_MAX_NEW_POINTS> new_points_triangles;
+
+	bool is_invalid;
+
+	uint index_count;
+	uint vertex_count;
+	uint new_points_count;
+	uint draw_index_count;
+
+	uint border_count;
+
+	vec2 min;
+	vec2 max;
+
+	// Copy data info
+	bool has_data_to_copy;
+	uint old_vertex_count;
+	uint lowest_indices_index_changed;
 };
 
 const uint quadtree_data_size = (1 << QUADTREE_LEVELS) * (1 << QUADTREE_LEVELS) + 4;
-const uint pad_size = 16 - (quadtree_data_size % 16);
 
 struct TerrainBuffer
 {
 	std::array<uint, (1 << QUADTREE_LEVELS) * (1 << QUADTREE_LEVELS)> quadtree_index_map;
 	vec2 quadtree_min;
 	vec2 quadtree_max;
-	std::array<uint, pad_size> pad;
 	std::array<TerrainData, TERRAIN_GENERATE_NUM_NODES> data;
 };
 

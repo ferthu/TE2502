@@ -13,6 +13,8 @@ namespace triangulate
 
 			const uint last_triangle = tb->data[global_node_index].index_count / 3 - 1;
 
+			tb->data[global_node_index].lowest_indices_index_changed = min(tb->data[global_node_index].lowest_indices_index_changed, index * 3);
+
 			// Loop through remaining triangles to remove and update any that are equal to last_triangle
 			for (int ii = 0; ii < j; ++ii)
 			{
@@ -739,7 +741,6 @@ namespace triangulate
 				for (uint ss = 0; ss < 2; ++ss)  // The two other sides
 				{
 					bool is_border = false;
-					bool found = false;
 					// Search through all other new triangles that have been added to find possible neighbours/connections
 					for (uint ee = 0; ee < g.new_triangle_count; ++ee)
 					{
@@ -749,7 +750,6 @@ namespace triangulate
 						// Check each pair of points in the triangle if they match
 						if (edges[ss] == g.edges[test_index].p1 || edges[ss] == g.edges[test_index].p2)
 						{
-							found = true;
 							if (g.edges[i].node_index == g.edges[test_index].node_index)
 								tb->data[g.ltg[g.edges[i].node_index]].triangle_connections[index + 2 - ss] = g.edges[test_index].future_index;
 							else
@@ -759,11 +759,6 @@ namespace triangulate
 							}
 							break;
 						}
-					}
-
-					if (!found)
-					{
-						int a = 234234;
 					}
 
 					if (is_border && !already_added && tb->data[g.ltg[g.edges[i].node_index]].border_count < MAX_BORDER_TRIANGLE_COUNT)
@@ -784,6 +779,7 @@ namespace triangulate
 			{
 				tb->data[g.ltg[participating_nodes[jj]]].positions[tb->data[g.ltg[participating_nodes[jj]]].vertex_count] = current_point;
 				++tb->data[g.ltg[participating_nodes[jj]]].vertex_count;
+				tb->data[g.ltg[participating_nodes[jj]]].has_data_to_copy = true;
 			}
 
 			g.triangles_removed = 0;

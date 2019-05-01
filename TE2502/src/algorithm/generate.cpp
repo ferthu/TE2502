@@ -498,10 +498,7 @@ namespace generate
 		const float side = node_max.x - node_min.x;
 
 		node.index_count = 6;
-		node.instance_count = 1;
-		node.first_index = 0;
-		node.vertex_offset = 0;
-		node.first_instance = 0;
+		node.is_invalid = false;
 
 		node.vertex_count = 4;
 		node.new_points_count = GRID_SIDE * GRID_SIDE;
@@ -582,7 +579,7 @@ namespace generate
 				if (nx >= 0 && nx < nodes_per_side && ny >= 0 && ny < nodes_per_side)
 				{
 					const uint neighbour_index = tb->quadtree_index_map[ny * nodes_per_side + nx];
-					if (neighbour_index == INVALID || tb->data[neighbour_index].instance_count != 1 || (x == 0 && y == 0))
+					if (neighbour_index == INVALID || tb->data[neighbour_index].is_invalid || (x == 0 && y == 0))
 						continue;
 
 					const uint triangle_count = tb->data[neighbour_index].border_count;
@@ -711,7 +708,7 @@ namespace generate
 						if (nx >= 0 && nx < nodes_per_side && ny >= 0 && ny < nodes_per_side)
 						{
 							const uint neighbour_index = tb->quadtree_index_map[ny * nodes_per_side + nx];
-							if (neighbour_index == INVALID || tb->data[neighbour_index].instance_count != 1 || (x == 0 && y == 0))
+							if (neighbour_index == INVALID || tb->data[neighbour_index].is_invalid || (x == 0 && y == 0))
 								continue;
 
 							const uint triangle_count = tb->data[neighbour_index].border_count;

@@ -472,7 +472,7 @@ void Application::update(const float dt, bool auto_triangulate)
 		m_tri_data.cc_vp = m_current_camera->get_big_vp();
 		m_tri_data.cc_frustum = m_current_camera->get_frustum();
 
-		vec2 mouse_pos;
+		vec2 mouse_pos = { 0,0 };
 		// Get mouse pos
 		const bool focused = glfwGetWindowAttrib(m_window->get_glfw_window(), GLFW_FOCUSED) != 0;
 		if (focused)
@@ -608,6 +608,7 @@ void Application::draw_main()
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
 
+	bool locked = false;
 	// Do debug drawing
 	{
 		m_debug_drawer.draw_line({ 0, 0, 0 }, { 1, 0, 0 }, { 1, 0, 0 });
@@ -640,58 +641,63 @@ void Application::draw_main()
 		// Standard debug drawer
 		// ---------------------
 
-		// Copy lines specified on CPU to GPU buffer
-		m_main_queue.cmd_copy_buffer(m_debug_drawer.get_cpu_buffer().get_buffer(),
-			m_debug_drawer.get_gpu_buffer().get_buffer(),
-			m_debug_drawer.get_active_buffer_size());
-	
-		// Memory barrier for GPU buffer
-		m_main_queue.cmd_buffer_barrier(m_debug_drawer.get_gpu_buffer().get_buffer(),
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
-
-		m_main_queue.cmd_begin_render_pass(m_debug_render_pass, m_window_states.swapchain_framebuffers[index]);
-
-		m_main_queue.cmd_bind_graphics_pipeline(m_debug_pipeline->m_pipeline);
-		m_main_queue.cmd_bind_vertex_buffer(m_debug_drawer.get_gpu_buffer().get_buffer(), 0);
-		m_main_queue.cmd_push_constants(m_debug_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT, sizeof(DebugDrawingFrameData), &m_debug_draw_frame_data);
-		m_main_queue.cmd_draw(m_debug_drawer.get_num_lines() * 2);
-
-		m_main_queue.cmd_end_render_pass();
-
-		// --------------------------
-		// Triangulation debug drawer
-		// --------------------------
-
-		// Lock triangulation debug drawing until frame is done
-		m_debug_draw_mutex.lock();
-
-		if (m_tri_debug_drawer.get_num_lines() > 0)
+		if (m_debug_drawer.get_num_lines() > 0)
 		{
 			// Copy lines specified on CPU to GPU buffer
-			m_main_queue.cmd_copy_buffer(m_tri_debug_drawer.get_cpu_buffer().get_buffer(),
-				m_tri_debug_drawer.get_gpu_buffer().get_buffer(),
-				m_tri_debug_drawer.get_active_buffer_size());
+			m_main_queue.cmd_copy_buffer(m_debug_drawer.get_cpu_buffer().get_buffer(),
+				m_debug_drawer.get_gpu_buffer().get_buffer(),
+				m_debug_drawer.get_active_buffer_size());
 
 			// Memory barrier for GPU buffer
-			m_main_queue.cmd_buffer_barrier(m_tri_debug_drawer.get_gpu_buffer().get_buffer(),
+			m_main_queue.cmd_buffer_barrier(m_debug_drawer.get_gpu_buffer().get_buffer(),
 				VK_ACCESS_TRANSFER_WRITE_BIT,
 				VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
 				VK_PIPELINE_STAGE_TRANSFER_BIT,
 				VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
+
+			m_main_queue.cmd_begin_render_pass(m_debug_render_pass, m_window_states.swapchain_framebuffers[index]);
+
+			m_main_queue.cmd_bind_graphics_pipeline(m_debug_pipeline->m_pipeline);
+			m_main_queue.cmd_bind_vertex_buffer(m_debug_drawer.get_gpu_buffer().get_buffer(), 0);
+			m_main_queue.cmd_push_constants(m_debug_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT, sizeof(DebugDrawingFrameData), &m_debug_draw_frame_data);
+			m_main_queue.cmd_draw(m_debug_drawer.get_num_lines() * 2);
+
+			m_main_queue.cmd_end_render_pass();
 		}
+		// --------------------------
+		// Triangulation debug drawer
+		// --------------------------
 
-		m_main_queue.cmd_begin_render_pass(m_debug_render_pass, m_window_states.swapchain_framebuffers[index]);
+		if (m_tri_debug_drawer.get_num_lines() > 0)
+		{
+			// Lock triangulation debug drawing until frame is done
+			m_debug_draw_mutex.lock();
+			locked = true;
+			if (m_tri_debug_drawer.get_num_lines() > 0)
+			{
+				// Copy lines specified on CPU to GPU buffer
+				m_main_queue.cmd_copy_buffer(m_tri_debug_drawer.get_cpu_buffer().get_buffer(),
+					m_tri_debug_drawer.get_gpu_buffer().get_buffer(),
+					m_tri_debug_drawer.get_active_buffer_size());
 
-		m_main_queue.cmd_bind_graphics_pipeline(m_debug_pipeline->m_pipeline);
-		m_main_queue.cmd_bind_vertex_buffer(m_tri_debug_drawer.get_gpu_buffer().get_buffer(), 0);
-		m_main_queue.cmd_push_constants(m_debug_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT, sizeof(DebugDrawingFrameData), &m_debug_draw_frame_data);
-		m_main_queue.cmd_draw(m_tri_debug_drawer.get_num_lines() * 2);
+				// Memory barrier for GPU buffer
+				m_main_queue.cmd_buffer_barrier(m_tri_debug_drawer.get_gpu_buffer().get_buffer(),
+					VK_ACCESS_TRANSFER_WRITE_BIT,
+					VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
+			}
 
-		// End
-		m_main_queue.cmd_end_render_pass();
+			m_main_queue.cmd_begin_render_pass(m_debug_render_pass, m_window_states.swapchain_framebuffers[index]);
+
+			m_main_queue.cmd_bind_graphics_pipeline(m_debug_pipeline->m_pipeline);
+			m_main_queue.cmd_bind_vertex_buffer(m_tri_debug_drawer.get_gpu_buffer().get_buffer(), 0);
+			m_main_queue.cmd_push_constants(m_debug_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT, sizeof(DebugDrawingFrameData), &m_debug_draw_frame_data);
+			m_main_queue.cmd_draw(m_tri_debug_drawer.get_num_lines() * 2);
+
+			// End
+			m_main_queue.cmd_end_render_pass();
+		}
 
 		m_main_queue.cmd_image_barrier(
 			image,
@@ -709,7 +715,8 @@ void Application::draw_main()
 	m_main_queue.submit();
 	m_main_queue.wait();
 
-	m_debug_draw_mutex.unlock();
+	if (locked)
+		m_debug_draw_mutex.unlock();
 
 	imgui_draw(m_imgui_vulkan_state.swapchain_framebuffers[index], m_imgui_vulkan_state.done_drawing_semaphores[index]);
 

@@ -29,7 +29,7 @@ constexpr uint quadtree_levels = QUADTREE_LEVELS;
 constexpr uint max_border_triangle_count = MAX_BORDER_TRIANGLE_COUNT;
 
 const float gaussian_width = 1.0f;
-const int filter_radius = 2;	// Side length of grid is filter_radius * 2 + 1
+const int filter_radius = 1;	// Side length of grid is filter_radius * 2 + 1
 const int filter_side = filter_radius * 2 + 1;
 
 struct Triangle

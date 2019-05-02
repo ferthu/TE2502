@@ -65,7 +65,7 @@ namespace process
 			vec4 c1 = vp * glm::vec4(glm::vec3(v1), 1.0f);
 			vec4 c2 = vp * glm::vec4(glm::vec3(v2), 1.0f);
 
-			// Check if any vertex is visible (shitty clipping)
+			// Check if any vertex is visible (simple clipping)
 			if (clip(c0) || clip(c1) || clip(c2))
 			{
 				// Calculate screen space area
@@ -95,14 +95,14 @@ namespace process
 				glm::vec3 curv_point = (curv0 * inv_total_curv * glm::vec3(v0)) + (curv1 * inv_total_curv * glm::vec3(v1)) + (curv2 * inv_total_curv * glm::vec3(v2));
 
 				// Linearly interpolate between triangle middle and curv_point
-				glm::vec3 new_pos = mix(mid, curv_point, 0.5);
+				glm::vec3 new_pos = mix(mid, curv_point, 0.5f);
 
 				// Y position of potential new point
 				float terrain_y = -terrain(glm::vec2(new_pos.x, new_pos.z)) - 0.5f;
 
 				// Transform terrain_y and curv_point to clip space
-				glm::vec4 clip_terrain_y = vp * glm::vec4(new_pos.x, terrain_y, new_pos.z, 1.0);
-				glm::vec4 clip_curv_point = vp * glm::vec4(curv_point, 1.0);
+				glm::vec4 clip_terrain_y = vp * glm::vec4(new_pos.x, terrain_y, new_pos.z, 1.0f);
+				glm::vec4 clip_curv_point = vp * glm::vec4(curv_point, 1.0f);
 				clip_terrain_y /= clip_terrain_y.w;
 				clip_curv_point /= clip_curv_point.w;
 

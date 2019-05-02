@@ -105,4 +105,6 @@ namespace cputri
 
 	// Returns vector of messages indicating hovered triangles
 	std::vector<std::string> get_hovered_tris();
+
+	void worker_thread();
 }

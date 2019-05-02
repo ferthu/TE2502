@@ -9,6 +9,8 @@
 #include "imgui/imgui.h"
 
 #include <mutex>
+#include <atomic>
+#include <thread>
 
 // Fritjof when coding in this file:
 //    ,,,,,
@@ -31,6 +33,16 @@ namespace cputri
 	using namespace glm;
 
 	std::mutex shared_data_lock = std::mutex();
+
+	static const uint num_threads = 8;
+
+	// Atomic variables used for multithreading
+	std::atomic<int> atomic_started;
+	std::atomic<int> atomic_finished;
+	std::atomic<int> atomic_total;
+	bool quit = false;
+	TriData* triangulation_data;
+	std::thread threads[num_threads];
 
 	// Strings of hovered triangles
 	std::vector<std::string> hovered_tris;
@@ -65,10 +77,27 @@ namespace cputri
 		cpu_index_buffer_size = (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint) + sizeof(vec2) * 2;
 
 		filter_setup();
+
+		// Set up threads
+		atomic_started.store(0);
+		atomic_finished.store(0);
+		atomic_total.store(0);
+
+		for (uint ii = 0; ii < num_threads; ii++)
+		{
+			threads[ii] = std::thread(worker_thread);
+		}
 	}
 
 	void destroy(VulkanContext& context, GPUBuffer& cpu_buffer)
 	{
+		quit = true;
+
+		for (uint ii = 0; ii < num_threads; ii++)
+		{
+			threads[ii].join();
+		}
+
 		vkUnmapMemory(context.get_device(), cpu_buffer.get_memory());
 		delete[] quadtree.draw_nodes;
 		delete[] quadtree.generate_nodes;
@@ -537,36 +566,74 @@ namespace cputri
 
 	void process_triangles(TriData* tri_data)
 	{
-		// Nonupdated terrain
-		for (uint i = 0; i < quadtree.num_draw_nodes; i++)
-		{
-			process::triangle_process(
-				tb,
-				quadtree,
-				log_filter,
-				tri_data->mc_vp,
-				vec4(tri_data->mc_pos, 0),
-				tri_data->threshold,
-				tri_data->area_mult,
-				tri_data->curv_mult,
-				quadtree.draw_nodes[i],
-				tri_data);
-		}
+		triangulation_data = tri_data;
 
-		// Newly generated terrain
-		for (uint i = 0; i < quadtree.num_generate_nodes; i++)
+		// Disable child threads
+		atomic_total.store(0);
+
+		atomic_started.store(0);
+		atomic_finished.store(0);
+
+		atomic_total.store(quadtree.num_draw_nodes + quadtree.num_generate_nodes);
+
+		// Wait until child threads are done processing
+		while (atomic_finished.load() < atomic_total.load())
 		{
-			process::triangle_process(
-				tb,
-				quadtree,
-				log_filter,
-				tri_data->mc_vp,
-				vec4(tri_data->mc_pos, 0),
-				tri_data->threshold,
-				tri_data->area_mult,
-				tri_data->curv_mult,
-				quadtree.generate_nodes[i].index,
-				tri_data);
+			std::this_thread::sleep_for(std::chrono::nanoseconds(200));
+		}
+	}
+
+
+	void worker_thread()
+	{
+		while (!quit)
+		{
+			if (atomic_started.load() < atomic_total.load())
+			{
+				int index = atomic_started.fetch_add(1);
+
+				if (index < atomic_total.load())
+				{
+					// Process a generated node
+					if (index >= quadtree.num_draw_nodes)
+					{
+						index -= quadtree.num_draw_nodes;
+
+						process::triangle_process(
+							tb,
+							quadtree,
+							log_filter,
+							triangulation_data->mc_vp,
+							vec4(triangulation_data->mc_pos, 0),
+							triangulation_data->threshold,
+							triangulation_data->area_mult,
+							triangulation_data->curv_mult,
+							quadtree.generate_nodes[index].index,
+							triangulation_data);
+					}
+					// Process a draw node
+					else
+					{
+						process::triangle_process(
+							tb,
+							quadtree,
+							log_filter,
+							triangulation_data->mc_vp,
+							vec4(triangulation_data->mc_pos, 0),
+							triangulation_data->threshold,
+							triangulation_data->area_mult,
+							triangulation_data->curv_mult,
+							quadtree.draw_nodes[index],
+							triangulation_data);
+					}
+
+					atomic_finished.fetch_add(1);
+				}
+			}
+			else
+			{
+				std::this_thread::sleep_for(std::chrono::nanoseconds(200));
+			}
 		}
 	}
 

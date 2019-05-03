@@ -11,6 +11,8 @@ using namespace glm;
 
 namespace cputri
 {
+	extern std::vector<std::vector<glm::vec3>> debug_lines;
+
 	struct TriData
 	{
 		DebugDrawer* dd;
@@ -42,6 +44,10 @@ namespace cputri
 		float area_mult;
 		float curv_mult;
 		float threshold;
+
+		// DEBUG
+		int debug_node;
+		int debug_stage;
 
 		std::mutex* debug_draw_mutex;
 	};
@@ -97,7 +103,7 @@ namespace cputri
 
 	void draw_terrain(TriData* tri_data);
 
-	void intersect(Frustum& frustum, DebugDrawer& dd, glm::vec3 camera_pos);
+	void intersect(Frustum& frustum, DebugDrawer& dd, glm::vec3 camera_pos, TriData* tri_data);
 
 	void intersect(Frustum& frustum, DebugDrawer& dd, AabbXZ aabb, uint level, uint x, uint y);
 

@@ -403,6 +403,10 @@ void Application::update(const float dt, bool auto_triangulate)
 	static float curv_mult = 1.0f;
 	static float threshold = 0.0f;
 
+	// DEBUG
+	static int debug_node = -1;
+	static int debug_stage = -1;
+
 	static bool refine = false;
 
 	if (m_show_imgui)
@@ -431,6 +435,9 @@ void Application::update(const float dt, bool auto_triangulate)
 		ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 50.0f);
 
 		ImGui::Checkbox("Show Debug", &show_debug);
+
+		ImGui::SliderInt("Debug Node", &debug_node, -1, num_nodes - 1);
+		ImGui::SliderInt("Debug Stage", &debug_stage, -1, 15);
 		ImGui::End();
 
 		std::vector<std::string> hovered_tris = cputri::get_hovered_tris();
@@ -471,6 +478,10 @@ void Application::update(const float dt, bool auto_triangulate)
 		m_tri_data.cc_view = m_current_camera->get_view();
 		m_tri_data.cc_vp = m_current_camera->get_big_vp();
 		m_tri_data.cc_frustum = m_current_camera->get_frustum();
+
+		// DEBUG
+		m_tri_data.debug_node = debug_node;
+		m_tri_data.debug_stage = debug_stage;
 
 		vec2 mouse_pos{0, 0};
 		// Get mouse pos

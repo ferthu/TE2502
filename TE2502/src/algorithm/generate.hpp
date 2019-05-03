@@ -1,6 +1,7 @@
 #pragma once
 
 #include "algorithm/common.hpp"
+#include "algorithm/cpu_triangulate.hpp"
 
 namespace generate
 {
@@ -50,13 +51,14 @@ namespace generate
 	void remove_old_triangles(TerrainBuffer* tb, GlobalData& g, cuint node_index);
 	void add_connection(GlobalData& g, cuint connection_index);
 	void generate_triangulate_shader(TerrainBuffer* tb, GlobalData& g, cuint node_index);
-	void add_border_point(TerrainBuffer* tb, uint self_node_index, uint other_node_index, vec4 point);
+	void add_border_point(TerrainBuffer* tb, uint self_node_index, uint other_node_index, vec4 point, bool HARDCORE_DEBUG);
 	void remove_marked_triangles(TerrainBuffer* tb, GlobalData& g, uint node_index);
 	void remove_marked_triangles2(TerrainBuffer* tb, GlobalData& g, uint node_index);
 
 	int sign(float v);
 	void calcLine(vec4 v0, vec4 v1, float& a, float& b, float& c);
-	bool is_same_edge(TerrainBuffer* tb, vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, uint neighbour_node_index, uint neighbour_border_index, bool& found_matching_edge);
+	bool is_same_edge(TerrainBuffer* tb, vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, uint neighbour_node_index, uint neighbour_border_index, bool& found_matching_edge, uint connection_value);
+	bool neighbour_exists(uint cx, uint cy, uint local_neighbour_index, TerrainBuffer* tb);
 
-	void generate(TerrainBuffer* tb, GlobalData& g, float* log_filter, uint node_index, vec2 min, vec2 max);
+	void generate(TerrainBuffer* tb, GlobalData& g, float* log_filter, uint node_index, vec2 min, vec2 max, cputri::TriData* tri_data);
 }

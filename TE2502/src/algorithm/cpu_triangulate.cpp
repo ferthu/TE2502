@@ -44,6 +44,9 @@ namespace cputri
 	TriData* triangulation_data;
 	std::thread threads[num_threads];
 
+	// DEBUG
+	std::vector<std::vector<glm::vec3>> debug_lines;
+
 	// Strings of hovered triangles
 	std::vector<std::string> hovered_tris;
 
@@ -111,7 +114,7 @@ namespace cputri
 		cputri::draw_terrain(tri_data);
 
 		do_triangulation = false;
-		cputri::intersect(tri_data->mc_frustum, *tri_data->dd, tri_data->mc_pos);
+		cputri::intersect(tri_data->mc_frustum, *tri_data->dd, tri_data->mc_pos, tri_data);
 
 		// Clear copy data
 		for (uint ii = 0; ii < quadtree.num_draw_nodes; ++ii)
@@ -165,13 +168,13 @@ namespace cputri
 		for (uint32_t i = 0; i < quadtree.num_draw_nodes; i++)
 		{
 			TerrainData& node = tb->data[quadtree.draw_nodes[i]];
-			if (node.has_data_to_copy)
+			//if (node.has_data_to_copy)
 			{
 				node.has_data_to_copy = false;
 
 				// Indices
-				uint offset = node.lowest_indices_index_changed * sizeof(uint);
-				uint size = (node.index_count - node.lowest_indices_index_changed) * sizeof(uint);
+				uint offset = 0;// node.lowest_indices_index_changed * sizeof(uint);
+				uint size = node.index_count * sizeof(uint);// (node.index_count - node.lowest_indices_index_changed) * sizeof(uint);
 				queue.cmd_copy_buffer(cpu_buffer.get_buffer(), gpu_buffer.get_buffer(),
 					size,
 					get_cpu_index_offset_of_node(quadtree.draw_nodes[i]) + offset,
@@ -188,8 +191,8 @@ namespace cputri
 				);
 
 				// Vertices
-				offset = node.old_vertex_count * sizeof(vec4);
-				size = (node.vertex_count - node.old_vertex_count) * sizeof(vec4);
+				offset = 0; // node.old_vertex_count * sizeof(vec4);
+				size = node.vertex_count * sizeof(vec4);// (node.vertex_count - node.old_vertex_count) * sizeof(vec4);
 				queue.cmd_copy_buffer(cpu_buffer.get_buffer(), gpu_buffer.get_buffer(),
 					size,
 					get_cpu_vertex_offset_of_node(quadtree.draw_nodes[i]) + offset,
@@ -637,7 +640,7 @@ namespace cputri
 		}
 	}
 
-	void intersect(Frustum& frustum, DebugDrawer& dd, vec3 camera_pos)
+	void intersect(Frustum& frustum, DebugDrawer& dd, vec3 camera_pos, TriData* tri_data)
 	{
 		float half_length = quadtree.total_side_length * 0.5f;
 		
@@ -662,7 +665,7 @@ namespace cputri
 
 			for (uint i = 0; i < quadtree.num_generate_nodes; i++)
 			{
-				generate::generate(tb, gg, log_filter, quadtree.generate_nodes[i].index, quadtree.generate_nodes[i].min, quadtree.generate_nodes[i].max);
+				generate::generate(tb, gg, log_filter, quadtree.generate_nodes[i].index, quadtree.generate_nodes[i].min, quadtree.generate_nodes[i].max, tri_data);
 				do_triangulation = true;
 			}
 		}
@@ -795,6 +798,15 @@ namespace cputri
 	{
 		// Lock debug drawing mutex for the duration of this function
 		std::unique_lock<std::mutex> lock(*tri_data->debug_draw_mutex);
+
+		// DEBUG
+		if (tri_data->debug_stage >= 0 && tri_data->debug_stage < debug_lines.size())
+		{
+			for (uint v = 0; v < debug_lines[tri_data->debug_stage].size(); v += 2)
+			{
+				tri_data->dd->draw_line(debug_lines[tri_data->debug_stage][v], debug_lines[tri_data->debug_stage][v + 1], { 0.0f, 1.0f, 0.5f });
+			}
+		}
 
 		hovered_tris.clear();
 

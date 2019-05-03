@@ -1,4 +1,5 @@
 #include "algorithm/generate.hpp"
+#include <vector>
 
 namespace generate
 {
@@ -329,13 +330,19 @@ namespace generate
 		node.new_points_count = 0;
 	}
 
-	void add_border_point(TerrainBuffer* tb, uint self_node_index, uint other_node_index, vec4 point)
+	void add_border_point(TerrainBuffer* tb, uint self_node_index, uint other_node_index, vec4 point, bool HARDCORE_DEBUG)
 	{
 		uint count = tb->data[self_node_index].new_points_count;
 		for (uint np = 0; np < count; ++np)
 		{
 			if (tb->data[self_node_index].new_points[np] == point)
 				return;
+		}
+
+		if (HARDCORE_DEBUG)	// Dynamic points
+		{
+			cputri::debug_lines.back().push_back(vec3(point) + vec3{ 0, -103, 0 });
+			cputri::debug_lines.back().push_back(vec3(point) + vec3{0, -2000, 0});
 		}
 
 		tb->data[self_node_index].new_points[tb->data[self_node_index].new_points_count] = point;
@@ -471,11 +478,11 @@ namespace generate
 		c = -0.5f*(a*(v0.x + v1.x) + b * (v0.z + v1.z));
 	}
 
-	bool is_same_edge(TerrainBuffer* tb, vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, uint neighbour_node_index, uint neighbour_border_index, bool& found_matching_edge)
+	bool is_same_edge(TerrainBuffer* tb, vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, uint neighbour_node_index, uint neighbour_border_index, bool& found_matching_edge, uint connection_value)
 	{
 		if (((e1p1 == e2p1 && e1p2 == e2p2) ||
 			(e1p2 == e2p1 && e1p1 == e2p2)) &&
-			tb->data[neighbour_node_index].triangle_connections[neighbour_border_index] >= INVALID - 8)
+			tb->data[neighbour_node_index].triangle_connections[neighbour_border_index] == connection_value)
 		{
 			found_matching_edge = true;
 			float a, b, c;
@@ -488,9 +495,32 @@ namespace generate
 		return false;
 	}
 
-
-	void generate(TerrainBuffer* tb, GlobalData& g, float* log_filter, uint node_index, vec2 min, vec2 max)
+	bool neighbour_exists(uint cx, uint cy, uint local_neighbour_index, TerrainBuffer* tb)
 	{
+		int nx = int(cx) + ((local_neighbour_index % 3) - 1);
+		int ny = int(cy) + ((local_neighbour_index / 3) - 1);
+
+		if (nx >= 0 && nx < (1 << quadtree_levels) &&
+			ny >= 0 && ny < (1 << quadtree_levels))
+		{
+			if (tb->quadtree_index_map[ny * (1 << quadtree_levels) + nx] != INVALID &&
+				!tb->data[tb->quadtree_index_map[ny * (1 << quadtree_levels) + nx]].is_invalid)
+				return true;
+		}
+
+		return false;
+	}
+
+
+	void generate(TerrainBuffer* tb, GlobalData& g, float* log_filter, uint node_index, vec2 min, vec2 max, cputri::TriData* tri_data)
+	{
+		bool HARDCORE_DEBUG = false;
+		if (tri_data->debug_node == node_index)
+		{
+			cputri::debug_lines.clear();
+			HARDCORE_DEBUG = true;
+		}
+
 		const uint GRID_SIDE = TERRAIN_GENERATE_GRID_SIDE;
 
 		TerrainData& node = tb->data[node_index];
@@ -544,6 +574,33 @@ namespace generate
 			node.triangle_connections[3 + 0] = INVALID;
 			node.triangle_connections[3 + 1] = INVALID;
 			node.triangle_connections[3 + 2] = 0;
+
+			if (HARDCORE_DEBUG)	// Super triangles
+			{
+				cputri::debug_lines.push_back(std::vector<vec3>());
+				cputri::debug_lines.back().push_back(vec3(p0) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(p1) + vec3{ 0, -103, 0 });
+
+				cputri::debug_lines.back().push_back(vec3(p1) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(p2) + vec3{ 0, -103, 0 });
+
+				cputri::debug_lines.back().push_back(vec3(p2) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(p0) + vec3{ 0, -103, 0 });
+
+				cputri::debug_lines.back().push_back(vec3(p2) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(p3) + vec3{ 0, -103, 0 });
+
+				cputri::debug_lines.back().push_back(vec3(p3) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(p0) + vec3{ 0, -103, 0 });
+
+				cputri::debug_lines.back().push_back(vec3(p0) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(p2) + vec3{ 0, -103, 0 });
+			}
+		}
+
+		if (HARDCORE_DEBUG)	// Static points
+		{
+			cputri::debug_lines.push_back(std::vector<vec3>());
 		}
 
 		// Generate static positions
@@ -559,6 +616,12 @@ namespace generate
 
 			node.new_points[i] = vec4(x, -terrain(vec2(x, z)) - 0.5, z, curvature(vec3(x, 0.0f, z), log_filter));
 			node.new_points_triangles[i] = 0;
+
+			if (HARDCORE_DEBUG) // Static points
+			{
+				cputri::debug_lines.back().push_back(vec3(node.new_points[i]) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(node.new_points[i]) + vec3(0, -2000, 0));
+			}
 		}
 
 		// Triangles
@@ -570,6 +633,11 @@ namespace generate
 
 		const vec2 adjusted_max = node_max + vec2(side) * ADJUST_PERCENTAGE;
 		const vec2 adjusted_min = node_min - vec2(side) * ADJUST_PERCENTAGE;
+
+		if (HARDCORE_DEBUG)	// Dynamic points
+		{
+			cputri::debug_lines.push_back(std::vector<vec3>());
+		}
 
 		// Check existing neighbour node border triangles and add border points
 		// TODO: Create list of valid nodes instead of checking each time
@@ -601,18 +669,18 @@ namespace generate
 							// Find the side(s) that actually faces the border (and therefore has an INVALID connection)
 							if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 0] == INVALID - 4 + y * 3 + x)
 							{
-								add_border_point(tb, node_index, neighbour_index, p0);
-								add_border_point(tb, node_index, neighbour_index, p1);
+								add_border_point(tb, node_index, neighbour_index, p0, HARDCORE_DEBUG);
+								add_border_point(tb, node_index, neighbour_index, p1, HARDCORE_DEBUG);
 							}
 							if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 1] == INVALID - 4 + y * 3 + x)
 							{
-								add_border_point(tb, node_index, neighbour_index, p1);
-								add_border_point(tb, node_index, neighbour_index, p2);
+								add_border_point(tb, node_index, neighbour_index, p1, HARDCORE_DEBUG);
+								add_border_point(tb, node_index, neighbour_index, p2, HARDCORE_DEBUG);
 							}
 							if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 2] == INVALID - 4 + y * 3 + x)
 							{
-								add_border_point(tb, node_index, neighbour_index, p2);
-								add_border_point(tb, node_index, neighbour_index, p0);
+								add_border_point(tb, node_index, neighbour_index, p2, HARDCORE_DEBUG);
+								add_border_point(tb, node_index, neighbour_index, p0, HARDCORE_DEBUG);
 							}
 						}
 					}
@@ -622,6 +690,30 @@ namespace generate
 
 		// Triangulation
 		generate_triangulate_shader(tb, g, node_index);
+
+		if (HARDCORE_DEBUG)	// After triangulating
+		{
+			cputri::debug_lines.push_back(std::vector<vec3>());
+
+			for (uint ii = 0; ii < node.index_count; ii += 3)
+			{
+				vec3 p[3] = {
+					node.positions[node.indices[ii + 0]],
+					node.positions[node.indices[ii + 1]],
+					node.positions[node.indices[ii + 2]]
+				};
+
+				cputri::debug_lines.back().push_back(vec3(p[0]) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(p[1]) + vec3{ 0, -103, 0 });
+
+				cputri::debug_lines.back().push_back(vec3(p[1]) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(p[2]) + vec3{ 0, -103, 0 });
+
+				cputri::debug_lines.back().push_back(vec3(p[2]) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(p[0]) + vec3{ 0, -103, 0 });
+			}
+
+		}
 
 		// Find out and mark which triangles are part of the outer triangles/supertriangles
 		const vec4 start_positions[4] = { node.positions[0],
@@ -655,6 +747,30 @@ namespace generate
 		// Remove the marked triangles
 		remove_marked_triangles(tb, g, node_index);
 
+		if (HARDCORE_DEBUG)	// After removing supertris
+		{
+			cputri::debug_lines.push_back(std::vector<vec3>());
+
+			for (uint ii = 0; ii < node.index_count; ii += 3)
+			{
+				vec3 p[3] = {
+					node.positions[node.indices[ii + 0]],
+					node.positions[node.indices[ii + 1]],
+					node.positions[node.indices[ii + 2]]
+				};
+
+				cputri::debug_lines.back().push_back(vec3(p[0]) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(p[1]) + vec3{ 0, -103, 0 });
+
+				cputri::debug_lines.back().push_back(vec3(p[1]) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(p[2]) + vec3{ 0, -103, 0 });
+
+				cputri::debug_lines.back().push_back(vec3(p[2]) + vec3{ 0, -103, 0 });
+				cputri::debug_lines.back().push_back(vec3(p[0]) + vec3{ 0, -103, 0 });
+			}
+
+		}
+
 		// Restore borders
 		triangle_count = node.index_count / 3;
 		node.border_count = 0;
@@ -670,6 +786,20 @@ namespace generate
 			}
 		}
 
+		std::vector<vec3>* removed = nullptr;
+		std::vector<vec3>* statics = nullptr;
+		std::vector<vec3>* dynamics = nullptr;
+
+		if (HARDCORE_DEBUG)
+		{
+			cputri::debug_lines.push_back(std::vector<vec3>());
+			cputri::debug_lines.push_back(std::vector<vec3>());
+			cputri::debug_lines.push_back(std::vector<vec3>());
+
+			removed = &(cputri::debug_lines[cputri::debug_lines.size() - 3]);
+			statics = &(cputri::debug_lines[cputri::debug_lines.size() - 2]);
+			dynamics = &(cputri::debug_lines[cputri::debug_lines.size() - 1]);
+		}
 
 		// TODO: How big should these arrays be?
 		uint g_seen_triangles[300];
@@ -728,16 +858,34 @@ namespace generate
 									const vec4 e2p1 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[border_triangle_index * 3 + 1]];
 									const vec4 e2p2 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[border_triangle_index * 3 + 2]];
 									const vec4 neighbour_middle = (e2p0 + e2p1 + e2p2) / 3.f;
+
+									uint local_neighbour_index = (y + 1) * 3 + x + 1;
+
+									// Neighbour edge needs to point to current node to be valid
+									uint required_connection = INVALID - (8 - local_neighbour_index);
+
 									// 
-									if (is_same_edge(tb, e1p1, e1p2, test_middle, e2p0, e2p1, neighbour_middle, neighbour_index, border_triangle_index * 3 + 0, found_matching_edge)
-										|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p1, e2p2, neighbour_middle, neighbour_index, border_triangle_index * 3 + 1, found_matching_edge)
-										|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p2, e2p0, neighbour_middle, neighbour_index, border_triangle_index * 3 + 2, found_matching_edge))
+									if (is_same_edge(tb, e1p1, e1p2, test_middle, e2p0, e2p1, neighbour_middle, neighbour_index, border_triangle_index * 3 + 0, found_matching_edge, required_connection)
+										|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p1, e2p2, neighbour_middle, neighbour_index, border_triangle_index * 3 + 1, found_matching_edge, required_connection)
+										|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p2, e2p0, neighbour_middle, neighbour_index, border_triangle_index * 3 + 2, found_matching_edge, required_connection))
 									{
 										node.triangle_connections[test_triangle * 3 + ss] = INVALID - (4 + y * 3 + x);
 										found = true;
 										++found_sides;
 
-										found_matching_edge = (ss + 2) % 3;
+										found_matching_edge = true;
+
+										if (HARDCORE_DEBUG)
+										{
+											dynamics->push_back(vec3(sides[0]) + vec3(0, -103, 0));
+											dynamics->push_back(vec3(sides[1]) + vec3(0, -103, 0));
+
+											dynamics->push_back(vec3(sides[1]) + vec3(0, -103, 0));
+											dynamics->push_back(vec3(sides[2]) + vec3(0, -103, 0));
+
+											dynamics->push_back(vec3(sides[2]) + vec3(0, -103, 0));
+											dynamics->push_back(vec3(sides[0]) + vec3(0, -103, 0));
+										}
 									}
 								}
 							}
@@ -756,31 +904,75 @@ namespace generate
 				if (abs(mid.x - node_min.x) < 0.01f)  // Left
 				{
 					node.triangle_connections[test_triangle * 3 + ss] = INVALID - 3;
-					if (!found_matching_edge)
+					if (!found_matching_edge && !neighbour_exists(cx, cy, 3, tb))
 						statically_inserted = true;
 				}
 				else if (abs(mid.x - node_max.x) < 0.01f)  // Right
 				{
 					node.triangle_connections[test_triangle * 3 + ss] = INVALID - 5;
-					if (!found_matching_edge)
+					if (!found_matching_edge && !neighbour_exists(cx, cy, 5, tb))
 						statically_inserted = true;
 				}
 				else if (abs(mid.z - node_min.y) < 0.01f)  // Bottom
 				{
 					node.triangle_connections[test_triangle * 3 + ss] = INVALID - 1;
-					if (!found_matching_edge)
+					if (!found_matching_edge && !neighbour_exists(cx, cy, 1, tb))
 						statically_inserted = true;
 				}
 				else if (abs(mid.z - node_max.y) < 0.01f)  // Top
 				{
 					node.triangle_connections[test_triangle * 3 + ss] = INVALID - 7;
-					if (!found_matching_edge)
+					if (!found_matching_edge && !neighbour_exists(cx, cy, 7, tb))
 						statically_inserted = true;
 				}
 			}
+
+			if (HARDCORE_DEBUG && statically_inserted)
+			{
+				statics->push_back(vec3(sides[0]) + vec3(0, -103, 0));
+				statics->push_back(vec3(sides[1]) + vec3(0, -103, 0));
+					
+				statics->push_back(vec3(sides[1]) + vec3(0, -103, 0));
+				statics->push_back(vec3(sides[2]) + vec3(0, -103, 0));
+					
+				statics->push_back(vec3(sides[2]) + vec3(0, -103, 0));
+				statics->push_back(vec3(sides[0]) + vec3(0, -103, 0));
+			}
+
+			// The statically inserted check can produce false positives
+			// Check that the triangle consists of statically inserted points
+			//if (statically_inserted)
+			//{
+			//	// Number of triangle vertices found among statically inserted points
+			//	uint found_points = 0;
+
+			//	for (uint static_point = 0; static_point < GRID_SIDE * GRID_SIDE && found_points < 3; ++static_point)
+			//	{
+			//		if (node.new_points[static_point] == sides[0] ||
+			//			node.new_points[static_point] == sides[1] ||
+			//			node.new_points[static_point] == sides[2])
+			//			++found_points;
+			//	}
+
+			//	if (found_points < 3)
+			//		statically_inserted = false;
+			//}
+
 			// Otherwise 
 			if (!statically_inserted && found_sides == 0)
 			{
+				if (HARDCORE_DEBUG)
+				{
+					removed->push_back(vec3(sides[0]) + vec3(0, -103, 0));
+					removed->push_back(vec3(sides[1]) + vec3(0, -103, 0));
+
+					removed->push_back(vec3(sides[1]) + vec3(0, -103, 0));
+					removed->push_back(vec3(sides[2]) + vec3(0, -103, 0));
+
+					removed->push_back(vec3(sides[2]) + vec3(0, -103, 0));
+					removed->push_back(vec3(sides[0]) + vec3(0, -103, 0));
+				}
+
 				g.triangles_to_remove[g.triangles_removed++] = test_triangle;
 				for (ss = 0; ss < 3; ++ss)
 				{

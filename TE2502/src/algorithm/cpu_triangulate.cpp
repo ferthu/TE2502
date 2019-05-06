@@ -598,7 +598,7 @@ namespace cputri
 				if (index < atomic_total.load())
 				{
 					// Process a generated node
-					if (index >= quadtree.num_draw_nodes)
+					if (index >= int(quadtree.num_draw_nodes))
 					{
 						index -= quadtree.num_draw_nodes;
 
@@ -802,9 +802,9 @@ namespace cputri
 		// DEBUG
 		if (tri_data->debug_stage >= 0 && tri_data->debug_stage < debug_lines.size())
 		{
-			for (uint v = 0; v < debug_lines[tri_data->debug_stage].size(); v += 2)
+			for (uint v = 0; v < debug_lines[tri_data->debug_stage].size(); v += 3)
 			{
-				tri_data->dd->draw_line(debug_lines[tri_data->debug_stage][v], debug_lines[tri_data->debug_stage][v + 1], { 0.0f, 1.0f, 0.5f });
+				tri_data->dd->draw_line(debug_lines[tri_data->debug_stage][v], debug_lines[tri_data->debug_stage][v + 1], debug_lines[tri_data->debug_stage][v + 2]);
 			}
 		}
 
@@ -900,7 +900,7 @@ namespace cputri
 
 						if (hovered_triangle == ind / 3)
 						{
-							glm::vec3 h = { 0, -20, 0 };
+							glm::vec3 h = { 0, -1, 0 };
 
 							tri_data->dd->draw_line(p0 + h, p1 + h, { 1, 0, 0 });
 							tri_data->dd->draw_line(p1 + h, p2 + h, { 0, 1, 0 });

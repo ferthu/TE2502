@@ -260,7 +260,7 @@ namespace triangulate
 					{
 						const uint index = tb->data[global_owner_index].triangle_connections[triangle_index * 3 + ss];
 
-						if (index <= INVALID - 9)
+						if (index < INVALID - 9)
 						{
 							if (g.seen_triangle_count >= test_triangle_buffer_size || g.test_count >= test_triangle_buffer_size)
 							{
@@ -505,7 +505,7 @@ namespace triangulate
 				{
 					bool is_border = false;
 
-					if (g.edges[i].connection <= INVALID - 9)
+					if (g.edges[i].connection < INVALID - 9)
 					{
 						// Check if old neighbour is a border triangle
 						for (uint border = 0; border < 3; ++border)
@@ -602,7 +602,7 @@ namespace triangulate
 						bool p2_found = false;
 
 						// If triangle pointed to another node, update the connection
-						if (g.edges[i].connection >= INVALID - 9)
+						if (g.edges[i].connection >= INVALID - 8)
 						{
 							int old_connection = INVALID - g.edges[i].connection;
 

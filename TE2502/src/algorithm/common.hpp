@@ -11,6 +11,7 @@ typedef uint32_t uint;
 typedef const uint32_t cuint;
 
 const uint INVALID = ~0u;
+const uint UNKNOWN = INVALID - 9;
 
 constexpr float TERRAIN_GENERATE_TOTAL_SIDE_LENGTH = 500;
 constexpr uint TERRAIN_GENERATE_NUM_INDICES = 12000;
@@ -20,6 +21,8 @@ constexpr uint TRIANGULATE_MAX_NEW_POINTS = 1024;
 constexpr uint QUADTREE_LEVELS = 4;
 constexpr uint MAX_BORDER_TRIANGLE_COUNT = 2000;
 constexpr float ADJUST_PERCENTAGE = 1.6f;
+
+static_assert(TERRAIN_GENERATE_GRID_SIDE % 2 == 1, "TERRAIN_GENERATE_GRID_SIDE must be an uneven number.");
 
 constexpr uint num_indices = TERRAIN_GENERATE_NUM_INDICES;
 constexpr uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;

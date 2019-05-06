@@ -57,7 +57,7 @@ namespace generate
 
 	int sign(float v);
 	void calcLine(vec4 v0, vec4 v1, float& a, float& b, float& c);
-	bool is_same_edge(TerrainBuffer* tb, vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, uint neighbour_node_index, uint neighbour_border_index, bool& found_matching_edge, uint connection_value);
+	bool is_same_edge(TerrainBuffer* tb, vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, uint neighbour_node_index, uint neighbour_border_index, uint connection_value, bool& valid);
 	bool neighbour_exists(uint cx, uint cy, uint local_neighbour_index, TerrainBuffer* tb);
 
 	void generate(TerrainBuffer* tb, GlobalData& g, float* log_filter, uint node_index, vec2 min, vec2 max, cputri::TriData* tri_data);

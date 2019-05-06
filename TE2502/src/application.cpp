@@ -415,7 +415,7 @@ void Application::update(const float dt, bool auto_triangulate)
 		ImGui::SliderInt("Index", &show_node, -1, 15);
 		ImGui::SliderInt("Vertices per refine", &refine_vertices, 1, 10);
 		ImGui::SliderInt("Refine Node", &refine_node, -1, num_nodes - 1);
-		ImGui::SliderInt("Sideshow", &sideshow_bob, -1, 8);
+		ImGui::SliderInt("Sideshow", &sideshow_bob, -1, 9);
 
 		ImGui::End();
 

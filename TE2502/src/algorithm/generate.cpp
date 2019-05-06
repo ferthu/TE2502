@@ -958,8 +958,16 @@ namespace generate
 			//		statically_inserted = false;
 			//}
 
+			bool midpoint_inside = true;
+			// If triangle midpoint is outside node, remove it
+			if (test_middle.x > node.max.x || test_middle.x < node.min.x ||
+				test_middle.z > node.max.y || test_middle.z < node.min.y)
+			{
+				midpoint_inside = false;
+			}
+
 			// Otherwise 
-			if (!statically_inserted && found_sides == 0)
+			if (!statically_inserted && found_sides == 0 && !midpoint_inside)
 			{
 				if (HARDCORE_DEBUG)
 				{

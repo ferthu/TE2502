@@ -604,41 +604,58 @@ namespace triangulate
 						// If triangle pointed to another node, update the connection
 						if (g.edges[i].connection >= INVALID - 9)
 						{
-							// Local index of connected node
-							uint connected = uint(int(INVALID - g.edges[i].connection) - (SELF_INDEX - int(old_node_index)));
+							int old_connection = INVALID - g.edges[i].connection;
 
 							// Convert local connection from source node to target node
 							g.edges[i].connection = INVALID - uint(int(INVALID - g.edges[i].connection) + ((int)old_node_index - (int)g.edges[i].node_index));
 
-							// Search through connected node for neighbour triangle and update its connection
-							uint connected_border_count = tb->data[g.ltg[connected]].border_count;
+							// Find global index of source node
+							int old_node_x = cx + ((old_node_index % 3) - 1);
+							int old_node_y = cy + ((old_node_index / 3) - 1);
 
-							// Loop through border triangles of connected to node to find connection
-							bool found_neighbour = false;
-							for (uint c_tri = 0; c_tri < connected_border_count && !found_neighbour; ++c_tri)
+							// Find global index of node pointed to by triangle
+							int connected_node_x = old_node_x + ((old_connection % 3) - 1);
+							int connected_node_y = old_node_y + ((old_connection / 3) - 1);
+
+							if (connected_node_x >= 0 && connected_node_x < nodes_per_side &&
+								connected_node_y >= 0 && connected_node_y < nodes_per_side)
 							{
-								const uint border_index = tb->data[g.ltg[connected]].border_triangle_indices[c_tri];
+								// Global index of connected node
+								uint connected = tb->quadtree_index_map[connected_node_y * nodes_per_side + connected_node_x];
 
-								uint inds[3];
-								inds[0] = tb->data[g.ltg[connected]].indices[border_index * 3 + 0];
-								inds[1] = tb->data[g.ltg[connected]].indices[border_index * 3 + 1];
-								inds[2] = tb->data[g.ltg[connected]].indices[border_index * 3 + 2];
-
-								vec3 p[3];
-								p[0] = tb->data[g.ltg[connected]].positions[inds[0]];
-								p[1] = tb->data[g.ltg[connected]].positions[inds[1]];
-								p[2] = tb->data[g.ltg[connected]].positions[inds[2]];
-
-								// For every edge in border triangle
-								for (uint bb = 0; bb < 3; ++bb)
+								if (connected != INVALID)
 								{
-									if (p[bb] == vec3(g.edges[i].p1) && p[(bb + 1) % 3] == vec3(g.edges[i].p2) ||
-										p[bb] == vec3(g.edges[i].p2) && p[(bb + 1) % 3] == vec3(g.edges[i].p1))
+									// Search through connected node for neighbour triangle and update its connection
+									uint connected_border_count = tb->data[connected].border_count;
+
+									// Loop through border triangles of connected to node to find connection
+									bool found_neighbour = false;
+									for (uint c_tri = 0; c_tri < connected_border_count && !found_neighbour; ++c_tri)
 									{
-										// Set neighbour triangle connection to inverse of moved triangle
-										tb->data[g.ltg[connected]].triangle_connections[border_index * 3 + bb] = INVALID - (8 - (INVALID - g.edges[i].connection));
-										found_neighbour = true;
-										break;
+										const uint border_index = tb->data[connected].border_triangle_indices[c_tri];
+
+										uint inds[3];
+										inds[0] = tb->data[connected].indices[border_index * 3 + 0];
+										inds[1] = tb->data[connected].indices[border_index * 3 + 1];
+										inds[2] = tb->data[connected].indices[border_index * 3 + 2];
+
+										vec3 p[3];
+										p[0] = tb->data[connected].positions[inds[0]];
+										p[1] = tb->data[connected].positions[inds[1]];
+										p[2] = tb->data[connected].positions[inds[2]];
+
+										// For every edge in border triangle
+										for (uint bb = 0; bb < 3; ++bb)
+										{
+											if (p[bb] == vec3(g.edges[i].p1) && p[(bb + 1) % 3] == vec3(g.edges[i].p2) ||
+												p[bb] == vec3(g.edges[i].p2) && p[(bb + 1) % 3] == vec3(g.edges[i].p1))
+											{
+												// Set neighbour triangle connection to inverse of moved triangle
+												tb->data[connected].triangle_connections[border_index * 3 + bb] = INVALID - (8 - (INVALID - g.edges[i].connection));
+												found_neighbour = true;
+												break;
+											}
+										}
 									}
 								}
 							}

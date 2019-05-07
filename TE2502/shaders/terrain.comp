@@ -45,7 +45,7 @@ bool ray_march(in vec3 rO, in vec3 rD, out float resT)
 	float delta = 0.0;
 	bool fin = false;
 	vec2 distances;
-	while (!fin && t < 1400)
+	while (!fin && t < 2400)
 	{
 		//if (fin || t > 14000.0) break;
 		vec3 p = rO + t * rD;

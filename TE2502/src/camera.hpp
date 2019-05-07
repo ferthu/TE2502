@@ -55,7 +55,7 @@ private:
 	const float m_fast_speed = 300.f;
 	const float m_fov = 90.f;	// Horizontal FOV in degrees
 	const float m_near = 0.05f;
-	const float m_far = 1400.f;
+	const float m_far = 2400.f;
 	const float m_mouse_sensitivity = 0.01f;
 	const float m_fov_multiplier = 1.2f;	// This value is multiplied by m_fov to get the big frustum FOV
 

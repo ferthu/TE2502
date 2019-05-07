@@ -82,7 +82,7 @@ namespace process
 				// s is semiperimeter
 				float s = (a + b + c) * 0.5f;
 
-				float area = pow(s * (s - a) * (s - b) * (s - c), area_multiplier);
+				float area = pow(1 + s * (s - a) * (s - b) * (s - c), area_multiplier);
 
 				glm::vec3 mid = (glm::vec3(v0) + glm::vec3(v1) + glm::vec3(v2)) / 3.0f;
 				float curv0 = v0.w;		// Curvature is stored in w coordinate
@@ -107,7 +107,7 @@ namespace process
 				clip_curv_point /= clip_curv_point.w;
 
 				// Screen space distance between current triangle point and new point
-				float screen_space_dist = pow(distance(glm::vec2(clip_terrain_y.x, clip_terrain_y.y), glm::vec2(clip_curv_point.x, clip_curv_point.y)), curvature_multiplier);
+				float screen_space_dist = pow(1 + distance(glm::vec2(clip_terrain_y.x, clip_terrain_y.y), glm::vec2(clip_curv_point.x, clip_curv_point.y)), curvature_multiplier);
 
 				// A new point should be added
 				if (screen_space_dist * area >= threshold)

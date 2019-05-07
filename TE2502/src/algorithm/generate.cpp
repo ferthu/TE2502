@@ -491,10 +491,10 @@ namespace generate
 				// Update connection value (required if it is = UNKNOWN)
 				tb->data[neighbour_node_index].triangle_connections[neighbour_border_index] = connection_value;
 			}
-			else
+			/*else
 			{
 				valid = false;
-			}
+			}*/
 
 			float a, b, c;
 			calcLine(e1p1, e1p2, a, b, c);
@@ -553,7 +553,7 @@ namespace generate
 
 			node.border_count = 0;
 
-			float temp = side * 0.9f;
+			float temp = side * 1.5f;
 			vec4 p0 = vec4(node_min.x - temp, 1, node_min.y - temp, 1);
 			vec4 p1 = vec4(node_max.x + temp, 2, node_min.y - temp, 1);
 			vec4 p2 = vec4(node_max.x + temp, 3, node_max.y + temp, 1);
@@ -650,9 +650,6 @@ namespace generate
 		const int cx = int((node_min.x - tb->quadtree_min.x + 1) / side);  // current node x
 		const int cy = int((node_min.y - tb->quadtree_min.y + 1) / side);  // current node z/y
 
-		const vec2 adjusted_max = node_max + vec2(side) * ADJUST_PERCENTAGE;
-		const vec2 adjusted_min = node_min - vec2(side) * ADJUST_PERCENTAGE;
-
 		if (HARDCORE_DEBUG)	// Dynamic points
 		{
 			cputri::debug_lines.push_back(std::vector<vec3>());
@@ -679,28 +676,24 @@ namespace generate
 					{
 						const uint triangle_index = tb->data[neighbour_index].border_triangle_indices[tt];
 						const vec4 p0 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[triangle_index * 3 + 0]];
-						// Check if the point/triangle could actually be relevant
-						if (p0.x >= adjusted_min.x && p0.x <= adjusted_max.x
-							&& p0.z >= adjusted_min.y && p0.z <= adjusted_max.y)
+						const vec4 p1 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[triangle_index * 3 + 1]];
+						const vec4 p2 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[triangle_index * 3 + 2]];
+
+						// Find the side(s) that actually faces the border (and therefore has an INVALID connection)
+						if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 0] >= INVALID - 9)
 						{
-							const vec4 p1 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[triangle_index * 3 + 1]];
-							const vec4 p2 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[triangle_index * 3 + 2]];
-							// Find the side(s) that actually faces the border (and therefore has an INVALID connection)
-							if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 0] == INVALID - 4 + y * 3 + x)
-							{
-								add_border_point(tb, node_index, neighbour_index, p0, HARDCORE_DEBUG);
-								add_border_point(tb, node_index, neighbour_index, p1, HARDCORE_DEBUG);
-							}
-							if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 1] == INVALID - 4 + y * 3 + x)
-							{
-								add_border_point(tb, node_index, neighbour_index, p1, HARDCORE_DEBUG);
-								add_border_point(tb, node_index, neighbour_index, p2, HARDCORE_DEBUG);
-							}
-							if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 2] == INVALID - 4 + y * 3 + x)
-							{
-								add_border_point(tb, node_index, neighbour_index, p2, HARDCORE_DEBUG);
-								add_border_point(tb, node_index, neighbour_index, p0, HARDCORE_DEBUG);
-							}
+							add_border_point(tb, node_index, neighbour_index, p0, HARDCORE_DEBUG);
+							add_border_point(tb, node_index, neighbour_index, p1, HARDCORE_DEBUG);
+						}
+						if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 1] >= INVALID - 9)
+						{
+							add_border_point(tb, node_index, neighbour_index, p1, HARDCORE_DEBUG);
+							add_border_point(tb, node_index, neighbour_index, p2, HARDCORE_DEBUG);
+						}
+						if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 2] >= INVALID - 9)
+						{
+							add_border_point(tb, node_index, neighbour_index, p2, HARDCORE_DEBUG);
+							add_border_point(tb, node_index, neighbour_index, p0, HARDCORE_DEBUG);
 						}
 					}
 				}
@@ -866,6 +859,8 @@ namespace generate
 
 			const vec3 test_middle = (vec3(sides[0]) + vec3(sides[1]) + vec3(sides[2])) / 3.0f;
 
+
+
 			if (HARDCORE_DEBUG)
 			{
 				cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -103, 0));
@@ -886,6 +881,8 @@ namespace generate
 
 			// If this triangle is not valid, iteration should not continue
 			bool triangle_valid = true;
+
+			uint matching_sides_found = 0;
 
 			// For each side of the triangle
 			for (uint ss = 0; ss < 3 && triangle_valid; ++ss)
@@ -940,6 +937,22 @@ namespace generate
 									}
 
 									found = true;
+									++matching_sides_found;
+								}
+
+								if (!triangle_valid && HARDCORE_DEBUG)
+								{
+									cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
+									cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
+									cputri::debug_lines.back().push_back(vec3(1.0f, 1.0f, 0.0f));
+
+									cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
+									cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
+									cputri::debug_lines.back().push_back(vec3(1.0f, 1.0f, 0.0f));
+
+									cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
+									cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
+									cputri::debug_lines.back().push_back(vec3(1.0f, 1.0f, 0.0f));
 								}
 							}
 						}
@@ -956,6 +969,55 @@ namespace generate
 				}
 			}
 
+			if (matching_sides_found < 2)
+			{
+				// Check which node the triangle center is inside
+				int tri_x = cx;
+				int tri_y = cy;
+
+				if (test_middle.x > node.max.x)
+					++tri_x;
+				else if (test_middle.x < node.min.x)
+					--tri_x;
+				if (test_middle.z > node.max.y)
+					++tri_y;
+				else if (test_middle.z < node.min.y)
+					--tri_y;
+
+				// If triangle center is not in this node
+				if (tri_x != cx || tri_y != cy)
+				{
+					// Local index of the node which contains triangle center
+					uint tri_node_index;
+
+					if (tri_x < 0 || tri_y < 0 ||
+						tri_x > nodes_per_side || tri_y > nodes_per_side)
+						tri_node_index = INVALID;
+					else
+						tri_node_index = tb->quadtree_index_map[tri_y * nodes_per_side + tri_x];
+
+					// If that node does not exist, triangle is invalid
+					if (tri_node_index == INVALID || tb->data[tri_node_index].is_invalid)
+					{
+						triangle_valid = false;
+
+						if (HARDCORE_DEBUG)
+						{
+							cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
+							cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
+							cputri::debug_lines.back().push_back(vec3(1.0f, 0.0f, 0.5f));
+
+							cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
+							cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
+							cputri::debug_lines.back().push_back(vec3(1.0f, 0.0f, 0.5f));
+
+							cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
+							cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
+							cputri::debug_lines.back().push_back(vec3(1.0f, 0.0f, 0.5f));
+						}
+					}
+				}
+			}
 
 			// Test added triangles
 			if (triangle_valid)
@@ -1041,6 +1103,9 @@ namespace generate
 				++g.triangles_removed;
 			}
 		}
+
+		if (g.triangles_removed > (node.index_count / 3) - 2)
+			std::cout << node_index << "\n";
 
 		// Remove the marked triangles
 		remove_marked_triangles2(tb, g, node_index);

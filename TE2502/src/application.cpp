@@ -409,6 +409,9 @@ void Application::update(const float dt, bool auto_triangulate)
 
 	static bool refine = false;
 
+	static bool backup = false;
+	static bool restore = false;
+
 	if (m_show_imgui)
 	{
 		ImGui::Begin("Lol");
@@ -438,6 +441,10 @@ void Application::update(const float dt, bool auto_triangulate)
 
 		ImGui::SliderInt("Debug Node", &debug_node, -1, num_nodes - 1);
 		ImGui::SliderInt("Debug Stage", &debug_stage, -1, 15);
+		if (ImGui::Button("Backup"))
+			backup = true;		
+		if (ImGui::Button("Restore"))
+			restore = true;
 		ImGui::End();
 
 		std::vector<std::string> hovered_tris = cputri::get_hovered_tris();
@@ -458,6 +465,17 @@ void Application::update(const float dt, bool auto_triangulate)
 	// If triangulation thread is done, prepare it for another pass
 	if (m_tri_done && m_tri_mutex.try_lock())
 	{
+		if (backup)
+		{
+			cputri::backup();
+			backup = false;
+		}
+		if (restore)
+		{
+			cputri::restore();
+			restore = false;
+		}
+
 		m_tri_done = false;
 
 		m_tri_debug_drawer.new_frame();
@@ -494,6 +512,7 @@ void Application::update(const float dt, bool auto_triangulate)
 		}
 
 		int w, h;
+
 		glfwGetWindowSize(m_window->get_glfw_window(), &w, &h);
 		vec2 window_size = vec2(w, h);
 		m_tri_data.mouse_pos = mouse_pos;
@@ -519,6 +538,12 @@ void Application::update(const float dt, bool auto_triangulate)
 		cputri::upload(m_main_queue, m_gpu_buffer, m_cpu_buffer);
 		
 		m_tri_mutex.unlock();
+	}
+	else if (m_show_imgui)
+	{
+		ImGui::Begin("Working");
+		ImGui::Text("Working...");
+		ImGui::End();
 	}
 }
 

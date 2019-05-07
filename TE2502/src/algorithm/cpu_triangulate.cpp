@@ -56,6 +56,7 @@ namespace cputri
 	uint cpu_index_buffer_size;
 
 	TerrainBuffer* tb;
+	TerrainBuffer* backup_tb;
 	Quadtree quadtree;
 
 	float log_filter[filter_side * filter_side];
@@ -75,6 +76,7 @@ namespace cputri
 
 		quadtree.node_memory_size = sizeof(TerrainData);
 
+		backup_tb = new TerrainBuffer();
 
 		// Add space for an additional two vec2's to store the quadtree min and max
 		cpu_index_buffer_size = (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint) + sizeof(vec2) * 2;
@@ -94,6 +96,8 @@ namespace cputri
 
 	void destroy(VulkanContext& context, GPUBuffer& cpu_buffer)
 	{
+		delete backup_tb;
+
 		quit = true;
 
 		for (uint ii = 0; ii < num_threads; ii++)
@@ -721,6 +725,16 @@ namespace cputri
 		*t = dot(edge2, qvec) * inv_det;
 
 		return 1;
+	}
+
+	void backup()
+	{
+		memcpy(backup_tb, tb, sizeof(TerrainBuffer));
+	}
+
+	void restore()
+	{
+		memcpy(tb, backup_tb, sizeof(TerrainBuffer));
 	}
 
 	std::vector<std::string> get_hovered_tris()

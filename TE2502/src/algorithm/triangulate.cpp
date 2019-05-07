@@ -1,6 +1,8 @@
 #define NOMINMAX
 #include "algorithm/triangulate.hpp"
+#include "array.hpp"
 #include <iostream>
+
 
 namespace triangulate
 {
@@ -302,34 +304,28 @@ namespace triangulate
 							{
 								if (nn != SELF_INDEX)
 								{
-									const vec2 adjusted_max = node_max + vec2(side) * ADJUST_PERCENTAGE;
-									const vec2 adjusted_min = node_min - vec2(side) * ADJUST_PERCENTAGE;
-									if (current_point.x >= adjusted_min.x && current_point.x <= adjusted_max.x
-										&& current_point.z >= adjusted_min.y && current_point.z <= adjusted_max.y)
+									const uint node = g.ltg[nn];
+									if (node != INVALID)
 									{
-										const uint node = g.ltg[nn];
-										if (node != INVALID)
+										const uint triangle_count = tb->data[node].border_count;
+										for (uint tt = 0; tt < triangle_count; ++tt)
 										{
-											const uint triangle_count = tb->data[node].border_count;
-											for (uint tt = 0; tt < triangle_count; ++tt)
+											const uint border_triangle = tb->data[node].border_triangle_indices[tt];
+											const vec2 cc = tb->data[node].triangles[border_triangle].circumcentre;
+											const float cr2 = tb->data[node].triangles[border_triangle].circumradius2;
+
+											const float ddx = current_point.x - cc.x;
+											const float ddy = current_point.z - cc.y;
+
+											if (ddx * ddx + ddy * ddy < cr2)
 											{
-												const uint border_triangle = tb->data[node].border_triangle_indices[tt];
-												const vec2 cc = tb->data[node].triangles[border_triangle].circumcentre;
-												const float cr2 = tb->data[node].triangles[border_triangle].circumradius2;
-
-												const float ddx = current_point.x - cc.x;
-												const float ddy = current_point.z - cc.y;
-
-												if (ddx * ddx + ddy * ddy < cr2)
+												if (g.seen_triangle_count >= test_triangle_buffer_size || g.test_count >= test_triangle_buffer_size)
 												{
-													if (g.seen_triangle_count >= test_triangle_buffer_size || g.test_count >= test_triangle_buffer_size)
-													{
-														finish = true;
-														break;
-													}
-
-													add_connection(g, nn, border_triangle);
+													finish = true;
+													break;
 												}
+
+												add_connection(g, nn, border_triangle);
 											}
 										}
 									}
@@ -388,10 +384,10 @@ namespace triangulate
 			const uint MAX_MOVED_POINTS = 10;
 
 			// Array of points moved into other nodes
-			std::array<moved_point, MAX_MOVED_POINTS> moved_points;
+			Array<moved_point, MAX_MOVED_POINTS> moved_points;
 			uint moved_points_count = 0;
 
-			std::array<uint, 9> participating_nodes;
+			Array<uint, 9> participating_nodes;
 			uint participation_count = 0;
 
 			// True if this point should be skipped due to an array being full

@@ -109,6 +109,12 @@ namespace cputri
 
 	int intersect_triangle(glm::vec3 r_o, glm::vec3 r_d, glm::vec3 p0, glm::vec3 p1, glm::vec3 p2, float* t);
 
+	// Save current terrain state
+	void backup();
+
+	// Restore current terrain state
+	void restore();
+
 	// Returns vector of messages indicating hovered triangles
 	std::vector<std::string> get_hovered_tris();
 

@@ -45,7 +45,7 @@ bool ray_march(in vec3 rO, in vec3 rD, out float resT)
 	float delta = 0.0;
 	bool fin = false;
 	vec2 distances;
-	while (!fin && t < 2400)
+	while (!fin && t < 350)
 	{
 		//if (fin || t > 14000.0) break;
 		vec3 p = rO + t * rD;
@@ -90,7 +90,7 @@ void main(void)
 	if (!ray_march(position, rd, distance))
 	{
 		// Missed scene, now just get the sky value...
-		color = vec3(0.1, 0.15, 0.3);
+		color = GetSky(rd); //vec3(0.1, 0.15, 0.3);
 	}
 	else
 	{

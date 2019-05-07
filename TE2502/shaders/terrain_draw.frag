@@ -84,8 +84,13 @@ void DoLighting(inout vec3 mat, in vec3 pos, in vec3 normal, in vec3 eyeDir)
 	}
 }
 
+vec3 ApplyFog( in vec3  rgb, in float dis, in vec3 dir)
+{
+	float fogAmount = exp(-dis* 0.00005);
+	return mix(vec3(0.1, 0.15, 0.3), rgb, fogAmount);
+}
 
-vec3 TerrainColour(vec3 pos, vec3 normal)
+vec3 TerrainColour(vec3 pos, vec3 normal, float dis)
 {
 	vec3 mat;
 	specular = .0;
@@ -130,6 +135,9 @@ vec3 TerrainColour(vec3 pos, vec3 normal)
 
 	DoLighting(mat, pos, normal, dir);
 
+	float disSqrd = dis * dis;
+	mat = ApplyFog(mat, disSqrd, dir);
+
 	return mat;
 }
 
@@ -156,5 +164,5 @@ void main()
 	nor = cross(v2, v3);
 	nor = normalize(nor);
 
-	out_color = vec4(PostEffects(TerrainColour(world_pos, nor)), 1.0);
+	out_color = vec4(PostEffects(TerrainColour(world_pos, nor, dist)), 1.0);
 }

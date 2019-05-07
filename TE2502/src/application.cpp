@@ -19,7 +19,7 @@
 #include <array>
 #include <fstream>
 
-//#define RAY_MARCH_WINDOW
+#define RAY_MARCH_WINDOW
 
 void error_callback(int error, const char* description)
 {

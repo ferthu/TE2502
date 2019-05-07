@@ -131,6 +131,26 @@ void do_lighting(inout vec3 mat, in vec3 pos, in vec3 normal, in vec3 eye_dir, i
 	}
 }
 
+vec3 GetSky(in vec3 rd)
+{
+//	float sunAmount = max( dot( rd, sun_light), 0.0 );
+//	float v = pow(1.0-max(-rd.y,0.0),5.)*.5;
+//	vec3  sky = vec3(v*sun_color.x*0.4+0.18, v*sun_color.y*0.4+0.22, v*sun_color.z*0.4+.4);
+//	// Wide glare effect...
+//	sky = sky + sun_color * pow(sunAmount, 6.5)*.32;
+//	// Actual sun...
+//	sky = sky+ sun_color * min(pow(sunAmount, 1150.0), .3)*.65;
+//	return sky;
+	return vec3(0.1, 0.15, 0.3);
+}
+
+// Merge mountains into the sky background for correct disappearance...
+vec3 ApplyFog( in vec3  rgb, in float dis, in vec3 dir)
+{
+	float fogAmount = exp(-dis* 0.00005);
+	return mix(GetSky(dir), rgb, fogAmount);
+}
+
 // Hack the height, position, and normal data to create the coloured landscape
 vec3 surface_color(vec3 pos, vec3 normal, float dis, vec3 cam_pos)
 {
@@ -179,6 +199,9 @@ vec3 surface_color(vec3 pos, vec3 normal, float dis, vec3 cam_pos)
 	}
 
 	do_lighting(mat, pos, normal, dir, dis_sqrd);
+
+	float disSqrd = dis * dis;
+	mat = ApplyFog(mat, disSqrd, dir);
 
 	return mat;
 }

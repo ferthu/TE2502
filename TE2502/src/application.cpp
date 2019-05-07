@@ -17,6 +17,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <string>
 #include <array>
+#include <fstream>
 
 //#define RAY_MARCH_WINDOW
 
@@ -359,7 +360,22 @@ void Application::update(const float dt, bool auto_triangulate)
 		values_offset = (values_offset + 1) % num_frames;
 		ImGui::PlotLines("Frame Time", values, num_frames, values_offset, nullptr, 0.0f, 0.02f, ImVec2(150, 30));
 
-		std::string text = "Frame info: " + std::to_string(int(1.f / dt)) + "fps  "
+		const int fps = int(1.f / dt);
+		static float running_fps = 0.f;
+		const float a = 0.999f;
+		running_fps = (a * running_fps) + (1.0f - a) * fps;
+		m_time_to_sample1 -= dt;
+		m_test_run_time += dt;
+		if (m_is_testing && m_time_to_sample1 < 0.f)
+		{
+			if (!m_started_sampling)
+				m_test_run_time = 0.f;
+			m_started_sampling = true;
+			m_time_to_sample1 = 1.0f / 30;
+			m_fps_data.push_back((int)running_fps);
+		}
+
+		std::string text = "Frame info: " + std::to_string(running_fps) + "fps  "
 			+ std::to_string(dt) + "s  " + std::to_string(int(100.f * dt / 0.016f)) + "%%";
 		ImGui::Text(text.c_str());
 		text = "Position: " + std::to_string(m_main_camera->get_pos().x) + ", " + std::to_string(m_main_camera->get_pos().y) + ", " + std::to_string(m_main_camera->get_pos().z);
@@ -391,6 +407,80 @@ void Application::update(const float dt, bool auto_triangulate)
 			cputri::clear_terrain();
 			m_path_handler.follow_path(current_item);
 		}
+
+		ImGui::InputText("Test name", m_test_name, 40);
+		if (!m_is_testing && ImGui::Button("Start"))
+		{
+			m_is_testing = true;
+			std::string path = "testresults\\" + std::string(m_test_name);
+			CreateDirectory(path.c_str(), NULL);
+
+			m_test_data.clear();
+			m_test_data.reserve(15000);
+			m_fps_data.clear();
+			m_fps_data.reserve(15000);
+
+			m_started_sampling = false;
+			m_time_to_sample1 = 1.0f; 
+			m_time_to_sample2 = 1.0f + m_sample_rate;
+
+			cputri::clear_terrain();
+			m_path_handler.follow_path(current_item);
+		}
+		else if (m_is_testing && m_path_handler.get_mode() == MODE::NOTHING)
+		{
+			// Testing just ended
+			std::ofstream out("testresults\\" + std::string(m_test_name) + "\\fps.txt");
+			if (out.is_open())
+			{
+				for (int i : m_fps_data)
+				{
+					out << i << "\n";
+				}
+			}
+			out.close();
+			out.open("testresults\\" + std::string(m_test_name) + "\\draw.txt");
+			if (out.is_open())
+			{
+				out << "Runtime\t\tGen-N\tDraw-N\tGen-T    \tDraw-T\tNew-P\n";
+
+				for (Sample s : m_test_data)
+				{
+					out.precision(6);
+					out << std::fixed << s.run_time << "      \t"
+						<< s.gen_nodes << "\t"
+						<< s.draw_nodes << "\t"
+						<< s.gen_tris << "         \t"
+						<< s.draw_tris << "\t"
+						<< s.new_points << "\n";
+				}
+			}
+			out.close();
+			m_is_testing = false;
+		}
+
+		if (m_is_testing && m_started_sampling)
+		{
+			m_current_sample.gen_nodes += cputri::quadtree.num_generate_nodes_draw;
+			m_current_sample.gen_tris += cputri::quadtree.generated_triangle_count;
+			m_current_sample.draw_nodes += cputri::quadtree.num_draw_nodes_draw;
+			m_current_sample.draw_tris += cputri::quadtree.drawn_triangle_count;
+			m_current_sample.new_points += cputri::quadtree.new_points_added;
+		}
+
+		cputri::quadtree.generated_triangle_count = 0;
+		cputri::quadtree.new_points_added = 0;
+
+		m_time_to_sample2 -= dt;
+		if (m_time_to_sample2 < 0.f)
+		{
+			m_time_to_sample2 = m_sample_rate;
+			
+			m_current_sample.run_time = m_test_run_time;
+			m_test_data.push_back(m_current_sample);
+			m_current_sample = Sample();
+		}
+
 		ImGui::End();
 	}
 	

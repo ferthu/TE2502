@@ -9,8 +9,12 @@
 typedef uint32_t uint;
 using namespace glm;
 
+struct Quadtree;
+
 namespace cputri
 {
+	extern Quadtree quadtree;
+
 	struct TriData
 	{
 		DebugDrawer* dd;

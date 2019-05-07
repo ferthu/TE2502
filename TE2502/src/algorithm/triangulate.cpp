@@ -129,7 +129,7 @@ namespace triangulate
 	}
 
 
-	void triangulate(TerrainBuffer* tb, GlobalData& g, cuint node_index, cputri::TriData* tri_data)
+	void triangulate(Quadtree& quadtree, TerrainBuffer* tb, GlobalData& g, cuint node_index, cputri::TriData* tri_data)
 	{
 		if (tri_data->refine_node != -1 && tri_data->refine_node != node_index)
 			return;
@@ -146,6 +146,8 @@ namespace triangulate
 
 		const int cx = int((node_min.x - tb->quadtree_min.x + 1) / side);  // current node x
 		const int cy = int((node_min.y - tb->quadtree_min.y + 1) / side);  // current node z/y
+
+		const uint old_triangle_count = tb->data[node_index].index_count / 3;
 
 		uint nodes_new_points_count[9];
 
@@ -829,7 +831,9 @@ namespace triangulate
 			g.triangles_removed = 0;
 		}
 
-		//tb->data[node_index].new_points_count = 0;
-		tb->data[node_index].new_points_count -= std::min((uint)tri_data->refine_vertices, new_points_count);
+		const uint new_points_added = std::min((uint)tri_data->refine_vertices, new_points_count);
+		tb->data[node_index].new_points_count -= new_points_added;
+		quadtree.generated_triangle_count += tb->data[node_index].index_count / 3 - old_triangle_count;
+		quadtree.new_points_added += new_points_added;
 	}
 }

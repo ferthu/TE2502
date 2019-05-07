@@ -88,10 +88,19 @@ struct Quadtree
 	// Number and array of indices to nodes that needs to generate terrain
 	uint num_generate_nodes;
 	GenerateInfo* generate_nodes;
+	uint num_generate_nodes_draw;
+	GenerateInfo* generate_nodes_draw;
+
+	uint generated_triangle_count;
 
 	// Number and array of indices to nodes that needs to draw terrain
 	uint num_draw_nodes;
 	uint* draw_nodes;
+	uint num_draw_nodes_draw;
+	uint* draw_nodes_draw;
+
+	uint drawn_triangle_count;
+	uint new_points_added;
 
 	float total_side_length;
 

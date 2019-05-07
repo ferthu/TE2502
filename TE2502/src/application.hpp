@@ -173,5 +173,27 @@ private:
 	bool m_tri_done = true;
 	DebugDrawer m_tri_debug_drawer;
 	std::mutex m_debug_draw_mutex;
+
+	// Testing 
+	struct Sample
+	{
+		uint gen_nodes = 0;
+		uint gen_tris= 0;
+		uint draw_nodes = 0;
+		uint draw_tris = 0;
+		uint new_points = 0;
+
+		float run_time = 0.f;
+	};
+	bool m_is_testing = false;
+	bool m_started_sampling;
+	float m_test_run_time = 0.f;
+	char m_test_name[40];
+	float m_time_to_sample1;
+	float m_time_to_sample2;
+	Sample m_current_sample;
+	std::vector<int> m_fps_data;
+	std::vector<Sample> m_test_data;
+	const float m_sample_rate = 0.25f;
 };
 

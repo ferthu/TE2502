@@ -485,27 +485,47 @@ namespace generate
 		c = -0.5f*(a*(v0.x + v1.x) + b * (v0.z + v1.z));
 	}
 
-	bool is_same_edge(TerrainBuffer* tb, vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, uint neighbour_node_index, uint neighbour_border_index, uint connection_value)
+	bool is_same_edge(TerrainBuffer* tb, vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, uint neighbour_node_index, uint neighbour_border_index, uint connection_value, bool& valid)
 	{
 		if (((e1p1 == e2p1 && e1p2 == e2p2) ||
 			(e1p2 == e2p1 && e1p1 == e2p2)))
 		{
-			if (tb->data[neighbour_node_index].triangle_connections[neighbour_border_index] == connection_value ||
-				tb->data[neighbour_node_index].triangle_connections[neighbour_border_index] == UNKNOWN)
-			{
-				// Update connection value (required if it is = UNKNOWN)
-				tb->data[neighbour_node_index].triangle_connections[neighbour_border_index] = connection_value;
-			}
-
 			float a, b, c;
 			calcLine(e1p1, e1p2, a, b, c);
 			if (sign(a * test_middle.x + b * test_middle.z + c) != sign(a * neighbour_middle.x + b * neighbour_middle.z + c))
 			{
+				if (tb->data[neighbour_node_index].triangle_connections[neighbour_border_index] == connection_value ||
+					tb->data[neighbour_node_index].triangle_connections[neighbour_border_index] == UNKNOWN)
+				{
+					// Update connection value (required if it is = UNKNOWN)
+					tb->data[neighbour_node_index].triangle_connections[neighbour_border_index] = connection_value;
+				}
+
 				return true;
+			}
+			else
+			{
+				valid = false;
 			}
 		}
 
 		return false;
+	}
+
+	EdgeComp is_same_edge(vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, uint neighbour_border_value)
+	{
+		if (((e1p1 == e2p1 && e1p2 == e2p2) ||
+			(e1p2 == e2p1 && e1p1 == e2p2)))
+		{
+			float a, b, c;
+			calcLine(e1p1, e1p2, a, b, c);
+			if (sign(a * test_middle.x + b * test_middle.z + c) != sign(a * neighbour_middle.x + b * neighbour_middle.z + c))
+				return EdgeComp::VALID;
+			else
+				return EdgeComp::INVALID;	
+		}
+
+		return EdgeComp::NO_MATCH;
 	}
 
 	bool neighbour_exists(uint cx, uint cy, uint local_neighbour_index, TerrainBuffer* tb)
@@ -869,7 +889,7 @@ namespace generate
 					++g.gen_marked_count;
 					continue;
 				}
-	
+
 				uint triangles_to_add[3];
 				uint triangles_to_add_count = 0;
 	
@@ -895,7 +915,7 @@ namespace generate
 							if (valid_node_neighbour(tb, gen_info[nn].x, gen_info[nn].y, x, y))
 							{
 								const uint neighbour_index = tb->quadtree_index_map[ny * nodes_per_side + nx];
-								const TerrainData& neighbour = tb->data[neighbour_index];
+								TerrainData& neighbour = tb->data[neighbour_index];
 								const uint triangle_count = tb->data[gen_info[nn].index].border_count;
 
 								// Check each border triangle
@@ -913,15 +933,19 @@ namespace generate
 									// Neighbour edge needs to point to current node to be valid
 									uint required_connection = INVALID - (8 - local_neighbour_index);
 
-									// Test if current edge matches neighbour triangle edge
-									if (is_same_edge(tb, e1p1, e1p2, test_middle, e2p0, e2p1, neighbour_middle, neighbour_index, border_triangle_index * 3 + 0, required_connection)
-										|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p1, e2p2, neighbour_middle, neighbour_index, border_triangle_index * 3 + 1, required_connection)
-										|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p2, e2p0, neighbour_middle, neighbour_index, border_triangle_index * 3 + 2, required_connection))
+									// For each side of neighbour triangle
+									for (uint ns = 0; ns < 3 && !found; ++ns)
 									{
-										//// Set connection of tested triangle to point to tested neighbour node
-										//g.triangle_connections[test_triangle * 3 + ss] = INVALID - (4 + y * 3 + x);
+										uint neighbour_connection = neighbour.triangle_connections[border_triangle_index * 3 + ns];
+										EdgeComp edge_val = is_same_edge(e1p1, e1p2, test_middle, e2p1, e2p2, neighbour_middle, neighbour_connection);
+
+										if (edge_val == EdgeComp::NO_MATCH)
+											continue;
 
 										found = true;
+
+										if (neighbour_connection == UNKNOWN)
+											neighbour.triangle_connections[border_triangle_index * 3 + ns] = required_connection;
 									}
 								}
 							}
@@ -1013,6 +1037,8 @@ namespace generate
 				uint triangles_to_add[3];
 				uint triangles_to_add_count = 0;
 
+				bool triangle_valid = true;
+
 				// For each side of the triangle
 				for (uint ss = 0; ss < 3; ++ss)
 				{
@@ -1035,7 +1061,7 @@ namespace generate
 							if (valid_node_neighbour(tb, gen_info[gi].x, gen_info[gi].y, x, y))
 							{
 								const uint neighbour_index = tb->quadtree_index_map[ny * nodes_per_side + nx];
-								const TerrainData& neighbour = tb->data[neighbour_index];
+								TerrainData& neighbour = tb->data[neighbour_index];
 								const uint triangle_count = tb->data[gen_info[gi].index].border_count;
 
 								// Check each border triangle
@@ -1053,15 +1079,22 @@ namespace generate
 									// Neighbour edge needs to point to current node to be valid
 									uint required_connection = INVALID - (8 - local_neighbour_index);
 
-									// Test if current edge matches neighbour triangle edge
-									if (is_same_edge(tb, e1p1, e1p2, test_middle, e2p0, e2p1, neighbour_middle, neighbour_index, border_triangle_index * 3 + 0, required_connection)
-										|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p1, e2p2, neighbour_middle, neighbour_index, border_triangle_index * 3 + 1, required_connection)
-										|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p2, e2p0, neighbour_middle, neighbour_index, border_triangle_index * 3 + 2, required_connection))
+									// For each side of neighbour triangle
+									for (uint ns = 0; ns < 3 && !found; ++ns)
 									{
-										//// Set connection of tested triangle to point to tested neighbour node
-										//g.triangle_connections[test_triangle * 3 + ss] = INVALID - (4 + y * 3 + x);
+										uint neighbour_connection = neighbour.triangle_connections[border_triangle_index * 3 + ns];
+										EdgeComp edge_val = is_same_edge(e1p1, e1p2, test_middle, e2p1, e2p2, neighbour_middle, neighbour_connection);
+
+										if (edge_val == EdgeComp::NO_MATCH)
+											continue;
 
 										found = true;
+
+										if (edge_val == EdgeComp::INVALID)
+											triangle_valid = false;
+
+										if (neighbour_connection == UNKNOWN)
+											neighbour.triangle_connections[border_triangle_index * 3 + ns] = required_connection;
 									}
 								}
 							}
@@ -1081,38 +1114,41 @@ namespace generate
 					}
 				}
 
-				// Test added triangles
-				for (uint ii = 0; ii < triangles_to_add_count; ii++)
+				if (triangle_valid)
 				{
-					bool already_tested = false;
-
-					for (uint seen = 0; seen < g.seen_triangle_count; seen++)
+					// Test added triangles
+					for (uint ii = 0; ii < triangles_to_add_count; ii++)
 					{
-						if (g.seen_triangles[seen] == triangles_to_add[ii])
+						bool already_tested = false;
+
+						for (uint seen = 0; seen < g.seen_triangle_count; seen++)
 						{
-							already_tested = true;
-							break;
+							if (g.seen_triangles[seen] == triangles_to_add[ii])
+							{
+								already_tested = true;
+								break;
+							}
+						}
+
+						if (!already_tested)
+						{
+							g.seen_triangles[g.seen_triangle_count] = triangles_to_add[ii];
+							++g.seen_triangle_count;
+							g.triangles_to_test[g.test_count] = triangles_to_add[ii];
+							++g.test_count;
 						}
 					}
 
-					if (!already_tested)
-					{
-						g.seen_triangles[g.seen_triangle_count] = triangles_to_add[ii];
-						++g.seen_triangle_count;
-						g.triangles_to_test[g.test_count] = triangles_to_add[ii];
-						++g.test_count;
-					}
+					// Add tested triangle to node
+					const uint new_index = node.index_count;
+					node.indices[new_index + 0] = get_index_of_point(node, sides[0]);
+					node.indices[new_index + 1] = get_index_of_point(node, sides[1]);
+					node.indices[new_index + 2] = get_index_of_point(node, sides[2]);
+					node.index_count += 3;
+
+					g.gen_triangle_targets[test_triangle] = gi;
+					g.gen_triangle_new_indices[test_triangle] = new_index / 3;
 				}
-
-				// Add tested triangle to node
-				const uint new_index = node.index_count;
-				node.indices[new_index + 0] = get_index_of_point(node, sides[0]);
-				node.indices[new_index + 1] = get_index_of_point(node, sides[1]);
-				node.indices[new_index + 2] = get_index_of_point(node, sides[2]);
-				node.index_count += 3;
-
-				g.gen_triangle_targets[test_triangle] = gi;
-				g.gen_triangle_new_indices[test_triangle] = new_index / 3;
 			}
 		}
 
@@ -1130,23 +1166,12 @@ namespace generate
 			cputri::debug_lines.push_back(std::vector<vec3>());
 		}
 
-		//for (size_t i = 0; i < gen_indices / 3; i++)
-		//{
-		//	g.gen_triangle_targets[i] = 0;
-		//	g.gen_triangle_new_indices[i] = 0;
-		//}
-		for (size_t i = 0; i < 6000 / 3; i++)
-		{
-			g.gen_marked_triangles[i].gen_index = 0;
-			g.gen_marked_triangles[i].node = 0;
-		}
-
 		// For every triangle, set its connections in new node
 		for (uint tri = 0; tri < g.gen_index_count / 3; ++tri)
 		{
 			if (g.gen_triangle_targets[tri] != INVALID)
 			{
-				TerrainData& node = tb->data[g.gen_triangle_targets[tri]];
+				TerrainData& node = tb->data[gen_info[g.gen_triangle_targets[tri]].index];
 
 				// Triangle index in new node
 				uint local_index = g.gen_triangle_new_indices[tri];

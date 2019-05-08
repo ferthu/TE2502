@@ -667,9 +667,9 @@ namespace cputri
 				tb->data[quadtree.generate_nodes[i].index].draw_index_count = 0;
 			}
 
-			for (uint i = 0; i < quadtree.num_generate_nodes; i++)
+			if (quadtree.num_generate_nodes > 0)
 			{
-				generate::generate(tb, gg, log_filter, quadtree.generate_nodes[i].index, quadtree.generate_nodes[i].min, quadtree.generate_nodes[i].max, tri_data);
+				generate::generate(tb, gg, log_filter, tri_data, quadtree.generate_nodes, quadtree.num_generate_nodes);
 				do_triangulation = true;
 			}
 		}
@@ -775,6 +775,8 @@ namespace cputri
 					quadtree.generate_nodes[quadtree.num_generate_nodes].index = new_index;
 					quadtree.generate_nodes[quadtree.num_generate_nodes].min = aabb.m_min;
 					quadtree.generate_nodes[quadtree.num_generate_nodes].max = aabb.m_max;
+					quadtree.generate_nodes[quadtree.num_generate_nodes].x = x;
+					quadtree.generate_nodes[quadtree.num_generate_nodes].y = y;
 					quadtree.num_generate_nodes++;
 				}
 				else

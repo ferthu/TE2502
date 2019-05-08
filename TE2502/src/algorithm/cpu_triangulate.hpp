@@ -46,7 +46,7 @@ namespace cputri
 		float threshold;
 
 		// DEBUG
-		int debug_node;
+		bool debug_generation;
 		int debug_stage;
 
 		std::mutex* debug_draw_mutex;

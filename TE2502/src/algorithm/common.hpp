@@ -85,6 +85,8 @@ struct GenerateInfo
 	vec2 min;
 	vec2 max;
 	uint index;
+	uint x;
+	uint y;
 };
 struct Quadtree
 {

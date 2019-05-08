@@ -404,7 +404,7 @@ void Application::update(const float dt, bool auto_triangulate)
 	static float threshold = 0.0f;
 
 	// DEBUG
-	static int debug_node = -1;
+	static bool debug_generation = true;
 	static int debug_stage = -1;
 
 	static bool refine = false;
@@ -439,7 +439,7 @@ void Application::update(const float dt, bool auto_triangulate)
 
 		ImGui::Checkbox("Show Debug", &show_debug);
 
-		ImGui::SliderInt("Debug Node", &debug_node, -1, num_nodes - 1);
+		ImGui::Checkbox("Debug Generation", &debug_generation);
 		ImGui::SliderInt("Debug Stage", &debug_stage, -1, 15);
 		if (ImGui::Button("Backup"))
 			backup = true;		
@@ -498,7 +498,7 @@ void Application::update(const float dt, bool auto_triangulate)
 		m_tri_data.cc_frustum = m_current_camera->get_frustum();
 
 		// DEBUG
-		m_tri_data.debug_node = debug_node;
+		m_tri_data.debug_generation = debug_generation;
 		m_tri_data.debug_stage = debug_stage;
 
 		vec2 mouse_pos{0, 0};

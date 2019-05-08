@@ -4,16 +4,49 @@
 
 namespace generate
 {
-	void remove_old_triangles(TerrainBuffer* tb, GlobalData& g, cuint node_index)
+	void replace_connection_index(GlobalData& g, cuint triangle_to_check, cuint index_to_replace, cuint new_value)
 	{
-		TerrainData& node = tb->data[node_index];
+		if (triangle_to_check < INVALID - 9)
+		{
+			for (uint tt = 0; tt < 3; ++tt)
+			{
+				const uint triangle_index = g.triangle_connections[triangle_to_check * 3 + tt];
+				if (triangle_index == index_to_replace)
+				{
+					g.triangle_connections[triangle_to_check * 3 + tt] = new_value;
+					break;
+				}
+			}
+		}
+	}
 
+	void reset_iteration(GlobalData& g)
+	{
+		g.seen_triangle_count = 0;
+		g.test_count = 0;
+	}
+
+	uint get_index_of_point(TerrainData & node, vec4 p)
+	{
+		for (uint pp = 0; pp < node.vertex_count; ++pp)
+		{
+			if (node.positions[pp] == p)
+				return pp;
+		}
+
+		// If not found, add point
+		node.positions[node.vertex_count] = p;
+		return node.vertex_count++;
+	}
+
+	void remove_old_triangles(TerrainBuffer* tb, GlobalData& g)
+	{
 		// Remove old triangles
 		for (int j = int(g.triangles_removed) - 1; j >= 0; --j)
 		{
 			const uint index = g.triangles_to_remove[j];
 
-			const uint last_triangle = node.index_count / 3 - 1;
+			const uint last_triangle = g.gen_index_count / 3 - 1;
 
 			// Loop through remaining triangles to remove and update any that are equal to last_triangle
 			for (int ii = 0; ii < j; ++ii)
@@ -27,20 +60,20 @@ namespace generate
 
 			for (uint ii = 0; ii < 3; ++ii)
 			{
-				replace_connection_index(tb, node_index, node.triangle_connections[last_triangle * 3 + ii], last_triangle, index);
+				replace_connection_index(g, g.triangle_connections[last_triangle * 3 + ii], last_triangle, index);
 			}
 
 			// Remove triangle
 			if (index < last_triangle)
 			{
-				node.indices[index * 3 + 0] = node.indices[last_triangle * 3 + 0];
-				node.indices[index * 3 + 1] = node.indices[last_triangle * 3 + 1];
-				node.indices[index * 3 + 2] = node.indices[last_triangle * 3 + 2];
-				node.triangles[index].circumcentre = node.triangles[last_triangle].circumcentre;
-				node.triangles[index].circumradius2 = node.triangles[last_triangle].circumradius2;
-				node.triangle_connections[index * 3 + 0] = node.triangle_connections[last_triangle * 3 + 0];
-				node.triangle_connections[index * 3 + 1] = node.triangle_connections[last_triangle * 3 + 1];
-				node.triangle_connections[index * 3 + 2] = node.triangle_connections[last_triangle * 3 + 2];
+				g.indices[index * 3 + 0] = g.indices[last_triangle * 3 + 0];
+				g.indices[index * 3 + 1] = g.indices[last_triangle * 3 + 1];
+				g.indices[index * 3 + 2] = g.indices[last_triangle * 3 + 2];
+				g.triangles[index].circumcentre = g.triangles[last_triangle].circumcentre;
+				g.triangles[index].circumradius2 = g.triangles[last_triangle].circumradius2;
+				g.triangle_connections[index * 3 + 0] = g.triangle_connections[last_triangle * 3 + 0];
+				g.triangle_connections[index * 3 + 1] = g.triangle_connections[last_triangle * 3 + 1];
+				g.triangle_connections[index * 3 + 2] = g.triangle_connections[last_triangle * 3 + 2];
 
 				for (uint tt = 0; tt < g.new_triangle_index_count; ++tt)
 				{
@@ -50,20 +83,20 @@ namespace generate
 				}
 			}
 
-			node.index_count -= 3;
+			g.gen_index_count -= 3;
 
 			// Update the rest of the new points' triangle index after updating triangles in node
-			for (uint ii = 0; ii < node.new_points_count; ++ii)
+			for (uint ii = 0; ii < g.gen_new_points_count; ++ii)
 			{
-				if (node.new_points_triangles[ii] == index)
+				if (g.new_points_triangles[ii] == index)
 				{
 					// Look through all newly added triangles only
 					for (uint tt = 0; tt < g.new_triangle_index_count; ++tt)
 					{
 						const uint triangle_index = g.new_triangle_indices[tt];
-						const vec4 new_point = node.new_points[ii];
-						const vec2 circumcentre = node.triangles[triangle_index].circumcentre;
-						const float circumradius2 = node.triangles[triangle_index].circumradius2;
+						const vec4 new_point = g.new_points[ii];
+						const vec2 circumcentre = g.triangles[triangle_index].circumcentre;
+						const float circumradius2 = g.triangles[triangle_index].circumradius2;
 
 						const float dx = new_point.x - circumcentre.x;
 						const float dy = new_point.z - circumcentre.y;
@@ -71,17 +104,19 @@ namespace generate
 						// Find the first triangle whose cc contains the point
 						if (dx * dx + dy * dy < circumradius2)
 						{
-							node.new_points_triangles[ii] = triangle_index;
+							g.new_points_triangles[ii] = triangle_index;
 							break;
 						}
 					}
 				}
-				else if (node.new_points_triangles[ii] == last_triangle)
+				else if (g.new_points_triangles[ii] == last_triangle)
 				{
-					node.new_points_triangles[ii] = index;
+					g.new_points_triangles[ii] = index;
 				}
 			}
 		}
+
+		g.triangles_removed = 0;
 	}
 
 	void add_connection(GlobalData& g, cuint connection_index)
@@ -101,31 +136,20 @@ namespace generate
 		++g.test_count;
 	}
 
-	void generate_triangulate_shader(TerrainBuffer* tb, GlobalData& g, cuint node_index)
+	void generate_triangulate_shader(TerrainBuffer* tb, GlobalData& g)
 	{
-		TerrainData& node = tb->data[node_index];
-
-		const vec2 node_min = node.min;
-		const vec2 node_max = node.max;
-		const float side = node_max.x - node_min.x;
-
-		const int nodes_per_side = 1 << quadtree_levels;
-
-		const int cx = int((node_min.x - tb->quadtree_min.x + 1) / side);  // current node x
-		const int cy = int((node_min.y - tb->quadtree_min.y + 1) / side);  // current node z/y
-
-		const uint new_points_count = node.new_points_count;
+		const uint new_points_count = g.gen_new_points_count;
 
 		g.triangles_removed = 0;
 
 		for (uint n = 0; n < new_points_count && n < TERRAIN_GENERATE_NUM_VERTICES; ++n)
 		{
-			const vec4 current_point = node.new_points[n];
+			const vec4 current_point = g.new_points[n];
 
 			g.seen_triangle_count = 1;
 			g.test_count = 1;
 
-			const uint start_index = node.new_points_triangles[n];
+			const uint start_index = g.new_points_triangles[n];
 			g.seen_triangles[0] = start_index;
 			g.triangles_to_test[0] = start_index;
 			g.new_triangle_index_count = 0;
@@ -134,8 +158,8 @@ namespace generate
 			while (g.test_count != 0 && !finish)
 			{
 				const uint triangle_index = g.triangles_to_test[--g.test_count];
-				const vec2 circumcentre = node.triangles[triangle_index].circumcentre;
-				const float circumradius2 = node.triangles[triangle_index].circumradius2;
+				const vec2 circumcentre = g.triangles[triangle_index].circumcentre;
+				const float circumradius2 = g.triangles[triangle_index].circumradius2;
 
 				const float dx = current_point.x - circumcentre.x;
 				const float dy = current_point.z - circumcentre.y;
@@ -143,12 +167,12 @@ namespace generate
 				if (dx * dx + dy * dy < circumradius2)
 				{
 					// Add triangle edges to edge buffer
-					const uint index0 = node.indices[triangle_index * 3 + 0];
-					const uint index1 = node.indices[triangle_index * 3 + 1];
-					const uint index2 = node.indices[triangle_index * 3 + 2];
-					const vec4 p0 = vec4(vec3(node.positions[index0]), 1.0f);
-					const vec4 p1 = vec4(vec3(node.positions[index1]), 1.0f);
-					const vec4 p2 = vec4(vec3(node.positions[index2]), 1.0f);
+					const uint index0 = g.indices[triangle_index * 3 + 0];
+					const uint index1 = g.indices[triangle_index * 3 + 1];
+					const uint index2 = g.indices[triangle_index * 3 + 2];
+					const vec4 p0 = vec4(vec3(g.positions[index0]), 1.0f);
+					const vec4 p1 = vec4(vec3(g.positions[index1]), 1.0f);
+					const vec4 p2 = vec4(vec3(g.positions[index2]), 1.0f);
 
 					// Store edges to be removed
 					uint tr = g.triangles_removed++;
@@ -165,7 +189,7 @@ namespace generate
 					g.generate_edges[ec + 0].p2 = !biggest_point ? p0 : p1;
 					g.generate_edges[ec + 0].p1_index = biggest_point ? index0 : index1;
 					g.generate_edges[ec + 0].p2_index = !biggest_point ? index0 : index1;
-					g.generate_edges[ec + 0].connection = node.triangle_connections[triangle_index * 3 + 0];
+					g.generate_edges[ec + 0].connection = g.triangle_connections[triangle_index * 3 + 0];
 					g.generate_edges[ec + 0].old_triangle_index = triangle_index;
 					// Edge 1
 					biggest_point = p1.y < p2.y;
@@ -173,7 +197,7 @@ namespace generate
 					g.generate_edges[ec + 1].p2 = !biggest_point ? p1 : p2;
 					g.generate_edges[ec + 1].p1_index = biggest_point ? index1 : index2;
 					g.generate_edges[ec + 1].p2_index = !biggest_point ? index1 : index2;
-					g.generate_edges[ec + 1].connection = node.triangle_connections[triangle_index * 3 + 1];
+					g.generate_edges[ec + 1].connection = g.triangle_connections[triangle_index * 3 + 1];
 					g.generate_edges[ec + 1].old_triangle_index = triangle_index;
 					// Edge 2
 					biggest_point = p2.y < p0.y;
@@ -181,7 +205,7 @@ namespace generate
 					g.generate_edges[ec + 2].p2 = !biggest_point ? p2 : p0;
 					g.generate_edges[ec + 2].p1_index = biggest_point ? index2 : index0;
 					g.generate_edges[ec + 2].p2_index = !biggest_point ? index2 : index0;
-					g.generate_edges[ec + 2].connection = node.triangle_connections[triangle_index * 3 + 2];
+					g.generate_edges[ec + 2].connection = g.triangle_connections[triangle_index * 3 + 2];
 					g.generate_edges[ec + 2].old_triangle_index = triangle_index;
 
 					// Mark the triangle to be removed later
@@ -190,7 +214,7 @@ namespace generate
 					// Add neighbour triangles to be tested
 					for (uint ss = 0; ss < 3 && !finish; ++ss)
 					{
-						const uint index = node.triangle_connections[triangle_index * 3 + ss];
+						const uint index = g.triangle_connections[triangle_index * 3 + ss];
 
 						if (index < INVALID - 9)
 						{
@@ -238,7 +262,7 @@ namespace generate
 			{
 				if (g.generate_edges[j].p1.w > -0.5)
 				{
-					g.generate_edges[j].future_index = node.index_count / 3 + g.new_triangle_count;
+					g.generate_edges[j].future_index = g.gen_index_count / 3 + g.new_triangle_count;
 					g.valid_indices[g.new_triangle_count++] = j;
 				}
 			}
@@ -260,10 +284,10 @@ namespace generate
 				}
 
 				// Set indices for the new triangle
-				const uint index_count = node.index_count;
-				node.indices[index_count + 0] = g.generate_edges[i].p1_index;
-				node.indices[index_count + 1] = g.generate_edges[i].p2_index;
-				node.indices[index_count + 2] = node.vertex_count;
+				const uint index_count = g.gen_index_count;
+				g.indices[index_count + 0] = g.generate_edges[i].p1_index;
+				g.indices[index_count + 1] = g.generate_edges[i].p2_index;
+				g.indices[index_count + 2] = g.gen_vertex_count;
 
 				const uint triangle_count = index_count / 3;
 				g.new_triangle_indices[g.new_triangle_index_count++] = triangle_count;
@@ -276,11 +300,11 @@ namespace generate
 				const vec2 cc_center = find_circum_center(vec2(P.x, P.z), vec2(Q.x, Q.z), vec2(R.x, R.z));
 				const float cc_radius2 = find_circum_radius_squared(a, b, c);
 
-				node.triangles[triangle_count].circumcentre = cc_center;
-				node.triangles[triangle_count].circumradius2 = cc_radius2;
+				g.triangles[triangle_count].circumcentre = cc_center;
+				g.triangles[triangle_count].circumradius2 = cc_radius2;
 
 				// Connections
-				node.triangle_connections[index_count + 0] = g.generate_edges[i].connection;
+				g.triangle_connections[index_count + 0] = g.generate_edges[i].connection;
 				const vec4 edges[2] = { g.generate_edges[i].p1, g.generate_edges[i].p2 };
 				bool already_added = false;
 				for (uint ss = 0; ss < 2; ++ss)  // The two other sides
@@ -295,71 +319,50 @@ namespace generate
 						// Check each pair of points in the triangle if they match
 						if (edges[ss] == g.generate_edges[test_index].p1)
 						{
-							node.triangle_connections[index_count + 2 - ss] = g.generate_edges[test_index].future_index;
+							g.triangle_connections[index_count + 2 - ss] = g.generate_edges[test_index].future_index;
 							found = true;
 						}
 						else if (edges[ss] == g.generate_edges[test_index].p2)
 						{
-							node.triangle_connections[index_count + 2 - ss] = g.generate_edges[test_index].future_index;
+							g.triangle_connections[index_count + 2 - ss] = g.generate_edges[test_index].future_index;
 							found = true;
 						}
 					}
 					if (!found)
 					{
-						node.triangle_connections[index_count + 2 - ss] = INVALID;
-						if (!already_added && node.border_count < MAX_BORDER_TRIANGLE_COUNT)
+						g.triangle_connections[index_count + 2 - ss] = INVALID;
+						if (!already_added && g.gen_border_count < MAX_BORDER_TRIANGLE_COUNT)
 						{
 							already_added = true;
-							node.border_triangle_indices[node.border_count++] = g.generate_edges[i].future_index;
+							g.border_triangle_indices[g.gen_border_count++] = g.generate_edges[i].future_index;
 						}
 					}
 				}
 
-				replace_connection_index(tb, node_index, g.generate_edges[i].connection, g.generate_edges[i].old_triangle_index, g.generate_edges[i].future_index);
+				replace_connection_index(g, g.generate_edges[i].connection, g.generate_edges[i].old_triangle_index, g.generate_edges[i].future_index);
 
-				node.index_count += 3;
+				g.gen_index_count += 3;
 			}
 
-			remove_old_triangles(tb, g, node_index);
+			remove_old_triangles(tb, g);
 
 			// Insert new point
-			node.positions[node.vertex_count++] = current_point;
+			g.positions[g.gen_vertex_count++] = current_point;
 
 			g.triangles_removed = 0;
 		}
 
-		node.new_points_count = 0;
+		g.gen_new_points_count = 0;
 	}
 
-	void add_border_point(TerrainBuffer* tb, uint self_node_index, uint other_node_index, vec4 point, bool HARDCORE_DEBUG)
+	void remove_marked_triangles(TerrainBuffer* tb, GlobalData& g)
 	{
-		uint count = tb->data[self_node_index].new_points_count;
-		for (uint np = 0; np < count; ++np)
-		{
-			if (tb->data[self_node_index].new_points[np] == point)
-				return;
-		}
-
-		if (HARDCORE_DEBUG)	// Dynamic points
-		{
-			cputri::debug_lines.back().push_back(vec3(point) + vec3{ 0, -103, 0 });
-			cputri::debug_lines.back().push_back(vec3(point) + vec3{ 0, -2000, 0 });
-			cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-		}
-
-		tb->data[self_node_index].new_points[tb->data[self_node_index].new_points_count] = point;
-		tb->data[self_node_index].new_points_triangles[tb->data[self_node_index].new_points_count++] = 0;
-	}
-
-	void remove_marked_triangles(TerrainBuffer* tb, GlobalData& g, uint node_index)
-	{
-		TerrainData& node = tb->data[node_index];
 		// Remove the outer triangles/supertriangles
 		for (int j = int(g.triangles_removed) - 1; j >= 0; --j)
 		{
 			const uint index = g.triangles_to_remove[j];
 
-			const uint last_triangle = node.index_count / 3 - 1;
+			const uint last_triangle = g.gen_index_count / 3 - 1;
 
 			// Loop through remaining triangles to remove and update any that are equal to last_triangle
 			for (int ii = 0; ii < j; ++ii)
@@ -374,37 +377,37 @@ namespace generate
 			// Go through all valid connected triangles
 			for (uint ii = 0; ii < 3; ++ii)
 			{
-				const uint triangle_to_check = node.triangle_connections[index * 3 + ii];
+				const uint triangle_to_check = g.triangle_connections[index * 3 + ii];
 				if (triangle_to_check < INVALID - 9)
 				{
 					// Find the side that points back to the current triangle
 					for (uint tt = 0; tt < 3; ++tt)
 					{
-						const uint triangle_index = node.triangle_connections[triangle_to_check * 3 + tt];
+						const uint triangle_index = g.triangle_connections[triangle_to_check * 3 + tt];
 						if (triangle_index == index)
 						{
 							// Mark that side connection as INVALID since that triangle is being removed
-							node.triangle_connections[triangle_to_check * 3 + tt] = UNKNOWN;
+							g.triangle_connections[triangle_to_check * 3 + tt] = UNKNOWN;
 						}
 					}
 				}
 			}
 			for (uint ii = 0; ii < 3; ++ii)
 			{
-				replace_connection_index(tb, node_index, node.triangle_connections[last_triangle * 3 + ii], last_triangle, index);
+				replace_connection_index(g, g.triangle_connections[last_triangle * 3 + ii], last_triangle, index);
 			}
 
 			// Remove triangle
 			if (index < last_triangle)
 			{
-				node.indices[index * 3 + 0] = node.indices[last_triangle * 3 + 0];
-				node.indices[index * 3 + 1] = node.indices[last_triangle * 3 + 1];
-				node.indices[index * 3 + 2] = node.indices[last_triangle * 3 + 2];
-				node.triangles[index].circumcentre = node.triangles[last_triangle].circumcentre;
-				node.triangles[index].circumradius2 = node.triangles[last_triangle].circumradius2;
-				node.triangle_connections[index * 3 + 0] = node.triangle_connections[last_triangle * 3 + 0];
-				node.triangle_connections[index * 3 + 1] = node.triangle_connections[last_triangle * 3 + 1];
-				node.triangle_connections[index * 3 + 2] = node.triangle_connections[last_triangle * 3 + 2];
+				g.indices[index * 3 + 0] = g.indices[last_triangle * 3 + 0];
+				g.indices[index * 3 + 1] = g.indices[last_triangle * 3 + 1];
+				g.indices[index * 3 + 2] = g.indices[last_triangle * 3 + 2];
+				g.triangles[index].circumcentre = g.triangles[last_triangle].circumcentre;
+				g.triangles[index].circumradius2 = g.triangles[last_triangle].circumradius2;
+				g.triangle_connections[index * 3 + 0] = g.triangle_connections[last_triangle * 3 + 0];
+				g.triangle_connections[index * 3 + 1] = g.triangle_connections[last_triangle * 3 + 1];
+				g.triangle_connections[index * 3 + 2] = g.triangle_connections[last_triangle * 3 + 2];
 
 				for (int ii = 0; ii < j; ++ii)
 				{
@@ -413,20 +416,20 @@ namespace generate
 				}
 			}
 
-			node.index_count -= 3;
+			g.gen_index_count -= 3;
 		}
+
+		g.triangles_removed = 0;
 	}
 
 	void remove_marked_triangles2(TerrainBuffer* tb, GlobalData& g, uint node_index)
 	{
-		TerrainData& node = tb->data[node_index];
-
 		// Remove the outer triangles/supertriangles
 		for (int j = int(g.triangles_removed) - 1; j >= 0; --j)
 		{
 			const uint index = g.triangles_to_remove[j];
 
-			const uint last_triangle = node.index_count / 3 - 1;
+			const uint last_triangle = g.gen_index_count / 3 - 1;
 
 			// Loop through remaining triangles to remove and update any that are equal to last_triangle
 			for (int ii = 0; ii < j; ++ii)
@@ -440,20 +443,20 @@ namespace generate
 
 			for (uint ii = 0; ii < 3; ++ii)
 			{
-				replace_connection_index(tb, node_index, node.triangle_connections[last_triangle * 3 + ii], last_triangle, index);
+				replace_connection_index(g, g.triangle_connections[last_triangle * 3 + ii], last_triangle, index);
 			}
 
 			// Remove triangle
 			if (index < last_triangle)
 			{
-				node.indices[index * 3 + 0] = node.indices[last_triangle * 3 + 0];
-				node.indices[index * 3 + 1] = node.indices[last_triangle * 3 + 1];
-				node.indices[index * 3 + 2] = node.indices[last_triangle * 3 + 2];
-				node.triangles[index].circumcentre = node.triangles[last_triangle].circumcentre;
-				node.triangles[index].circumradius2 = node.triangles[last_triangle].circumradius2;
-				node.triangle_connections[index * 3 + 0] = node.triangle_connections[last_triangle * 3 + 0];
-				node.triangle_connections[index * 3 + 1] = node.triangle_connections[last_triangle * 3 + 1];
-				node.triangle_connections[index * 3 + 2] = node.triangle_connections[last_triangle * 3 + 2];
+				g.indices[index * 3 + 0] = g.indices[last_triangle * 3 + 0];
+				g.indices[index * 3 + 1] = g.indices[last_triangle * 3 + 1];
+				g.indices[index * 3 + 2] = g.indices[last_triangle * 3 + 2];
+				g.triangles[index].circumcentre = g.triangles[last_triangle].circumcentre;
+				g.triangles[index].circumradius2 = g.triangles[last_triangle].circumradius2;
+				g.triangle_connections[index * 3 + 0] = g.triangle_connections[last_triangle * 3 + 0];
+				g.triangle_connections[index * 3 + 1] = g.triangle_connections[last_triangle * 3 + 1];
+				g.triangle_connections[index * 3 + 2] = g.triangle_connections[last_triangle * 3 + 2];
 
 				for (int ii = 0; ii < j; ++ii)
 				{
@@ -462,8 +465,10 @@ namespace generate
 				}
 			}
 
-			node.index_count -= 3;
+			g.gen_index_count -= 3;
 		}
+
+		g.triangles_removed = 0;
 	}
 
 	int sign(float v)
@@ -480,7 +485,7 @@ namespace generate
 		c = -0.5f*(a*(v0.x + v1.x) + b * (v0.z + v1.z));
 	}
 
-	bool is_same_edge(TerrainBuffer* tb, vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, uint neighbour_node_index, uint neighbour_border_index, uint connection_value, bool& valid)
+	bool is_same_edge(TerrainBuffer* tb, vec4 e1p1, vec4 e1p2, vec3 test_middle, vec4 e2p1, vec4 e2p2, vec3 neighbour_middle, uint neighbour_node_index, uint neighbour_border_index, uint connection_value)
 	{
 		if (((e1p1 == e2p1 && e1p2 == e2p2) ||
 			(e1p2 == e2p1 && e1p1 == e2p2)))
@@ -490,10 +495,6 @@ namespace generate
 			{
 				// Update connection value (required if it is = UNKNOWN)
 				tb->data[neighbour_node_index].triangle_connections[neighbour_border_index] = connection_value;
-			}
-			else
-			{
-				valid = false;
 			}
 
 			float a, b, c;
@@ -523,151 +524,172 @@ namespace generate
 		return false;
 	}
 
-
-	void generate(TerrainBuffer* tb, GlobalData& g, float* log_filter, uint node_index, vec2 min, vec2 max, cputri::TriData* tri_data)
+	void generate(TerrainBuffer* tb, GlobalData& g, float* log_filter, cputri::TriData* tri_data, GenerateInfo* gen_info, uint num_nodes)
 	{
 		bool HARDCORE_DEBUG = false;
-		if (tri_data->debug_node == node_index)
+		if (tri_data->debug_generation)
 		{
 			cputri::debug_lines.clear();
 			HARDCORE_DEBUG = true;
 		}
 
+		const int nodes_per_side = 1 << quadtree_levels;
 		const uint GRID_SIDE = TERRAIN_GENERATE_GRID_SIDE;
 
-		TerrainData& node = tb->data[node_index];
+		const float side = gen_info[0].max.x - gen_info[0].min.x;
 
-		const vec2 node_min = min;
-		const vec2 node_max = max;
-		const float side = node_max.x - node_min.x;
+		// Reset supernode values
+		g.gen_index_count = 0;
+		g.gen_vertex_count = 0;
+		g.gen_new_points_count = 0;
+		g.gen_border_count = 0;
 
+		// Min and max for supernode
+		vec2 min = gen_info[0].min;
+		vec2 max = gen_info[0].max;
+
+		for (uint ii = 1; ii < num_nodes; ++ii)
 		{
-			node.index_count = 6;
-			node.is_invalid = false;
+			if (gen_info[ii].min.x < min.x)
+				min.x = gen_info[ii].min.x;
+			if (gen_info[ii].min.y < min.y)
+				min.y = gen_info[ii].min.y;
 
-			node.vertex_count = 4;
-			node.new_points_count = GRID_SIDE * GRID_SIDE;
+			if (gen_info[ii].max.x > max.x)
+				max.x = gen_info[ii].max.x;
+			if (gen_info[ii].max.y > max.y)
+				max.y = gen_info[ii].max.y;
+		}
 
-			node.min = min;
-			node.max = max;
+		min -= vec2(side, side);
+		max += vec2(side, side);
 
-			node.border_count = 0;
+		// Add supertriangles
+		{
+			g.gen_index_count = 6;
+			g.gen_vertex_count = 4;
 
-			float temp = side * 1.5f;
-			vec4 p0 = vec4(node_min.x - temp, 1, node_min.y - temp, 1);
-			vec4 p1 = vec4(node_max.x + temp, 2, node_min.y - temp, 1);
-			vec4 p2 = vec4(node_max.x + temp, 3, node_max.y + temp, 1);
-			vec4 p3 = vec4(node_min.x - temp, 4, node_max.y + temp, 1);
+			vec4 p0 = vec4(min.x, 1, min.y, 1);
+			vec4 p1 = vec4(max.x, 2, min.y, 1);
+			vec4 p2 = vec4(max.x, 3, max.y, 1);
+			vec4 p3 = vec4(min.x, 4, max.y, 1);
 
-			node.positions[0] = p0;
-			node.positions[1] = p1;
-			node.positions[2] = p2;
-			node.positions[3] = p3;
+			g.positions[0] = p0;
+			g.positions[1] = p1;
+			g.positions[2] = p2;
+			g.positions[3] = p3;
 
-			node.indices[0] = 0;
-			node.indices[1] = 1;
-			node.indices[2] = 2;
-			node.indices[3] = 2;
-			node.indices[4] = 3;
-			node.indices[5] = 0;
+			g.indices[0] = 0;
+			g.indices[1] = 1;
+			g.indices[2] = 2;
+			g.indices[3] = 2;
+			g.indices[4] = 3;
+			g.indices[5] = 0;
 
 			const vec2 P = vec2(p0.x, p0.z);
 			const vec2 Q = vec2(p1.x, p1.z);
 			const vec2 R = vec2(p2.x, p2.z);
 			const vec2 S = vec2(p3.x, p3.z);
-			node.triangles[0].circumcentre = find_circum_center(P, Q, R);
-			node.triangles[0].circumradius2 = find_circum_radius_squared(P, Q, R);
-			node.triangles[1].circumcentre = find_circum_center(R, S, P);
-			node.triangles[1].circumradius2 = find_circum_radius_squared(R, S, P);
+			g.triangles[0].circumcentre = find_circum_center(P, Q, R);
+			g.triangles[0].circumradius2 = find_circum_radius_squared(P, Q, R);
+			g.triangles[1].circumcentre = find_circum_center(R, S, P);
+			g.triangles[1].circumradius2 = find_circum_radius_squared(R, S, P);
 
-			node.triangle_connections[0 + 0] = INVALID;
-			node.triangle_connections[0 + 1] = INVALID;
-			node.triangle_connections[0 + 2] = 1;
-			node.triangle_connections[3 + 0] = INVALID;
-			node.triangle_connections[3 + 1] = INVALID;
-			node.triangle_connections[3 + 2] = 0;
-
-			if (HARDCORE_DEBUG)	// Super triangles
-			{
-				cputri::debug_lines.push_back(std::vector<vec3>());
-				cputri::debug_lines.back().push_back(vec3(p0) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(p1) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-
-				cputri::debug_lines.back().push_back(vec3(p1) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(p2) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-
-				cputri::debug_lines.back().push_back(vec3(p2) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(p0) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-
-				cputri::debug_lines.back().push_back(vec3(p2) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(p3) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-
-				cputri::debug_lines.back().push_back(vec3(p3) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(p0) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-
-				cputri::debug_lines.back().push_back(vec3(p0) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(p2) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-			}
+			g.triangle_connections[0 + 0] = UNKNOWN;
+			g.triangle_connections[0 + 1] = UNKNOWN;
+			g.triangle_connections[0 + 2] = 1;
+			g.triangle_connections[3 + 0] = UNKNOWN;
+			g.triangle_connections[3 + 1] = UNKNOWN;
+			g.triangle_connections[3 + 2] = 0;
 		}
 
-		if (HARDCORE_DEBUG)	// Static points
+		if (HARDCORE_DEBUG) // Supertris
 		{
 			cputri::debug_lines.push_back(std::vector<vec3>());
-		}
 
-		// Generate static positions
-		for (uint i = 0; i < GRID_SIDE * GRID_SIDE; ++i)
-		{
-			float x = min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * side + (side / GRID_SIDE) * 0.5f * ((i / GRID_SIDE) % 2);
-			float z = min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * side;
-
-			if ((i % GRID_SIDE) / float(GRID_SIDE - 1) == 0)
-				x = min.x;
-			else if ((i % GRID_SIDE) / float(GRID_SIDE - 1) > 0.99f)
-				x = max.x;
-
-			node.new_points[i] = vec4(x, -terrain(vec2(x, z)) - 0.5, z, curvature(vec3(x, 0.0f, z), log_filter));
-			node.new_points_triangles[i] = 0;
-
-			if (HARDCORE_DEBUG) // Static points
+			for (uint i = 0; i < g.gen_index_count; i += 3)
 			{
-				cputri::debug_lines.back().push_back(vec3(node.new_points[i]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(node.new_points[i]) + vec3(0, -2000, 0));
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-			}
-		}
+				vec3 p0 = g.positions[0];
+				vec3 p1 = g.positions[1];
+				vec3 p2 = g.positions[2];
+				vec3 p3 = g.positions[3];
 
-		// Triangles
+				cputri::debug_lines.back().push_back(p0);
+				cputri::debug_lines.back().push_back(p1);
+				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
-		const int nodes_per_side = 1 << quadtree_levels;
+				cputri::debug_lines.back().push_back(p1);
+				cputri::debug_lines.back().push_back(p2);
+				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
-		const int cx = int((node_min.x - tb->quadtree_min.x + 1) / side);  // current node x
-		const int cy = int((node_min.y - tb->quadtree_min.y + 1) / side);  // current node z/y
+				cputri::debug_lines.back().push_back(p2);
+				cputri::debug_lines.back().push_back(p3);
+				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
-		if (HARDCORE_DEBUG)	// Dynamic valid points
-		{
-			cputri::debug_lines.push_back(std::vector<vec3>());
-		}
-		for (int y = -1; y <= 1; ++y)
-		{
-			for (int x = -1; x <= 1; ++x)
-			{
-				const int nx = cx + x;
-				const int ny = cy + y;
-				// Check if valid node
-				if (nx >= 0 && nx < nodes_per_side && ny >= 0 && ny < nodes_per_side)
+				cputri::debug_lines.back().push_back(p0);
+				cputri::debug_lines.back().push_back(p3);
+				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
+
+				cputri::debug_lines.back().push_back(p1);
+				cputri::debug_lines.back().push_back(p3);
+				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
+
+				const uint steps = 20;
+				const float angle = 3.14159265f * 2.0f / steps;
+				for (uint jj = 0; jj < steps + 1; ++jj)
 				{
-					const uint neighbour_index = tb->quadtree_index_map[ny * nodes_per_side + nx];
-					if (neighbour_index == INVALID || tb->data[neighbour_index].is_invalid || (x == 0 && y == 0))
+					float cc_radius = sqrt(g.triangles[i].circumradius2);
+					vec3 cc_mid = { g.triangles[i].circumcentre.x, 0, g.triangles[i].circumcentre.y };
+
+					cputri::debug_lines.back().push_back(cc_mid + vec3(sinf(angle * jj) * cc_radius, 0.0f, cosf(angle * jj) * cc_radius));
+					cputri::debug_lines.back().push_back(cc_mid + vec3(sinf(angle * (jj + 1)) * cc_radius, 0.0f, cosf(angle * (jj + 1)) * cc_radius));
+					cputri::debug_lines.back().push_back({ 0, 0, 1 });
+				}
+			}
+		}
+
+		// For every node, add static points
+		for (uint nn = 0; nn < num_nodes; ++nn)
+		{
+			// Generate static positions
+			for (uint i = 0; i < GRID_SIDE * GRID_SIDE; ++i)
+			{
+				float x = gen_info[nn].min.x + ((i % GRID_SIDE) / float(GRID_SIDE - 1)) * side + (side / GRID_SIDE) * 0.5f * ((i / GRID_SIDE) % 2);
+				float z = gen_info[nn].min.y + float(i / GRID_SIDE) / float(GRID_SIDE - 1) * side;
+
+				if ((i % GRID_SIDE) / float(GRID_SIDE - 1) == 0)
+					x = gen_info[nn].min.x;
+				else if ((i % GRID_SIDE) / float(GRID_SIDE - 1) > 0.99f)
+					x = gen_info[nn].max.x;
+
+				// If this is the middle point, set is as the start point for this node
+				if (i == (GRID_SIDE * GRID_SIDE) / 2)
+					// +4 for supertriangle points
+					g.gen_starting_points[nn] = 4 + g.gen_new_points_count;	// Before add_supernode_new_point(), which increments g.new_triangle_count
+
+				add_supernode_new_point(vec4(x, -terrain(vec2(x, z)) - 0.5, z, curvature(vec3(x, 0.0f, z), log_filter)), g);
+			}
+		}
+
+		// For every node, add points from neighbours
+		for (uint nn = 0; nn < num_nodes; ++nn)
+		{
+			const int cx = int((gen_info[nn].min.x - tb->quadtree_min.x + 1) / side);  // current node x
+			const int cy = int((gen_info[nn].min.y - tb->quadtree_min.y + 1) / side);  // current node z/y
+
+			for (int y = -1; y <= 1; ++y)
+			{
+				for (int x = -1; x <= 1; ++x)
+				{
+					if (!valid_node_neighbour(tb, cx, cy, x, y) || (x == 0 && y == 0))
 						continue;
 
+					const int nx = cx + x;
+					const int ny = cy + y;
+					const uint neighbour_index = tb->quadtree_index_map[ny * nodes_per_side + nx];
+
 					const uint triangle_count = tb->data[neighbour_index].border_count;
+
 					// Check each border triangle
 					for (uint tt = 0; tt < triangle_count; ++tt)
 					{
@@ -679,122 +701,55 @@ namespace generate
 						// Find the side(s) that actually faces the border (and therefore has an INVALID connection)
 						if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 0] == INVALID - 4 + y * 3 + x)
 						{
-							add_border_point(tb, node_index, neighbour_index, p0, HARDCORE_DEBUG);
-							add_border_point(tb, node_index, neighbour_index, p1, HARDCORE_DEBUG);
+							add_supernode_new_point(p0, g);
+							add_supernode_new_point(p1, g);
 						}
 						if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 1] == INVALID - 4 + y * 3 + x)
 						{
-							add_border_point(tb, node_index, neighbour_index, p1, HARDCORE_DEBUG);
-							add_border_point(tb, node_index, neighbour_index, p2, HARDCORE_DEBUG);
+							add_supernode_new_point(p1, g);
+							add_supernode_new_point(p2, g);
 						}
 						if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 2] == INVALID - 4 + y * 3 + x)
 						{
-							add_border_point(tb, node_index, neighbour_index, p2, HARDCORE_DEBUG);
-							add_border_point(tb, node_index, neighbour_index, p0, HARDCORE_DEBUG);
+							add_supernode_new_point(p2, g);
+							add_supernode_new_point(p0, g);
 						}
 					}
 				}
 			}
 		}
 
-		// The number of points which are valid for generated triangles to use
-		// +4 for supertriangle points
-		const uint num_valid_points = node.new_points_count + 4;
-
-		if (HARDCORE_DEBUG)	// Dynamic points
-		{
-			cputri::debug_lines.push_back(std::vector<vec3>());
-		}
-
-		// Check existing neighbour node border triangles and add border points
-		// TODO: Create list of valid nodes instead of checking each time
-		for (int y = -1; y <= 1; ++y)
-		{
-			for (int x = -1; x <= 1; ++x)
-			{
-				const int nx = cx + x;
-				const int ny = cy + y;
-				// Check if valid node
-				if (nx >= 0 && nx < nodes_per_side && ny >= 0 && ny < nodes_per_side)
-				{
-					const uint neighbour_index = tb->quadtree_index_map[ny * nodes_per_side + nx];
-					if (neighbour_index == INVALID || tb->data[neighbour_index].is_invalid || (x == 0 && y == 0))
-						continue;
-
-					const uint triangle_count = tb->data[neighbour_index].border_count;
-					// Check each border triangle
-					for (uint tt = 0; tt < triangle_count; ++tt)
-					{
-						const uint triangle_index = tb->data[neighbour_index].border_triangle_indices[tt];
-						const vec4 p0 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[triangle_index * 3 + 0]];
-						const vec4 p1 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[triangle_index * 3 + 1]];
-						const vec4 p2 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[triangle_index * 3 + 2]];
-
-						// Find the side(s) that actually faces the border (and therefore has an INVALID connection)
-						if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 0] >= INVALID - 9)
-						{
-							add_border_point(tb, node_index, neighbour_index, p0, HARDCORE_DEBUG);
-							add_border_point(tb, node_index, neighbour_index, p1, HARDCORE_DEBUG);
-						}
-						if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 1] >= INVALID - 9)
-						{
-							add_border_point(tb, node_index, neighbour_index, p1, HARDCORE_DEBUG);
-							add_border_point(tb, node_index, neighbour_index, p2, HARDCORE_DEBUG);
-						}
-						if (tb->data[neighbour_index].triangle_connections[triangle_index * 3 + 2] >= INVALID - 9)
-						{
-							add_border_point(tb, node_index, neighbour_index, p2, HARDCORE_DEBUG);
-							add_border_point(tb, node_index, neighbour_index, p0, HARDCORE_DEBUG);
-						}
-					}
-				}
-			}
-		}
-
-		// Triangulation
-		generate_triangulate_shader(tb, g, node_index);
-
-		if (HARDCORE_DEBUG)	// After triangulating
+		if (HARDCORE_DEBUG) // Points
 		{
 			cputri::debug_lines.push_back(std::vector<vec3>());
 
-			for (uint ii = 0; ii < node.index_count; ii += 3)
+			for (uint i = 0; i < g.gen_new_points_count; ++i)
 			{
-				vec3 p[3] = {
-					node.positions[node.indices[ii + 0]],
-					node.positions[node.indices[ii + 1]],
-					node.positions[node.indices[ii + 2]]
-				};
-
-				cputri::debug_lines.back().push_back(vec3(p[0]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(p[1]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-
-				cputri::debug_lines.back().push_back(vec3(p[1]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(p[2]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-
-				cputri::debug_lines.back().push_back(vec3(p[2]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(p[0]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
+				cputri::debug_lines.back().push_back(g.new_points[i]);
+				cputri::debug_lines.back().push_back(vec3(g.new_points[i]) + vec3(0, -500, 0));
+				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 			}
-
 		}
+
+		// Triangulate
+		generate_triangulate_shader(tb, g);
+		g.triangles_removed = 0;
+		g.gen_new_points_count = 0;
 
 		// Find out and mark which triangles are part of the outer triangles/supertriangles
-		const vec4 start_positions[4] = { node.positions[0],
-																			node.positions[1],
-																			node.positions[2],
-																			node.positions[3] };
-		uint triangle_count = node.index_count / 3;
-		g.triangles_removed = 0;
+		const vec4 start_positions[4] = { g.positions[0],
+										  g.positions[1],
+										  g.positions[2],
+										  g.positions[3] };
+
+		uint triangle_count = g.gen_index_count / 3;
 		for (uint tt = 0; tt < triangle_count; ++tt)
 		{
 			// Check each of the three points that make up each triangle
 			bool found = false;
 			for (uint pp = 0; pp < 3 && !found; ++pp)
 			{
-				const vec4 test_point = node.positions[node.indices[tt * 3 + pp]];
+				const vec4 test_point = g.positions[g.indices[tt * 3 + pp]];
 				// Check against all four supertriangle corners
 				for (uint sp = 0; sp < 4; ++sp)
 				{
@@ -810,238 +765,330 @@ namespace generate
 			}
 		}
 
-		// Remove the marked triangles
-		remove_marked_triangles(tb, g, node_index);
-
-		if (HARDCORE_DEBUG)	// After removing supertris
+		if (HARDCORE_DEBUG) // Before removing supertris
 		{
 			cputri::debug_lines.push_back(std::vector<vec3>());
 
-			for (uint ii = 0; ii < node.index_count; ii += 3)
+			for (uint i = 0; i < g.gen_index_count; i += 3)
 			{
-				vec3 p[3] = {
-					node.positions[node.indices[ii + 0]],
-					node.positions[node.indices[ii + 1]],
-					node.positions[node.indices[ii + 2]]
-				};
+				vec3 p0 = g.positions[g.indices[i + 0]];
+				vec3 p1 = g.positions[g.indices[i + 1]];
+				vec3 p2 = g.positions[g.indices[i + 2]];
 
-				cputri::debug_lines.back().push_back(vec3(p[0]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(p[1]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
+				cputri::debug_lines.back().push_back(p0);
+				cputri::debug_lines.back().push_back(p1);
+				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
-				cputri::debug_lines.back().push_back(vec3(p[1]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(p[2]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
+				cputri::debug_lines.back().push_back(p1);
+				cputri::debug_lines.back().push_back(p2);
+				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
-				cputri::debug_lines.back().push_back(vec3(p[2]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(p[0]) + vec3{ 0, -103, 0 });
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
+				cputri::debug_lines.back().push_back(p2);
+				cputri::debug_lines.back().push_back(p0);
+				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 			}
-
 		}
 
-		// Restore borders
-		triangle_count = node.index_count / 3;
-		node.border_count = 0;
-		for (uint tt = 0; tt < triangle_count; ++tt)
+		// Remove the marked triangles
+		remove_marked_triangles(tb, g);
+
+		if (HARDCORE_DEBUG) // After removing supertris
 		{
-			for (uint ss = 0; ss < 3; ++ss)
+			cputri::debug_lines.push_back(std::vector<vec3>());
+
+			for (uint i = 0; i < g.gen_index_count; i += 3)
 			{
-				if (node.triangle_connections[tt * 3 + ss] >= INVALID - 9)
+				vec3 p0 = g.positions[g.indices[i + 0]];
+				vec3 p1 = g.positions[g.indices[i + 1]];
+				vec3 p2 = g.positions[g.indices[i + 2]];
+
+				cputri::debug_lines.back().push_back(p0);
+				cputri::debug_lines.back().push_back(p1);
+				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
+
+				cputri::debug_lines.back().push_back(p1);
+				cputri::debug_lines.back().push_back(p2);
+				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
+
+				cputri::debug_lines.back().push_back(p2);
+				cputri::debug_lines.back().push_back(p0);
+				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
+			}
+		}
+
+		// Fill target array
+		for (uint ind = 0; ind < g.gen_index_count / 3; ++ind)
+		{
+			g.gen_triangle_targets[ind] = INVALID;
+		}
+		g.gen_marked_count = 0;
+
+		// For every node, find starting triangle from starting point and iterate from starting triangle
+		// Stop when reaching neighbour edge
+		// If triangle center is outside node, mark the triangle and stop
+		// Place valid triangles in node
+		for (uint nn = 0; nn < num_nodes; ++nn)
+		{
+			reset_iteration(g);
+
+			TerrainData& node = tb->data[gen_info[nn].index];
+
+			node.index_count = 0;
+			node.vertex_count = 0;
+			node.old_vertex_count = 0;
+			node.border_count = 0;
+			node.new_points_count = 0;
+
+			// Find starting triangle
+			const uint index_count = g.gen_index_count;
+			for (uint ii = 0; ii < index_count; ++ii)
+			{
+				if (g.indices[ii] == g.gen_starting_points[nn])
 				{
-					node.border_triangle_indices[node.border_count++] = tt;
+					g.seen_triangles[g.seen_triangle_count++] = ii / 3;
+					g.triangles_to_test[g.test_count++] = ii / 3;
 					break;
 				}
 			}
-		}
 
-		if (HARDCORE_DEBUG)	// triangles tested
-		{
-			cputri::debug_lines.push_back(std::vector<vec3>());
-		}
-
-		// TODO: How big should these arrays be?
-		uint g_seen_triangles[300];
-		uint g_seen_triangle_count = 0;
-		uint g_triangles_to_test[100];
-		uint g_test_count = 0;
-
-		// A point in the middle of the node (GRID_SIDE must be uneven)
-		// +4 because of supertriangles
-		const uint start_point = 4 + (GRID_SIDE * GRID_SIDE) / 2;
-
-		const uint index_count = node.index_count;
-		for (uint ii = 0; ii < index_count; ++ii)
-		{
-			if (node.indices[ii] == start_point)
+			// Iterate
+			while (g.test_count != 0)
 			{
-				g_seen_triangles[g_seen_triangle_count++] = ii / 3;
-				g_triangles_to_test[g_test_count++] = ii / 3;
-				break;
-			}
-		}
+				const uint test_triangle = g.triangles_to_test[--g.test_count];
+				const vec4 sides[3] = { g.positions[g.indices[test_triangle * 3 + 0]],
+										g.positions[g.indices[test_triangle * 3 + 1]],
+										g.positions[g.indices[test_triangle * 3 + 2]] };
+	
+				const vec3 test_middle = (vec3(sides[0]) + vec3(sides[1]) + vec3(sides[2])) / 3.0f;
 
-		if (HARDCORE_DEBUG)
-		{
-			const vec4 sides[3] = { node.positions[node.indices[g_seen_triangles[0] * 3 + 0]],
-																node.positions[node.indices[g_seen_triangles[0] * 3 + 1]],
-																node.positions[node.indices[g_seen_triangles[0] * 3 + 2]] };
-			vec3 mid = (vec3(sides[0]) + vec3(sides[1]) + vec3(sides[2])) / 3.0f;
-			cputri::debug_lines.back().push_back(mid + vec3(0, -103, 0));
-			cputri::debug_lines.back().push_back(mid + vec3(0, -153, 0));
-			cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-		}
-
-#ifdef  _DEBUG
-		if (g_test_count == 0)
-		{
-			__debugbreak();
-		}
-#endif //  _DEBUG
-
-		g.triangles_removed = 0;
-
-		while (g_test_count != 0)
-		{
-			// If this triangle is not valid, iteration should not continue
-			bool triangle_valid = false;
-
-			const uint test_triangle = g_triangles_to_test[--g_test_count];
-
-			const uint inds[3] = { node.indices[test_triangle * 3 + 0], 
-				node.indices[test_triangle * 3 + 1], 
-				node.indices[test_triangle * 3 + 2] };
-
-			const vec4 sides[3] = { node.positions[inds[0]],
-									node.positions[inds[1]],
-									node.positions[inds[2]] };
-
-			const vec3 test_middle = (vec3(sides[0]) + vec3(sides[1]) + vec3(sides[2])) / 3.0f;
-
-
-
-			if (HARDCORE_DEBUG)
-			{
-				cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -103, 0));
-				cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -103, 0));
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-
-				cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -103, 0));
-				cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -103, 0));
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-
-				cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -103, 0));
-				cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -103, 0));
-				cputri::debug_lines.back().push_back(vec3(0.0f, 1.0f, 0.5f));
-			}
-
-			uint triangles_to_add[3];
-			uint triangles_to_add_count = 0;
-
-			if (inds[0] < num_valid_points &&
-				inds[1] < num_valid_points &&
-				inds[2] < num_valid_points)
-				triangle_valid = true;
-
-			// For each side of the triangle
-			for (uint ss = 0; ss < 3 && triangle_valid; ++ss)
-			{
-				bool found = false;
-				vec4 e1p1 = sides[ss];
-				vec4 e1p2 = sides[(ss + 1) % 3];
-
-				// Check each neighbour node
-				for (int y = -1; y <= 1 && !found; ++y)
+				if (test_middle.x < gen_info[nn].min.x || test_middle.x > gen_info[nn].max.x ||
+					test_middle.z < gen_info[nn].min.y || test_middle.z > gen_info[nn].max.y)
 				{
-					for (int x = -1; x <= 1 && !found; ++x)
+					g.gen_marked_triangles[g.gen_marked_count].gen_index = test_triangle;
+					g.gen_marked_triangles[g.gen_marked_count].node = nn;
+					++g.gen_marked_count;
+					continue;
+				}
+	
+				uint triangles_to_add[3];
+				uint triangles_to_add_count = 0;
+	
+				// For each side of the triangle
+				for (uint ss = 0; ss < 3; ++ss)
+				{
+					bool found = false;
+					vec4 e1p1 = sides[ss];
+					vec4 e1p2 = sides[(ss + 1) % 3];
+	
+					// Check each neighbour node
+					for (int y = -1; y <= 1 && !found; ++y)
 					{
-						// Skip self
-						if (x == 0 && y == 0)
-							continue;
-
-						const int nx = cx + x;
-						const int ny = cy + y;
-						// Check if valid node
-						if (nx >= 0 && nx < nodes_per_side && ny >= 0 && ny < nodes_per_side)
+						for (int x = -1; x <= 1 && !found; ++x)
 						{
-							const uint neighbour_index = tb->quadtree_index_map[ny * nodes_per_side + nx];
-							if (neighbour_index == INVALID || tb->data[neighbour_index].is_invalid)
+							// Skip self
+							if (x == 0 && y == 0)
 								continue;
+	
+							const int nx = gen_info[nn].x + x;
+							const int ny = gen_info[nn].y + y;
 
-							const uint triangle_count = tb->data[neighbour_index].border_count;
-							// Check each border triangle
-							for (uint tt = 0; tt < triangle_count && !found; ++tt)
+							if (valid_node_neighbour(tb, gen_info[nn].x, gen_info[nn].y, x, y))
 							{
-								const uint border_triangle_index = tb->data[neighbour_index].border_triangle_indices[tt];
+								const uint neighbour_index = tb->quadtree_index_map[ny * nodes_per_side + nx];
+								const TerrainData& neighbour = tb->data[neighbour_index];
+								const uint triangle_count = tb->data[gen_info[nn].index].border_count;
 
-								const vec4 e2p0 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[border_triangle_index * 3 + 0]];
-								const vec4 e2p1 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[border_triangle_index * 3 + 1]];
-								const vec4 e2p2 = tb->data[neighbour_index].positions[tb->data[neighbour_index].indices[border_triangle_index * 3 + 2]];
-								const vec4 neighbour_middle = (e2p0 + e2p1 + e2p2) / 3.f;
-
-								uint local_neighbour_index = (y + 1) * 3 + x + 1;
-
-								// Neighbour edge needs to point to current node to be valid
-								uint required_connection = INVALID - (8 - local_neighbour_index);
-
-								// Test if current edge matches neighbour triangle edge
-								if (is_same_edge(tb, e1p1, e1p2, test_middle, e2p0, e2p1, neighbour_middle, neighbour_index, border_triangle_index * 3 + 0, required_connection, triangle_valid)
-									|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p1, e2p2, neighbour_middle, neighbour_index, border_triangle_index * 3 + 1, required_connection, triangle_valid)
-									|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p2, e2p0, neighbour_middle, neighbour_index, border_triangle_index * 3 + 2, required_connection, triangle_valid))
+								// Check each border triangle
+								for (uint tt = 0; tt < triangle_count && !found; ++tt)
 								{
-									if (triangle_valid)
+									const uint border_triangle_index = neighbour.border_triangle_indices[tt];
+
+									const vec4 e2p0 = neighbour.positions[neighbour.indices[border_triangle_index * 3 + 0]];
+									const vec4 e2p1 = neighbour.positions[neighbour.indices[border_triangle_index * 3 + 1]];
+									const vec4 e2p2 = neighbour.positions[neighbour.indices[border_triangle_index * 3 + 2]];
+									const vec4 neighbour_middle = (e2p0 + e2p1 + e2p2) / 3.f;
+
+									uint local_neighbour_index = (y + 1) * 3 + x + 1;
+
+									// Neighbour edge needs to point to current node to be valid
+									uint required_connection = INVALID - (8 - local_neighbour_index);
+
+									// Test if current edge matches neighbour triangle edge
+									if (is_same_edge(tb, e1p1, e1p2, test_middle, e2p0, e2p1, neighbour_middle, neighbour_index, border_triangle_index * 3 + 0, required_connection)
+										|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p1, e2p2, neighbour_middle, neighbour_index, border_triangle_index * 3 + 1, required_connection)
+										|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p2, e2p0, neighbour_middle, neighbour_index, border_triangle_index * 3 + 2, required_connection))
 									{
-										// Set connection of tested triangle to point to tested neighbour node
-										node.triangle_connections[test_triangle * 3 + ss] = INVALID - (4 + y * 3 + x);
+										//// Set connection of tested triangle to point to tested neighbour node
+										//g.triangle_connections[test_triangle * 3 + ss] = INVALID - (4 + y * 3 + x);
+
+										found = true;
 									}
-
-									found = true;
-								}
-
-								if (!triangle_valid && HARDCORE_DEBUG)
-								{
-									cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
-									cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
-									cputri::debug_lines.back().push_back(vec3(1.0f, 1.0f, 0.0f));
-
-									cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
-									cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
-									cputri::debug_lines.back().push_back(vec3(1.0f, 1.0f, 0.0f));
-
-									cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
-									cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
-									cputri::debug_lines.back().push_back(vec3(1.0f, 1.0f, 0.0f));
 								}
 							}
 						}
 					}
-				}
-
-				// If no matching border was found, neighbour triangle should be tested as well
-				if (!found)
-				{
-					uint neighbour = node.triangle_connections[test_triangle * 3 + ss];
-
-					if (neighbour < INVALID - 9)
+	
+					// If no matching border was found, neighbour triangle should be tested as well
+					if (!found)
 					{
-						triangles_to_add[triangles_to_add_count] = neighbour;
-						++triangles_to_add_count;
+						uint neighbour = g.triangle_connections[test_triangle * 3 + ss];
+	
+						if (neighbour < INVALID - 9)
+						{
+							triangles_to_add[triangles_to_add_count] = neighbour;
+							++triangles_to_add_count;
+						}
 					}
 				}
+		
+				// Test added triangles
+				for (uint ii = 0; ii < triangles_to_add_count; ii++)
+				{
+					bool already_tested = false;
+	
+					for (uint seen = 0; seen < g.seen_triangle_count; seen++)
+					{
+						if (g.seen_triangles[seen] == triangles_to_add[ii])
+						{
+							already_tested = true;
+							break;
+						}
+					}
+	
+					if (!already_tested)
+					{
+						g.seen_triangles[g.seen_triangle_count] = triangles_to_add[ii];
+						++g.seen_triangle_count;
+						g.triangles_to_test[g.test_count] = triangles_to_add[ii];
+						++g.test_count;
+					}
+				}
+
+				// Add tested triangle to node
+				const uint new_index = node.index_count;
+				node.indices[new_index + 0] = get_index_of_point(node, sides[0]);
+				node.indices[new_index + 1] = get_index_of_point(node, sides[1]);
+				node.indices[new_index + 2] = get_index_of_point(node, sides[2]);
+				node.index_count += 3;
+
+				g.gen_triangle_targets[test_triangle] = nn;
+				g.gen_triangle_new_indices[test_triangle] = new_index / 3;
 			}
+		}
 
+		// Iterate from marked triangles
+		// Stop when reaching neighbour edge
+		// This handles remaining marked triangles
+		// Place valid triangles in node
+		for (uint mm = 0; mm < g.gen_marked_count; ++mm)
+		{
+			reset_iteration(g);
 
+			TerrainData& node = tb->data[gen_info[g.gen_marked_triangles[mm].node].index];
 
-			// Test added triangles
-			if (triangle_valid)
+			// Index in gen_info
+			uint gi = g.gen_marked_triangles[mm].node;
+
+			// Initialize data
+			g.triangles_to_test[0] = g.gen_marked_triangles[mm].gen_index;
+			g.test_count = 1;
+			g.seen_triangles[0] = g.gen_marked_triangles[mm].gen_index;
+			g.seen_triangle_count = 1;
+
+			// Iterate
+			while (g.test_count != 0)
 			{
+				const uint test_triangle = g.triangles_to_test[--g.test_count];
+				
+				// If this triangle has been placed in a node, skip it
+				if (g.gen_triangle_targets[test_triangle] != INVALID)
+					continue;
+
+				const vec4 sides[3] = { g.positions[g.indices[test_triangle * 3 + 0]],
+										g.positions[g.indices[test_triangle * 3 + 1]],
+										g.positions[g.indices[test_triangle * 3 + 2]] };
+
+				const vec3 test_middle = (vec3(sides[0]) + vec3(sides[1]) + vec3(sides[2])) / 3.0f;
+
+				uint triangles_to_add[3];
+				uint triangles_to_add_count = 0;
+
+				// For each side of the triangle
+				for (uint ss = 0; ss < 3; ++ss)
+				{
+					bool found = false;
+					vec4 e1p1 = sides[ss];
+					vec4 e1p2 = sides[(ss + 1) % 3];
+
+					// Check each neighbour node
+					for (int y = -1; y <= 1 && !found; ++y)
+					{
+						for (int x = -1; x <= 1 && !found; ++x)
+						{
+							// Skip self
+							if (x == 0 && y == 0)
+								continue;
+
+							const int nx = gen_info[gi].x + x;
+							const int ny = gen_info[gi].y + y;
+
+							if (valid_node_neighbour(tb, gen_info[gi].x, gen_info[gi].y, x, y))
+							{
+								const uint neighbour_index = tb->quadtree_index_map[ny * nodes_per_side + nx];
+								const TerrainData& neighbour = tb->data[neighbour_index];
+								const uint triangle_count = tb->data[gen_info[gi].index].border_count;
+
+								// Check each border triangle
+								for (uint tt = 0; tt < triangle_count && !found; ++tt)
+								{
+									const uint border_triangle_index = neighbour.border_triangle_indices[tt];
+
+									const vec4 e2p0 = neighbour.positions[neighbour.indices[border_triangle_index * 3 + 0]];
+									const vec4 e2p1 = neighbour.positions[neighbour.indices[border_triangle_index * 3 + 1]];
+									const vec4 e2p2 = neighbour.positions[neighbour.indices[border_triangle_index * 3 + 2]];
+									const vec4 neighbour_middle = (e2p0 + e2p1 + e2p2) / 3.f;
+
+									uint local_neighbour_index = (y + 1) * 3 + x + 1;
+
+									// Neighbour edge needs to point to current node to be valid
+									uint required_connection = INVALID - (8 - local_neighbour_index);
+
+									// Test if current edge matches neighbour triangle edge
+									if (is_same_edge(tb, e1p1, e1p2, test_middle, e2p0, e2p1, neighbour_middle, neighbour_index, border_triangle_index * 3 + 0, required_connection)
+										|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p1, e2p2, neighbour_middle, neighbour_index, border_triangle_index * 3 + 1, required_connection)
+										|| is_same_edge(tb, e1p1, e1p2, test_middle, e2p2, e2p0, neighbour_middle, neighbour_index, border_triangle_index * 3 + 2, required_connection))
+									{
+										//// Set connection of tested triangle to point to tested neighbour node
+										//g.triangle_connections[test_triangle * 3 + ss] = INVALID - (4 + y * 3 + x);
+
+										found = true;
+									}
+								}
+							}
+						}
+					}
+
+					// If no matching border was found, neighbour triangle should be tested as well
+					if (!found)
+					{
+						uint neighbour = g.triangle_connections[test_triangle * 3 + ss];
+
+						if (neighbour < INVALID - 9)
+						{
+							triangles_to_add[triangles_to_add_count] = neighbour;
+							++triangles_to_add_count;
+						}
+					}
+				}
+
+				// Test added triangles
 				for (uint ii = 0; ii < triangles_to_add_count; ii++)
 				{
 					bool already_tested = false;
 
-					for (uint seen = 0; seen < g_seen_triangle_count; seen++)
+					for (uint seen = 0; seen < g.seen_triangle_count; seen++)
 					{
-						if (g_seen_triangles[seen] == triangles_to_add[ii])
+						if (g.seen_triangles[seen] == triangles_to_add[ii])
 						{
 							already_tested = true;
 							break;
@@ -1050,92 +1097,169 @@ namespace generate
 
 					if (!already_tested)
 					{
-						if (HARDCORE_DEBUG)
-						{
-							const vec4 ns[3] = { node.positions[node.indices[triangles_to_add[ii] * 3 + 0]],
-															node.positions[node.indices[triangles_to_add[ii] * 3 + 1]],
-															node.positions[node.indices[triangles_to_add[ii] * 3 + 2]] };
-
-							const vec3 tm = (vec3(ns[0]) + vec3(ns[1]) + vec3(ns[2])) / 3.0f;
-
-							cputri::debug_lines.back().push_back(vec3(test_middle) + vec3(0, -104, 0));
-							cputri::debug_lines.back().push_back(vec3(tm) + vec3(0, -103, 0));
-							cputri::debug_lines.back().push_back(vec3(0.7f, 1.0f, 0.7f));
-						}
-
-						g_seen_triangles[g_seen_triangle_count] = triangles_to_add[ii];
-						++g_seen_triangle_count;
-						g_triangles_to_test[g_test_count] = triangles_to_add[ii];
-						++g_test_count;
+						g.seen_triangles[g.seen_triangle_count] = triangles_to_add[ii];
+						++g.seen_triangle_count;
+						g.triangles_to_test[g.test_count] = triangles_to_add[ii];
+						++g.test_count;
 					}
 				}
+
+				// Add tested triangle to node
+				const uint new_index = node.index_count;
+				node.indices[new_index + 0] = get_index_of_point(node, sides[0]);
+				node.indices[new_index + 1] = get_index_of_point(node, sides[1]);
+				node.indices[new_index + 2] = get_index_of_point(node, sides[2]);
+				node.index_count += 3;
+
+				g.gen_triangle_targets[test_triangle] = gi;
+				g.gen_triangle_new_indices[test_triangle] = new_index / 3;
 			}
-			else
+		}
+
+		// Reset marked counter
+		g.gen_marked_count = 0;
+
+		// Set node is_invalid to false
+		for (uint nn = 0; nn < num_nodes; ++nn)
+		{
+			tb->data[gen_info[nn].index].is_invalid = false;
+		}
+
+		if (HARDCORE_DEBUG) // Invalid tris
+		{
+			cputri::debug_lines.push_back(std::vector<vec3>());
+		}
+
+		//for (size_t i = 0; i < gen_indices / 3; i++)
+		//{
+		//	g.gen_triangle_targets[i] = 0;
+		//	g.gen_triangle_new_indices[i] = 0;
+		//}
+		for (size_t i = 0; i < 6000 / 3; i++)
+		{
+			g.gen_marked_triangles[i].gen_index = 0;
+			g.gen_marked_triangles[i].node = 0;
+		}
+
+		// For every triangle, set its connections in new node
+		for (uint tri = 0; tri < g.gen_index_count / 3; ++tri)
+		{
+			if (g.gen_triangle_targets[tri] != INVALID)
 			{
-				// Remove this triangle
-				g.triangles_to_remove[g.triangles_removed] = test_triangle;
-				++g.triangles_removed;
+				TerrainData& node = tb->data[g.gen_triangle_targets[tri]];
 
-				// Mark neighbour triangle connections as invalid
-				for (uint tt = 0; tt < 3; ++tt)
+				// Triangle index in new node
+				uint local_index = g.gen_triangle_new_indices[tri];
+
+				// X/Y pos of node
+				int x = gen_info[g.gen_triangle_targets[tri]].x;
+				int y = gen_info[g.gen_triangle_targets[tri]].y;
+
+				// For every connection
+				for (uint cc = 0; cc < 3; ++cc)
 				{
-					const uint triangle_index = node.triangle_connections[test_triangle * 3 + tt];
-					if (triangle_index >= INVALID - 9)
-						continue;
+					uint con = g.triangle_connections[tri * 3 + cc];
 
-					for (uint nt = 0; nt < 3; ++nt)
+					if (con == UNKNOWN)
 					{
-						const uint neighbour_index = node.triangle_connections[triangle_index * 3 + nt];
-						
-						if (neighbour_index == test_triangle)
+						node.triangle_connections[local_index * 3 + cc] = UNKNOWN;
+					}
+					// If connected triangle is in the same node
+					else if (g.gen_triangle_targets[tri] == g.gen_triangle_targets[con])
+					{
+						if (g.gen_triangle_targets[tri] >= num_nodes)
+							bool a = true;
+
+						node.triangle_connections[local_index * 3 + cc] = g.gen_triangle_new_indices[con];
+					}
+					// Else point to node of connected triangle
+					else
+					{
+						// X/Y pos of neighbour node
+						int con_x = gen_info[g.gen_triangle_targets[con]].x;
+						int con_y = gen_info[g.gen_triangle_targets[con]].y;
+
+						int rel_x = con_x - x;
+						int rel_y = con_y - y;
+
+						int neighbour_local_ind = (rel_y + 1) * 3 + rel_x + 1;
+
+						if (neighbour_local_ind < 0 || neighbour_local_ind > 8)
 						{
-							node.triangle_connections[triangle_index * 3 + nt] = UNKNOWN;
+							bool a = false;
 						}
+
+						node.triangle_connections[local_index * 3 + cc] = INVALID - neighbour_local_ind;
 					}
 				}
 			}
+			else if (HARDCORE_DEBUG)
+			{
+				cputri::debug_lines.push_back(std::vector<vec3>());
+
+				vec3 p0 = g.positions[g.indices[tri * 3 + 0]];
+				vec3 p1 = g.positions[g.indices[tri * 3 + 1]];
+				vec3 p2 = g.positions[g.indices[tri * 3 + 2]];
+
+				cputri::debug_lines.back().push_back(p0);
+				cputri::debug_lines.back().push_back(p1);
+				cputri::debug_lines.back().push_back(vec3(1, 0, 0));
+
+				cputri::debug_lines.back().push_back(p1);
+				cputri::debug_lines.back().push_back(p2);
+				cputri::debug_lines.back().push_back(vec3(1, 0, 0));
+
+				cputri::debug_lines.back().push_back(p2);
+				cputri::debug_lines.back().push_back(p0);
+				cputri::debug_lines.back().push_back(vec3(1, 0, 0));
+			}
 		}
 
-		// Find the triangles not seen in the search and mark them for removal
-		for (uint tt = 0; tt < node.index_count / 3; ++tt)
+		// For every node, set border count and border indices
+		for (uint nn = 0; nn < num_nodes; ++nn)
 		{
-			bool seen = false;
+			TerrainData& node = tb->data[gen_info[nn].index];
 
-			for (uint ss = 0; ss < g_seen_triangle_count; ++ss)
+			node.border_count = 0;
+
+			for (uint tri = 0; tri < node.index_count / 3; ++tri)
 			{
-				if (g_seen_triangles[ss] == tt)
+				if (node.triangle_connections[tri * 3 + 0] >= INVALID - 9 ||
+					node.triangle_connections[tri * 3 + 1] >= INVALID - 9 ||
+					node.triangle_connections[tri * 3 + 2] >= INVALID - 9)
 				{
-					seen = true;
-					break;
-				}
-			}
-
-			if (!seen)
-			{
-				g.triangles_to_remove[g.triangles_removed] = tt;
-				++g.triangles_removed;
-			}
-		}
-
-		if (g.triangles_removed > (node.index_count / 3) - 2)
-			std::cout << node_index << "\n";
-
-		// Remove the marked triangles
-		remove_marked_triangles2(tb, g, node_index);
-
-		// Restore borders
-		triangle_count = node.index_count / 3;
-		node.border_count = 0;
-		for (uint tt = 0; tt < triangle_count; ++tt)
-		{
-			for (uint ss = 0; ss < 3; ++ss)
-			{
-				if (node.triangle_connections[tt * 3 + ss] >= INVALID - 9)
-				{
-					node.border_triangle_indices[node.border_count++] = tt;
-					break;
+					node.border_triangle_indices[node.border_count] = tri;
+					++node.border_count;
 				}
 			}
 		}
+	}
+
+	bool valid_node_neighbour(TerrainBuffer* tb, uint cx, uint cy, int x_diff, int y_diff)
+	{
+		int x = int(cx) + x_diff;
+		int y = int(cy) + y_diff;
+
+		if (x >= 0 && y >= 0 && x < (1 << quadtree_levels) && y < (1 << quadtree_levels))
+		{
+			uint index = tb->quadtree_index_map[y * (1 << quadtree_levels) + x];
+
+			if (index != INVALID && !tb->data[index].is_invalid)
+				return true;
+		}
+
+		return false;
+	}
+	void add_supernode_new_point(vec4 p, GlobalData& g)
+	{
+		for (uint pp = 0; pp < g.gen_new_points_count; pp++)
+		{
+			if (p == g.new_points[pp])
+				return;
+		}
+
+		g.new_points[g.gen_new_points_count] = p;
+		g.new_points_triangles[g.gen_new_points_count] = 0;
+		++g.gen_new_points_count;
 	}
 }

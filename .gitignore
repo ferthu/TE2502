@@ -10,6 +10,7 @@
 *.sln.docstates
 output.txt
 *.spv
+pieapp/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

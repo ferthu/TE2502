@@ -362,7 +362,7 @@ void Application::update(const float dt, bool auto_triangulate)
 
 		const int fps = int(1.f / dt);
 		static float running_fps = 0.f;
-		const float a = 0.999f;
+		const float a = 0.98f;
 		running_fps = (a * running_fps) + (1.0f - a) * fps;
 		m_time_to_sample1 -= dt;
 		m_test_run_time += dt;
@@ -454,6 +454,8 @@ void Application::update(const float dt, bool auto_triangulate)
 						<< s.draw_tris << "\t"
 						<< s.new_points << "\n";
 				}
+				
+				out << "\n\n" << m_test_run_time;
 			}
 			out.close();
 			m_is_testing = false;

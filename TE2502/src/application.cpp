@@ -412,7 +412,9 @@ void Application::update(const float dt, bool auto_triangulate)
 		if (!m_is_testing && ImGui::Button("Start"))
 		{
 			m_is_testing = true;
-			std::string path = "testresults\\" + std::string(m_test_name);
+			std::string path = "testresults";
+			CreateDirectory(path.c_str(), NULL);
+			path += "\\" + std::string(m_test_name);
 			CreateDirectory(path.c_str(), NULL);
 
 			m_test_data.clear();

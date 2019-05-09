@@ -9,7 +9,6 @@
 #define HEIGHT 720
 #define WORKGROUP_SIZE 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
-//layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 layout(push_constant) uniform frame_data_t
 {
 	mat4 view;
@@ -18,7 +17,6 @@ layout(push_constant) uniform frame_data_t
 } frame_data;
 
 layout(set = 0, binding = 0, rgba8) uniform image2D image; 
-
 
 
 
@@ -90,7 +88,7 @@ void main(void)
 	if (!ray_march(position, rd, distance))
 	{
 		// Missed scene, now just get the sky value...
-		color = GetSky(rd); //vec3(0.1, 0.15, 0.3);
+		color = GetSky(rd);
 	}
 	else
 	{

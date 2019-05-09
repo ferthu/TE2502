@@ -151,11 +151,6 @@ void main()
 {
 	vec3 camera_pos = frame_data.camera_pos.xyz;
 	float dist = distance(world_pos, camera_pos);
-	if (dist > 1400)
-	{
-		out_color = vec4(PostEffects(vec3(0.1, 0.15, 0.3)), 1);
-		return;
-	}
 	
 	float p = min(.3, .0005 + .00005 * dist*dist);
 	vec3 nor = vec3(0.0, Terrain2(world_pos.xz), 0.0);

@@ -84,6 +84,8 @@ namespace triangulate
 			{
 				if (tb->data[global_node_index].new_points_triangles[ii] == index)
 				{
+					bool found = false;
+
 					// Look through all newly added triangles only
 					for (uint tt = 0; tt < g.new_triangle_index_count[g.owning_node[j]]; ++tt)
 					{
@@ -99,9 +101,13 @@ namespace triangulate
 						if (dx * dx + dy * dy < circumradius2)
 						{
 							tb->data[global_node_index].new_points_triangles[ii] = triangle_index;
+							found = true;
 							break;
 						}
 					}
+
+					if (!found)
+						int a = 0;
 				}
 				else if (tb->data[global_node_index].new_points_triangles[ii] == last_triangle)
 				{
@@ -226,29 +232,26 @@ namespace triangulate
 
 					uint ec = tr * 3;
 					// Edge 0
-					bool biggest_point = p0.y < p1.y;
-					g.edges[ec + 0].p1 = biggest_point ? p0 : p1;
-					g.edges[ec + 0].p2 = !biggest_point ? p0 : p1;
-					g.edges[ec + 0].p1_index = biggest_point ? index0 : index1;
-					g.edges[ec + 0].p2_index = !biggest_point ? index0 : index1;
+					g.edges[ec + 0].p1 = p0;
+					g.edges[ec + 0].p2 = p1;
+					g.edges[ec + 0].p1_index = index0;
+					g.edges[ec + 0].p2_index = index1;
 					g.edges[ec + 0].node_index = local_owner_index;
 					g.edges[ec + 0].connection = tb->data[global_owner_index].triangle_connections[triangle_index * 3 + 0];
 					g.edges[ec + 0].old_triangle_index = triangle_index;
 					// Edge 1
-					biggest_point = p1.y < p2.y;
-					g.edges[ec + 1].p1 = biggest_point ? p1 : p2;
-					g.edges[ec + 1].p2 = !biggest_point ? p1 : p2;
-					g.edges[ec + 1].p1_index = biggest_point ? index1 : index2;
-					g.edges[ec + 1].p2_index = !biggest_point ? index1 : index2;
+					g.edges[ec + 1].p1 = p1;
+					g.edges[ec + 1].p2 = p2;
+					g.edges[ec + 1].p1_index = index1;
+					g.edges[ec + 1].p2_index = index2;
 					g.edges[ec + 1].node_index = local_owner_index;
 					g.edges[ec + 1].connection = tb->data[global_owner_index].triangle_connections[triangle_index * 3 + 1];
 					g.edges[ec + 1].old_triangle_index = triangle_index;
 					// Edge 2
-					biggest_point = p2.y < p0.y;
-					g.edges[ec + 2].p1 = biggest_point ? p2 : p0;
-					g.edges[ec + 2].p2 = !biggest_point ? p2 : p0;
-					g.edges[ec + 2].p1_index = biggest_point ? index2 : index0;
-					g.edges[ec + 2].p2_index = !biggest_point ? index2 : index0;
+					g.edges[ec + 2].p1 = p2;
+					g.edges[ec + 2].p2 = p0;
+					g.edges[ec + 2].p1_index = index2;
+					g.edges[ec + 2].p2_index = index0;
 					g.edges[ec + 2].node_index = local_owner_index;
 					g.edges[ec + 2].connection = tb->data[global_owner_index].triangle_connections[triangle_index * 3 + 2];
 					g.edges[ec + 2].old_triangle_index = triangle_index;
@@ -349,9 +352,11 @@ namespace triangulate
 				bool found = false;
 				for (uint j = 0; j < edge_count; ++j)
 				{
-					if (i != j &&
-						g.edges[i].p1 == g.edges[j].p1 &&
-						g.edges[i].p2 == g.edges[j].p2)
+					if ((i != j) &&
+						(g.edges[i].p1 == g.edges[j].p1 &&
+							g.edges[i].p2 == g.edges[j].p2) || 
+						(g.edges[i].p1 == g.edges[j].p2 &&
+							g.edges[i].p2 == g.edges[j].p1))
 					{
 						// Mark as invalid
 						g.edges[j].p1.y = INVALID_HEIGHT;

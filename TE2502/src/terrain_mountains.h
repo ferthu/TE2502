@@ -3,43 +3,29 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 using namespace glm;
-
-float step(float edge, float x)
-{
-	return (x < edge) ? 0.0f : 1.0f;
-}
-
 #else
-#version 450 core
+#define inline 
+#define static 
 #endif
-
-// INTERFACE:
-// THESE FUNCTIONS NEED TO BE DEFINED
-
-// Given a camera position (ray origin) and ray direction, calculate the color for that ray
-vec3 calc_ray_color(vec3 ro, vec3 rd);
-// Given a position on the plane, return the height for that position
-float terrain(vec2 p);
-
 
 
 
 const float max_view_dist = 350.f;
 
-vec2 add = vec2(1.0, 0.0);
+const vec2 add = vec2(1.0f, 0.0f);
 #define HASHSCALE1 .1031f
 
-const mat2 rotate2D = mat2(1.3623, 1.7531, -1.7131, 1.4623);
+const mat2 rotate2D = mat2(1.3623f, 1.7531f, -1.7131f, 1.4623f);
 
 //// Low-res stuff
-float hash12(vec2 p)
+inline float hash12(vec2 p)
 {
 	vec3 p3 = fract(vec3(p.x, p.y, p.x) * HASHSCALE1);
 	p3 += dot(p3, vec3(p3.y, p3.z, p3.x) + 19.19f);
 	return fract((p3.x + p3.y) * p3.z);
 }
 
-float noise(vec2 x)
+inline float noise(vec2 x)
 {
 	vec2 p = floor(x);
 	vec2 f = fract(x);
@@ -50,17 +36,17 @@ float noise(vec2 x)
 	return res;
 }
 
-float terrain(vec2 p)
+inline float terrain(vec2 p)
 {
 	vec2 pos = p * 0.05f;
 	float w = (noise(pos*.25f)*0.75f + .15f);
-	w = 66.0 * w * w;
-	vec2 dxy = vec2(0.0, 0.0);
-	float f = .0;
+	w = 66.0f * w * w;
+	vec2 dxy = vec2(0.0f, 0.0f);
+	float f = .0f;
 	for (int i = 0; i < 5; i++)
 	{
 		f += w * noise(pos);
-		w = -w * 0.4;
+		w = -w * 0.4f;
 		pos = rotate2D * pos;
 	}
 	float ff = noise(pos*.002f);
@@ -69,7 +55,7 @@ float terrain(vec2 p)
 	return f;
 }
 
-float height_to_surface(vec3 p)
+inline float height_to_surface(vec3 p)
 {
 	float h = terrain(vec2(p.x, p.z));
 
@@ -79,17 +65,17 @@ float height_to_surface(vec3 p)
 ///////
 
 //// High-res stuff
-#define HASHSCALE3 vec3(.1031, .1030, .0973)
-#define HASHSCALE4 vec4(1031, .1030, .0973, .1099)
+#define HASHSCALE3 vec3(.1031f, .1030f, .0973f)
+#define HASHSCALE4 vec4(1031, .1030f, .0973f, .1099f)
 
-vec2 hash22(vec2 p)
+inline vec2 hash22(vec2 p)
 {
 	vec3 p3 = fract(vec3(p.x, p.y, p.x) * HASHSCALE3);
 	p3 += dot(p3, vec3(p3.y, p3.z, p3.x) + 19.19f);
 	return fract((vec2(p3.x, p3.x) + vec2(p3.y, p3.z))*vec2(p3.z, p3.y));
 }
 
-vec2 noise2(vec2 x)
+inline vec2 noise2(vec2 x)
 {
 	vec2 p = floor(x);
 	vec2 f = fract(x);
@@ -102,30 +88,30 @@ vec2 noise2(vec2 x)
 
 //--------------------------------------------------------------------------
 // High def version only used for grabbing normal information.
-float terrain2(vec2 p)
+inline float terrain2(vec2 p)
 {
 	// There's some real magic numbers in here! 
 	// The noise calls add large mountain ranges for more variation over distances...
 	vec2 pos = p * 0.05f;
 	float w = (noise(pos*.25f)*0.75f + .15f);
-	w = 66.0 * w * w;
-	vec2 dxy = vec2(0.0, 0.0);
-	float f = .0;
+	w = 66.0f * w * w;
+	vec2 dxy = vec2(0.0f, 0.0f);
+	float f = .0f;
 	for (int i = 0; i < 5; i++)
 	{
 		f += w * noise(pos);
-		w = -w * 0.4;	//...Flip negative and positive for varition	   
+		w = -w * 0.4f;	//...Flip negative and positive for varition	   
 		pos = rotate2D * pos;
 	}
 	float ff = noise(pos*.002f);
-	f += pow(abs(ff), 5.0)*275. - 5.0;
+	f += pow(abs(ff), 5.0f)*275.f - 5.0f;
 
 
 	// That's the last of the low resolution, now go down further for the Normal data...
 	for (int i = 0; i < 6; i++)
 	{
 		f += w * noise(pos);
-		w = -w * 0.4;
+		w = -w * 0.4f;
 		pos = rotate2D * pos;
 	}
 
@@ -137,19 +123,19 @@ float terrain2(vec2 p)
 
 //// Coloring
 
-vec3 sun_light = normalize(vec3(0.4, 0.4, 0.48));
-vec3 sun_color = vec3(1.0, .9, .83);
-float specular = 0.0;
-float ambient;
+const vec3 sun_light = normalize(vec3(0.4f, 0.4f, 0.48f));
+const vec3 sun_color = vec3(1.0f, .9f, .83f);
+static float specular = 0.0f;
+static float ambient;
 
 // Calculate sun light...
-vec3 do_lighting(vec3 mat, vec3 pos, vec3 normal, vec3 eye_dir, float dis)
+inline vec3 do_lighting(vec3 mat, vec3 pos, vec3 normal, vec3 eye_dir, float dis)
 {
 	float h = dot(sun_light, normal);
 	float c = max(h, 0.0f) + ambient;
 	mat = mat * sun_color * c;
 	// Specular...
-	if (h > 0.0)
+	if (h > 0.0f)
 	{
 		vec3 r = reflect(sun_light, normal);
 		float spec_amount = pow(max(dot(r, normalize(eye_dir)), 0.0f), 3.0f)*specular;
@@ -158,38 +144,39 @@ vec3 do_lighting(vec3 mat, vec3 pos, vec3 normal, vec3 eye_dir, float dis)
 	return mat;
 }
 
-vec3 get_sky(vec3 rd)
+inline vec3 get_sky(vec3 rd)
 {
-	//	float sunAmount = max( dot( rd, sun_light), 0.0 );
-	//	float v = pow(1.0-max(-rd.y,0.0),5.)*.5;
-	//	vec3  sky = vec3(v*sun_color.x*0.4+0.18, v*sun_color.y*0.4+0.22, v*sun_color.z*0.4+.4);
+	//	float sunAmount = max( dot( rd, sun_light), 0.0f );
+	//	float v = pow(1.0f-max(-rd.y,0.0f),5.)*.5f;
+	//	vec3  sky = vec3(v*sun_color.x*0.4f+0.18f, v*sun_color.y*0.4f+0.22f, v*sun_color.z*0.4f+.4f);
 	//	// Wide glare effect...
-	//	sky = sky + sun_color * pow(sunAmount, 6.5)*.32;
+	//	sky = sky + sun_color * pow(sunAmount, 6.5f)*.32f;
 	//	// Actual sun...
-	//	sky = sky+ sun_color * min(pow(sunAmount, 1150.0), .3)*.65;
+	//	sky = sky+ sun_color * min(pow(sunAmount, 1150.0f), .3f)*.65f;
 	//	return sky;
-	return vec3(0.1, 0.15, 0.3);
+	return vec3(0.1f, 0.15f, 0.3f);
 }
 
 // Merge mountains into the sky background for correct disappearance...
-vec3 apply_fog(vec3  rgb, float dis, vec3 dir)
+inline vec3 apply_fog(vec3  rgb, float dis, vec3 dir)
 {
-	float fogAmount = exp(-dis * 0.00005);
+	float fogAmount = exp(-dis * 0.00005f);
 	return mix(get_sky(dir), rgb, fogAmount);
 }
 
 // 
-vec3 surface_color(vec3 pos, vec3 cam_pos, float dist)
+inline vec3 surface_color(vec3 pos, vec3 cam_pos, float dist)
 {
 	vec3 mat;
-	specular = .0;
-	ambient = .1;
+	specular = .0f;
+	ambient = .1f;
 
-	float p = min(.3, .0005 + .00005 * dist*dist);
+	const float dis_sqrd = dist * dist;// Squaring it gives better distance scales.
+	float p = min(.3f, .0005f + .00005f * dis_sqrd);
 	vec2 pos2 = vec2(pos.x, pos.z);
-	vec3 normal = vec3(0.0, terrain2(pos2), 0.0);
-	vec3 v2 = normal - vec3(p, terrain2(pos2 + vec2(p, 0.0)), 0.0);
-	vec3 v3 = normal - vec3(0.0, terrain2(pos2 + vec2(0.0, -p)), -p);
+	vec3 normal = vec3(0.0f, terrain2(pos2), 0.0f);
+	vec3 v2 = normal - vec3(p, terrain2(pos2 + vec2(p, 0.0f)), 0.0f);
+	vec3 v3 = normal - vec3(0.0f, terrain2(pos2 + vec2(0.0f, -p)), -p);
 	normal = cross(v2, v3);
 	normal = normalize(normal);
 
@@ -197,42 +184,41 @@ vec3 surface_color(vec3 pos, vec3 cam_pos, float dist)
 
 	vec3 mat_pos = pos * 2.0f;// ... I had change scale halfway though, this lazy multiply allow me to keep the graphic scales I had
 
-	float f = clamp(noise(vec2(mat_pos.x, mat_pos.z)*.05f), 0.0f, 1.0f);//*10.8;
+	float f = clamp(noise(vec2(mat_pos.x, mat_pos.z)*.05f), 0.0f, 1.0f);//*10.8f;
 	f += noise(vec2(mat_pos.x, mat_pos.z)*.1f + vec2(normal.y, normal.z)*1.08f)*.85f;
-	f *= .55;
-	vec3 m = mix(vec3(.63*f + .2, .7*f + .1, .7*f + .1), vec3(f*.43 + .1, f*.3 + .2, f*.35 + .1), f*.65);
-	mat = m * vec3(f*m.x + .36, f*m.y + .30, f*m.z + .28);
+	f *= .55f;
+	vec3 m = mix(vec3(.63f*f + .2f, .7f*f + .1f, .7f*f + .1f), vec3(f*.43f + .1f, f*.3f + .2f, f*.35f + .1f), f*.65f);
+	mat = m * vec3(f*m.x + .36f, f*m.y + .30f, f*m.z + .28f);
 	// Should have used smoothstep to add colours, but left it using 'if' for sanity...
-	if (normal.y < .5)
+	if (normal.y < .5f)
 	{
 		float v = normal.y;
-		float c = (.5 - normal.y) * 4.0;
+		float c = (.5f - normal.y) * 4.0f;
 		c = clamp(c*c, 0.1f, 1.0f);
-		f = noise(vec2(mat_pos.x*.09f, mat_pos.z*.095f + vec2(mat_pos.y, mat_pos.y)*0.15f));
-		f += noise(vec2(mat_pos.x*2.233, mat_pos.z*2.23))*0.5;
-		mat = mix(mat, vec3(.4*f), c);
-		specular += .1;
+		f = noise(vec2(mat_pos.x*.09f, mat_pos.z*.095f + mat_pos.y*0.15f));
+		f += noise(vec2(mat_pos.x*2.233f, mat_pos.z*2.23f))*0.5f;
+		mat = mix(mat, vec3(.4f*f), c);
+		specular += .1f;
 	}
 
 	// Grass. Use the normal to decide when to plonk grass down...
-	if (normal.y > .65)
+	if (normal.y > .65f)
 	{
-		m = vec3(noise(vec2(mat_pos.x, mat_pos.z)*.023f)*.5 + .15, noise(vec2(mat_pos.x, mat_pos.z)*.03f)*.6 + .25, 0.0);
-		m *= (normal.y - 0.65)*.6;
-		mat = mix(mat, m, clamp((normal.y - .65)*1.3 * (45.35 - mat_pos.y)*0.1, 0.0, 1.0));
+		m = vec3(noise(vec2(mat_pos.x, mat_pos.z)*.023f)*.5f + .15f, noise(vec2(mat_pos.x, mat_pos.z)*.03f)*.6f + .25f, 0.0f);
+		m *= (normal.y - 0.65f)*.6f;
+		mat = mix(mat, m, clamp((normal.y - .65f)*1.3f * (45.35f - mat_pos.y)*0.1f, 0.0f, 1.0f));
 	}
 
 	// Snow topped mountains...
-	if (mat_pos.y > 80.0 && normal.y > .42)
+	if (mat_pos.y > 80.0f && normal.y > .42f)
 	{
-		float snow = clamp((mat_pos.y - 80.0 - noise(vec2(mat_pos.x, mat_pos.z) * .1f)*28.0) * 0.035, 0.0, 1.0);
-		mat = mix(mat, vec3(.7, .7, .8), snow);
+		float snow = clamp((mat_pos.y - 80.0f - noise(vec2(mat_pos.x, mat_pos.z) * .1f)*28.0f) * 0.035f, 0.0f, 1.0f);
+		mat = mix(mat, vec3(.7f, .7f, .8f), snow);
 		specular += snow;
-		ambient += snow * .3;
+		ambient += snow * .3f;
 	}
 
-	const float dis_sqrd = dist * dist;// Squaring it gives better distance scales.
-	do_lighting(mat, pos, normal, dir, dis_sqrd);
+	mat = do_lighting(mat, pos, normal, dir, dis_sqrd);
 
 	mat = apply_fog(mat, dis_sqrd, dir);
 
@@ -240,7 +226,7 @@ vec3 surface_color(vec3 pos, vec3 cam_pos, float dist)
 }
 
 // Some would say, most of the magic is done in post! :D
-vec3 post_effects(vec3 rgb)
+inline vec3 post_effects(vec3 rgb)
 {
 	return (1.0f - exp(-rgb * 6.0f)) * 1.0024f;
 }
@@ -250,35 +236,36 @@ vec3 post_effects(vec3 rgb)
 
 #pragma region ray_march
 //--------------------------------------------------------------------------
-float binary_subdivision(vec3 ro, vec3 rd, vec2 t, int divisions)
+inline float binary_subdivision(vec3 ro, vec3 rd, vec2 t, int divisions)
 {
 	// Home in on the surface by dividing by two and split...
 	float halfway_t;
 
 	for (int i = 0; i < divisions; i++)
 	{
-		halfway_t = dot(t, vec2(.5));
+		halfway_t = dot(t, vec2(.5f));
 		float d = height_to_surface(ro + halfway_t * rd);
-		t = mix(vec2(t.x, halfway_t), vec2(halfway_t, t.y), step(0.5, d));
+		t = mix(vec2(t.x, halfway_t), vec2(halfway_t, t.y), step(0.5f, d));
 	}
 	return halfway_t;
 }
 
 //--------------------------------------------------------------------------
-float ray_march(vec3 ro, vec3 rd)
+inline float ray_march(vec3 ro, vec3 rd)
 {
-	float t = 0.01;
-	float oldT = 0.0;
-	float delta = 0.0;
+	float t = 0.01f;
+	float oldT = 0.0f;
+	float delta = 0.0f;
 	vec2 distances;
+	bool fin = false;
 	while (t < 350)
 	{
-		//if (fin || t > 14000.0) break;
 		vec3 p = ro + t * rd;
-		float h = height_to_surface(p); // ...Get this positions height mapping.
+		float h = height_to_surface(p);
 		// Are we inside, and close enough to fudge a hit?...
-		if (h < 0.5)
+		if (h < 0.5f)
 		{
+			fin = true;
 			distances = vec2(oldT, t);
 			break;
 		}
@@ -286,19 +273,21 @@ float ray_march(vec3 ro, vec3 rd)
 		// and the distance already travelled.
 		// It's a really fiddly compromise between speed and accuracy
 		// Too large a step and the tops of ridges get missed.
-		delta = max(0.1, 0.2*h) + (t*0.0025);
+		delta = max(0.1f, 0.2f*h) + (t*0.0025f);
 		oldT = t;
 		t += delta;
 	}
-	return binary_subdivision(ro, rd, distances, 10);
+	if (fin)
+		return binary_subdivision(ro, rd, distances, 10);
+	return max_view_dist;
 }
 
 
-vec3 calc_ray_color(vec3 ro, vec3 rd)
+inline vec3 calc_ray_color(vec3 ro, vec3 rd)
 {
 	vec3 color;
 	float dist = ray_march(ro, rd);
-	if (dist > max_view_dist)
+	if (dist >= max_view_dist)
 		color = get_sky(rd);
 	else
 	{

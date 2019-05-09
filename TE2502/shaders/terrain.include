@@ -174,7 +174,7 @@ vec3 surface_color(vec3 pos, vec3 normal, float dis, vec3 cam_pos)
 		float v = normal.y;
 		float c = (.5 - normal.y) * 4.0;
 		c = clamp(c*c, 0.1, 1.0);
-		f = noise(vec2(mat_pos.x*.09, mat_pos.z*.095 + mat_pos.yy*0.15));
+		f = noise(vec2(mat_pos.x*.09, mat_pos.z*.095 + mat_pos.y*0.15));
 		f += noise(vec2(mat_pos.x*2.233, mat_pos.z*2.23))*0.5;
 		mat = mix(mat, vec3(.4*f), c);
 		specular += .1;

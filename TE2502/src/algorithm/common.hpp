@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <array>
 
+#include "terrain_interface.h"
+
 using namespace glm;
 typedef uint32_t uint;
 typedef const uint32_t cuint;
@@ -122,17 +124,6 @@ struct Quadtree
 
 void replace_connection_index(TerrainBuffer* tb, cuint node_index, cuint triangle_to_check, cuint index_to_replace, cuint new_value);
 float curvature(vec3 p, float* log_filter);
-
-// TERRAIN STUFF
-float mix(float a, float b, float i);
-float clamp(float a, float min, float max);
-
-const mat2 rotate2D = mat2(1.3623f, 1.7531f, -1.7131f, 1.4623f);
-float hash12(vec2 p);
-float noise(vec2 x);
-float terrain(vec2 p);
-float height_to_surface(vec3 p);
-
 
 void line_from_points(vec2 p1, vec2 p2, float& a, float& b, float& c);
 void perpendicular_bisector_from_line(vec2 p1, vec2 p2, float& a, float& b, float& c);

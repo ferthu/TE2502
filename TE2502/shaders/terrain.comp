@@ -3,7 +3,7 @@
 
 #version 450 core
 
-#include "terrain.include"
+#include "../src/terrain_interface.h"
 
 #define WIDTH 1080
 #define HEIGHT 720
@@ -21,54 +21,6 @@ layout(set = 0, binding = 0, rgba8) uniform image2D image;
 
 
 //--------------------------------------------------------------------------
-float binary_subdivision(in vec3 rO, in vec3 rD, in vec2 t, in int divisions)
-{
-	// Home in on the surface by dividing by two and split...
-	float halfway_t;
-
-	for (int i = 0; i < divisions; i++)
-	{
-		halfway_t = dot(t, vec2(.5));
-		float d = height_to_surface(rO + halfway_t * rD);
-		t = mix(vec2(t.x, halfway_t), vec2(halfway_t, t.y), step(0.5, d));
-	}
-	return halfway_t;
-}
-
-//--------------------------------------------------------------------------
-bool ray_march(in vec3 rO, in vec3 rD, out float resT)
-{
-	float t = 0.01;
-	float oldT = 0.0;
-	float delta = 0.0;
-	bool fin = false;
-	vec2 distances;
-	while (!fin && t < 350)
-	{
-		//if (fin || t > 14000.0) break;
-		vec3 p = rO + t * rD;
-		float h = height_to_surface(p); // ...Get this positions height mapping.
-		// Are we inside, and close enough to fudge a hit?...
-		if (h < 0.5)
-		{
-			fin = true;
-			distances = vec2(oldT, t);
-			break;
-		}
-		// Delta ray advance - a fudge between the height returned
-		// and the distance already travelled.
-		// It's a really fiddly compromise between speed and accuracy
-		// Too large a step and the tops of ridges get missed.
-		delta = max(0.1, 0.2*h) + (t*0.0025);
-		oldT = t;
-		t += delta;
-	}
-	if (fin) resT = binary_subdivision(rO, rD, distances, 10);
-
-	return fin;
-}
-
-//--------------------------------------------------------------------------
 void main(void)
 {
 	if (gl_GlobalInvocationID.x >= WIDTH || gl_GlobalInvocationID.y >= HEIGHT)
@@ -83,31 +35,7 @@ void main(void)
 
 	vec3 position = frame_data.position.xyz;
 
-	vec3 color;
-	float distance;
-	if (!ray_march(position, rd, distance))
-	{
-		// Missed scene, now just get the sky value...
-		color = GetSky(rd);
-	}
-	else
-	{
-		// Get world coordinate of landscape...
-		vec3 pos = position + distance * rd;
-		// Get normal from sampling the high definition height map
-		// Use the distance to sample larger gaps to help stop aliasing...
-		float p = min(.3, .0005 + .00005 * distance*distance);
-		vec3 nor = vec3(0.0, terrain2(pos.xz), 0.0);
-		vec3 v2 = nor - vec3(p, terrain2(pos.xz + vec2(p, 0.0)), 0.0);
-		vec3 v3 = nor - vec3(0.0, terrain2(pos.xz + vec2(0.0, -p)), -p);
-		nor = cross(v2, v3);
-		nor = normalize(nor);
-
-		// Get the colour using all available data...
-		color = surface_color(pos, nor, distance, position);
-	}
-
-	color = post_effects(color);
+	vec3 color = calc_ray_color(position, rd);
 
 	imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(color, 1.0));
 }

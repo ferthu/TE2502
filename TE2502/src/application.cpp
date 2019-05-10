@@ -497,7 +497,14 @@ void Application::update(const float dt, bool auto_triangulate)
 	static float curv_mult = 1.0f;
 	static float threshold = 0.0f;
 
+	// DEBUG
+	static bool debug_generation = true;
+	static int debug_stage = -1;
+
 	static bool refine = false;
+
+	static bool backup = false;
+	static bool restore = false;
 
 	if (m_show_imgui)
 	{
@@ -505,7 +512,7 @@ void Application::update(const float dt, bool auto_triangulate)
 		ImGui::SliderInt("Index", &show_node, -1, 15);
 		ImGui::SliderInt("Vertices per refine", &refine_vertices, 1, 10);
 		ImGui::SliderInt("Refine Node", &refine_node, -1, num_nodes - 1);
-		ImGui::SliderInt("Sideshow", &sideshow_bob, -1, 8);
+		ImGui::SliderInt("Sideshow", &sideshow_bob, -1, 9);
 
 		ImGui::End();
 
@@ -525,6 +532,13 @@ void Application::update(const float dt, bool auto_triangulate)
 		ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 50.0f);
 
 		ImGui::Checkbox("Show Debug", &show_debug);
+
+		ImGui::Checkbox("Debug Generation", &debug_generation);
+		ImGui::SliderInt("Debug Stage", &debug_stage, -1, 15);
+		if (ImGui::Button("Backup"))
+			backup = true;		
+		if (ImGui::Button("Restore"))
+			restore = true;
 		ImGui::End();
 
 		std::vector<std::string> hovered_tris = cputri::get_hovered_tris();
@@ -545,6 +559,17 @@ void Application::update(const float dt, bool auto_triangulate)
 	// If triangulation thread is done, prepare it for another pass
 	if (m_tri_done && m_tri_mutex.try_lock())
 	{
+		if (backup)
+		{
+			cputri::backup();
+			backup = false;
+		}
+		if (restore)
+		{
+			cputri::restore();
+			restore = false;
+		}
+
 		m_tri_done = false;
 
 		m_tri_debug_drawer.new_frame();
@@ -566,6 +591,10 @@ void Application::update(const float dt, bool auto_triangulate)
 		m_tri_data.cc_vp = m_current_camera->get_big_vp();
 		m_tri_data.cc_frustum = m_current_camera->get_frustum();
 
+		// DEBUG
+		m_tri_data.debug_generation = debug_generation;
+		m_tri_data.debug_stage = debug_stage;
+
 		vec2 mouse_pos{0, 0};
 		// Get mouse pos
 		const bool focused = glfwGetWindowAttrib(m_window->get_glfw_window(), GLFW_FOCUSED) != 0;
@@ -577,6 +606,7 @@ void Application::update(const float dt, bool auto_triangulate)
 		}
 
 		int w, h;
+
 		glfwGetWindowSize(m_window->get_glfw_window(), &w, &h);
 		vec2 window_size = vec2(w, h);
 		m_tri_data.mouse_pos = mouse_pos;
@@ -602,6 +632,12 @@ void Application::update(const float dt, bool auto_triangulate)
 		cputri::upload(m_main_queue, m_gpu_buffer, m_cpu_buffer);
 		
 		m_tri_mutex.unlock();
+	}
+	else if (m_show_imgui)
+	{
+		ImGui::Begin("Working");
+		ImGui::Text("Working...");
+		ImGui::End();
 	}
 }
 

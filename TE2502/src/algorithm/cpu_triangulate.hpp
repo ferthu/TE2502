@@ -15,6 +15,8 @@ namespace cputri
 {
 	extern Quadtree quadtree;
 
+	extern std::vector<std::vector<glm::vec3>> debug_lines;
+
 	struct TriData
 	{
 		DebugDrawer* dd;
@@ -46,6 +48,10 @@ namespace cputri
 		float area_mult;
 		float curv_mult;
 		float threshold;
+
+		// DEBUG
+		bool debug_generation;
+		int debug_stage;
 
 		std::mutex* debug_draw_mutex;
 	};
@@ -101,11 +107,17 @@ namespace cputri
 
 	void draw_terrain(TriData* tri_data);
 
-	void intersect(Frustum& frustum, DebugDrawer& dd, glm::vec3 camera_pos);
+	void intersect(Frustum& frustum, DebugDrawer& dd, glm::vec3 camera_pos, TriData* tri_data);
 
 	void intersect(Frustum& frustum, DebugDrawer& dd, AabbXZ aabb, uint level, uint x, uint y);
 
 	int intersect_triangle(glm::vec3 r_o, glm::vec3 r_d, glm::vec3 p0, glm::vec3 p1, glm::vec3 p2, float* t);
+
+	// Save current terrain state
+	void backup();
+
+	// Restore current terrain state
+	void restore();
 
 	// Returns vector of messages indicating hovered triangles
 	std::vector<std::string> get_hovered_tris();

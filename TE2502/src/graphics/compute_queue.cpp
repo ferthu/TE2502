@@ -116,6 +116,24 @@ void ComputeQueue::cmd_copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size
 	vkCmdCopyBuffer(m_command_buffer, src, dst, 1, &buffer_copy);
 }
 
+void ComputeQueue::cmd_copy_image(VkImage src, VkImage dst, VkImageLayout src_layout, VkImageLayout dst_layout, VkExtent3D size)
+{
+	VkImageCopy ic;
+	ic.srcSubresource.mipLevel = 0;
+	ic.srcSubresource.baseArrayLayer = 0;
+	ic.srcSubresource.layerCount = 1;
+	ic.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	ic.dstSubresource.mipLevel = 0;
+	ic.dstSubresource.baseArrayLayer = 0;
+	ic.dstSubresource.layerCount = 1;
+	ic.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	ic.srcOffset = { 0, 0, 0 };
+	ic.dstOffset = { 0, 0, 0 };
+	ic.extent = size;
+
+	vkCmdCopyImage(m_command_buffer, src, src_layout, dst, dst_layout, 1, &ic);
+}
+
 void ComputeQueue::cmd_pipeline_barrier()
 {
 	VkMemoryBarrier barrier;

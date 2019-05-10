@@ -24,7 +24,7 @@
 class Application
 {
 public:
-	Application();
+	Application(uint32_t window_width, uint32_t window_height);
 	virtual ~Application();
 	
 	// Start the "game"-loop
@@ -58,6 +58,9 @@ private:
 
 	// Create Vulkan pipelines
 	void create_pipelines();
+
+	// Save next rendered frames as png images with specified names
+	void snapshot(std::string raster_image_name, std::string raymarch_image_name);
 
 	struct RayMarchFrameData
 	{
@@ -127,6 +130,21 @@ private:
 	GPUBuffer m_gpu_buffer;
 	GPUMemory m_cpu_buffer_memory;
 	GPUBuffer m_cpu_buffer;
+
+	// CPU image data
+	GPUMemory m_cpu_raster_image_memory;
+	GPUMemory m_cpu_ray_march_image_memory;
+	GPUImage m_cpu_raster_image;
+	GPUImage m_cpu_ray_march_image;
+	void* m_raster_data;
+	void* m_ray_march_data;
+	bool m_save_images = false;
+	std::string m_raster_image_name;
+	std::string m_ray_march_image_name;
+
+	// Width/height of swapchain images
+	uint32_t m_window_width;
+	uint32_t m_window_height;
 
 	struct DrawData
 	{

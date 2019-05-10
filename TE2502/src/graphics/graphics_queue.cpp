@@ -135,7 +135,7 @@ void GraphicsQueue::cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& 
 	clear_value[0].color.float32[0] = post_process(0.1f);
 	clear_value[0].color.float32[1] = post_process(0.15f);
 	clear_value[0].color.float32[2] = post_process(0.3f);
-	clear_value[0].color.float32[3] = 0.0f;
+	clear_value[0].color.float32[3] = 1.0f;
 	clear_value[1].color.float32[0] = 0.0f;
 	clear_value[1].color.float32[1] = 0.0f;
 	clear_value[1].color.float32[2] = 0.0f;

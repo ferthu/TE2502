@@ -182,7 +182,7 @@ void Window::create_swapchain()
 	swapchain_create_info.imageArrayLayers = 1;
 	assert(VkImageUsageFlagBits::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT & m_surface_capabilities.supportedUsageFlags);
 	assert(VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT & m_surface_capabilities.supportedUsageFlags);
-	swapchain_create_info.imageUsage = VkImageUsageFlagBits::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT;
+	swapchain_create_info.imageUsage = VkImageUsageFlagBits::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	swapchain_create_info.pQueueFamilyIndices = nullptr;
 	swapchain_create_info.queueFamilyIndexCount = 0;

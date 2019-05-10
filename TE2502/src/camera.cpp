@@ -35,9 +35,9 @@ void Camera::update(const float dt, bool mouse_locked, DebugDrawer& dd)
 	if (glfwGetKey(m_window, GLFW_KEY_D) == GLFW_PRESS)  // Right
 		horiz_dir.x -= 1.f;
 	if (glfwGetKey(m_window, GLFW_KEY_SPACE) == GLFW_PRESS)  // Up
-		up -= 1.f;
-	if (glfwGetKey(m_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)  // Down
 		up += 1.f;
+	if (glfwGetKey(m_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)  // Down
+		up -= 1.f;
 	if (glfwGetKey(m_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)  // Speed up
 		speed_modifier = 1.f;
 
@@ -70,8 +70,8 @@ void Camera::update(const float dt, bool mouse_locked, DebugDrawer& dd)
 	// Update
 
 	// These need to be inverse
-	glm::mat4 camera_rotation = glm::rotate(glm::rotate(glm::mat4(1.0f), -m_pitch, { 1, 0, 0 }), m_yaw, { 0, 1, 0 });
-	glm::mat4 direction_rotation = glm::rotate(glm::rotate(glm::mat4(1.0f), -m_yaw, { 0, 1, 0 }), m_pitch, { 1, 0, 0 });
+	glm::mat4 camera_rotation = glm::rotate(glm::rotate(glm::mat4(1.0f), m_pitch, { 1, 0, 0 }), m_yaw, { 0, 1, 0 });
+	glm::mat4 direction_rotation = glm::rotate(glm::rotate(glm::mat4(1.0f), -m_yaw, { 0, 1, 0 }), -m_pitch, { 1, 0, 0 });
 
 	const glm::vec3 forward_dir = direction_rotation * glm::vec4(0, 0, -1, 0);
 	const glm::vec3 left_dir = direction_rotation * glm::vec4(-1, 0, 0, 0);
@@ -154,7 +154,7 @@ glm::mat4 Camera::calculate_perspective(float horiz_fov_degrees, float n, float 
 	// Note: every line here is a column, not a row
 	glm::mat4 persp;
 	persp[0] = {c / a, 0, 0, 0};
-	persp[1] = {0, c, 0, 0};
+	persp[1] = {0, -c, 0, 0};
 	persp[2] = {0, 0, (f+n)/(f-n), 1};
 	persp[3] = {0, 0, -(2*f*n)/(f-n), 0};
 

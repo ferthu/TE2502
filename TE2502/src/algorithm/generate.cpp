@@ -557,7 +557,7 @@ namespace generate
 			else if ((i % GRID_SIDE) / float(GRID_SIDE - 1) > 0.99f)
 				x = max.x;
 
-			node.new_points[i] = vec4(x, -terrain(vec2(x, z)) - 0.5, z, curvature(vec3(x, 0.0f, z), log_filter));
+			node.new_points[i] = vec4(x, terrain(vec2(x, z)) - 0.5, z, curvature(vec3(x, 0.0f, z), log_filter));
 			node.new_points_triangles[i] = 0;
 		}
 

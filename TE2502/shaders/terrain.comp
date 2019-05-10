@@ -30,12 +30,12 @@ void main(void)
 	const float fov = 90.0;	// In degrees
 	float px = (2 * ((gl_GlobalInvocationID.x + 0.5) / frame_data.screen_size.x) - 1) * tan(fov / 2.0 * deg_to_rad);
 	float py = (2 * ((gl_GlobalInvocationID.y + 0.5) / frame_data.screen_size.y) - 1) * tan(fov / 2.0 * deg_to_rad) * frame_data.screen_size.y / frame_data.screen_size.x;
-	vec3 rd = vec3(px, py, 1);
+	vec3 rd = vec3(px, -py, 1);
 	rd = (frame_data.view * vec4(normalize(rd), 0.0)).xyz;
 
-	vec3 position = frame_data.position.xyz;
+	vec3 cam_pos = frame_data.position.xyz;
 
-	vec3 color = calc_ray_color(position, rd);
+	vec3 color = calc_ray_color(cam_pos, rd);
 
 	imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(color, 1.0));
 }

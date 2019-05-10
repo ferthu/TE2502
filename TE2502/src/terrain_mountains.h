@@ -10,7 +10,6 @@ using namespace glm;
 
 
 
-const float max_view_dist = 350.f;
 
 const vec2 add = vec2(1.0f, 0.0f);
 #define HASHSCALE1 .1031f
@@ -59,7 +58,7 @@ inline float height_to_surface(vec3 p)
 {
 	float h = terrain(vec2(p.x, p.z));
 
-	return -p.y - h;
+	return p.y - h;
 }
 
 ///////
@@ -158,7 +157,7 @@ inline vec3 get_sky(vec3 rd)
 }
 
 // Merge mountains into the sky background for correct disappearance...
-inline vec3 apply_fog(vec3  rgb, float dis, vec3 dir)
+inline vec3 apply_fog(vec3 rgb, float dis, vec3 dir)
 {
 	float fogAmount = exp(-dis * 0.00005f);
 	return mix(get_sky(dir), rgb, fogAmount);

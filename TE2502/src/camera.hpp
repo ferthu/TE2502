@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include "graphics/debug_drawer.hpp"
 #include "math/geometry.hpp"
+#include "terrain_interface.h"
 
 // Camera with movement
 class Camera
@@ -55,14 +56,14 @@ private:
 	const float m_fast_speed = 300.f;
 	const float m_fov = 90.f;	// Horizontal FOV in degrees
 	const float m_near = 0.05f;
-	const float m_far = 350;
+	const float m_far = max_view_dist;
 	const float m_mouse_sensitivity = 0.01f;
 	const float m_fov_multiplier = 1.2f;	// This value is multiplied by m_fov to get the big frustum FOV
 
 	GLFWwindow* m_window;
 	int m_window_width;
 	int m_window_height;
-	glm::vec3 m_position = glm::vec3(0, -50, 0);
+	glm::vec3 m_position = glm::vec3(0, 50, 0);
 	float m_yaw = 0.f;  // Radians
 	float m_pitch = 0.f;  // Radians
 	glm::mat4 m_view;

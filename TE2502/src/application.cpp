@@ -362,7 +362,7 @@ void Application::update(const float dt, bool auto_triangulate)
 
 		const int fps = int(1.f / dt);
 		static float running_fps = 0.f;
-		const float a = 0.98f;
+		const float a = 0.95f;
 		running_fps = (a * running_fps) + (1.0f - a) * fps;
 		m_time_to_sample1 -= dt;
 		m_test_run_time += dt;

@@ -33,7 +33,7 @@ float curvature(vec3 p, float* log_filter)
 	}
 
 	// Normalize for height
-	curvature -= terrain(vec2(p.x, p.z));
+	curvature += terrain(vec2(p.x, p.z));
 
 	return abs(curvature);
 }

@@ -22,5 +22,7 @@ vec3 surface_color(vec3 pos, vec3 cam_pos, float dist);
 // Apply post processing effects on the final color
 vec3 post_effects(vec3 rgb);
 
+const float max_view_dist = 450.f;
 
-#include "../src/terrain_mountains.h"
+//#include "../src/terrain_mountains.h"
+#include "../src/terrain_rainforest.h"

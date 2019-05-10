@@ -98,7 +98,7 @@ namespace process
 				glm::vec3 new_pos = mix(mid, curv_point, 0.5f);
 
 				// Y position of potential new point
-				float terrain_y = -terrain(glm::vec2(new_pos.x, new_pos.z)) - 0.5f;
+				float terrain_y = terrain(glm::vec2(new_pos.x, new_pos.z)) - 0.5f;
 
 				// Transform terrain_y and curv_point to clip space
 				glm::vec4 clip_terrain_y = vp * glm::vec4(new_pos.x, terrain_y, new_pos.z, 1.0f);

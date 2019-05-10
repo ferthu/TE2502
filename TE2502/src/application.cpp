@@ -14,6 +14,10 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_vulkan.h"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STBI_MSC_SECURE_CRT
+#include "stb_image_write.h"
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <string>
 #include <array>
@@ -32,9 +36,11 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-Application::Application() : 
+Application::Application(uint32_t window_width, uint32_t window_height) :
 	m_tfile("shaders/vars.txt", "shaders/"),
-	m_path_handler("camera_paths.txt")
+	m_path_handler("camera_paths.txt"),
+	m_window_width(window_width),
+	m_window_height(window_height)
 {
 	m_tfile.compile_shaders();
 
@@ -43,13 +49,59 @@ Application::Application() :
 	int err = glfwInit();
 	assert(err == GLFW_TRUE);
 
+	m_main_queue = m_vulkan_context.create_graphics_queue();
+
+	size_t cpu_image_data_size = window_width * window_height * sizeof(uint8_t) * 4;
+
 #ifdef RAY_MARCH_WINDOW
-	m_ray_march_window = new Window(1080, 720, "TE2502 - Ray March", m_vulkan_context, false);
+	m_ray_march_window = new Window(window_width, window_height, "TE2502 - Ray March", m_vulkan_context, false);
 #endif
-	m_window = new Window(1800, 900, "TE2502 - Main", m_vulkan_context, true);
+	m_window = new Window(window_width, window_height, "TE2502 - Main", m_vulkan_context, true);
+
 	m_main_camera = new Camera(m_window->get_glfw_window());
 	m_debug_camera = new Camera(m_window->get_glfw_window());
 	m_current_camera = m_main_camera;
+
+	m_cpu_raster_image_memory = m_vulkan_context.allocate_host_memory(cpu_image_data_size + 2000);
+	m_cpu_ray_march_image_memory = m_vulkan_context.allocate_host_memory(cpu_image_data_size + 2000);
+	m_cpu_raster_image = GPUImage(m_vulkan_context, { window_width, window_height, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, m_cpu_raster_image_memory);
+#ifdef RAY_MARCH_WINDOW
+	m_cpu_ray_march_image = GPUImage(m_vulkan_context, { window_width, window_height, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, m_cpu_ray_march_image_memory);
+#endif
+
+	// Transfer image layouts
+	m_main_queue.start_recording();		
+	
+	m_main_queue.cmd_image_barrier(
+		m_cpu_raster_image.get_image(),
+		0,
+		VK_ACCESS_TRANSFER_READ_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT);
+#ifdef RAY_MARCH_WINDOW
+	m_main_queue.cmd_image_barrier(
+		m_cpu_ray_march_image.get_image(),
+		0,
+		VK_ACCESS_TRANSFER_READ_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_GENERAL,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT);
+#endif
+
+	m_main_queue.end_recording();
+	m_main_queue.submit();
+	m_main_queue.wait();
+
+	// Memory map image data
+	vkMapMemory(m_vulkan_context.get_device(), m_cpu_raster_image.get_memory(), 0, cpu_image_data_size, 0, &m_raster_data);
+#ifdef RAY_MARCH_WINDOW
+	vkMapMemory(m_vulkan_context.get_device(), m_cpu_ray_march_image.get_memory(), 0, cpu_image_data_size, 0, &m_ray_march_data);
+#endif
 
 	m_path_handler.attach_camera(m_main_camera);
 
@@ -82,7 +134,6 @@ Application::Application() :
 	// !Ray marching
 #endif
 
-	m_main_queue = m_vulkan_context.create_graphics_queue();
 
 	glfwSetKeyCallback(m_window->get_glfw_window(), key_callback);
 
@@ -204,8 +255,10 @@ Application::~Application()
 	delete m_debug_camera;
 	delete m_main_camera;
 
+	vkUnmapMemory(m_vulkan_context.get_device(), m_cpu_raster_image.get_memory());
 #ifdef RAY_MARCH_WINDOW
 	delete m_ray_march_window;
+	vkUnmapMemory(m_vulkan_context.get_device(), m_cpu_ray_march_image.get_memory());
 #endif
 
 	delete m_window;
@@ -338,6 +391,8 @@ void Application::run(bool auto_triangulate)
 
 void Application::update(const float dt, bool auto_triangulate)
 {
+	m_save_images = false;
+
 	m_path_handler.update(dt);
 	m_current_camera->update(dt, m_window->get_mouse_locked(), m_debug_drawer);
 
@@ -485,6 +540,9 @@ void Application::update(const float dt, bool auto_triangulate)
 			m_current_sample = Sample();
 		}
 
+		if (ImGui::Button("Snapshot"))
+			snapshot("snapshot_raster.png", "snapshot_ray_march.png");
+
 		ImGui::End();
 	}
 	
@@ -497,7 +555,14 @@ void Application::update(const float dt, bool auto_triangulate)
 	static float curv_mult = 1.0f;
 	static float threshold = 0.0f;
 
+	// DEBUG
+	static bool debug_generation = true;
+	static int debug_stage = -1;
+
 	static bool refine = false;
+
+	static bool backup = false;
+	static bool restore = false;
 
 	if (m_show_imgui)
 	{
@@ -505,7 +570,7 @@ void Application::update(const float dt, bool auto_triangulate)
 		ImGui::SliderInt("Index", &show_node, -1, 15);
 		ImGui::SliderInt("Vertices per refine", &refine_vertices, 1, 10);
 		ImGui::SliderInt("Refine Node", &refine_node, -1, num_nodes - 1);
-		ImGui::SliderInt("Sideshow", &sideshow_bob, -1, 8);
+		ImGui::SliderInt("Sideshow", &sideshow_bob, -1, 9);
 
 		ImGui::End();
 
@@ -525,6 +590,13 @@ void Application::update(const float dt, bool auto_triangulate)
 		ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 50.0f);
 
 		ImGui::Checkbox("Show Debug", &show_debug);
+
+		ImGui::Checkbox("Debug Generation", &debug_generation);
+		ImGui::SliderInt("Debug Stage", &debug_stage, -1, 15);
+		if (ImGui::Button("Backup"))
+			backup = true;		
+		if (ImGui::Button("Restore"))
+			restore = true;
 		ImGui::End();
 
 		std::vector<std::string> hovered_tris = cputri::get_hovered_tris();
@@ -545,6 +617,17 @@ void Application::update(const float dt, bool auto_triangulate)
 	// If triangulation thread is done, prepare it for another pass
 	if (m_tri_done && m_tri_mutex.try_lock())
 	{
+		if (backup)
+		{
+			cputri::backup();
+			backup = false;
+		}
+		if (restore)
+		{
+			cputri::restore();
+			restore = false;
+		}
+
 		m_tri_done = false;
 
 		m_tri_debug_drawer.new_frame();
@@ -566,6 +649,10 @@ void Application::update(const float dt, bool auto_triangulate)
 		m_tri_data.cc_vp = m_current_camera->get_big_vp();
 		m_tri_data.cc_frustum = m_current_camera->get_frustum();
 
+		// DEBUG
+		m_tri_data.debug_generation = debug_generation;
+		m_tri_data.debug_stage = debug_stage;
+
 		vec2 mouse_pos{0, 0};
 		// Get mouse pos
 		const bool focused = glfwGetWindowAttrib(m_window->get_glfw_window(), GLFW_FOCUSED) != 0;
@@ -577,6 +664,7 @@ void Application::update(const float dt, bool auto_triangulate)
 		}
 
 		int w, h;
+
 		glfwGetWindowSize(m_window->get_glfw_window(), &w, &h);
 		vec2 window_size = vec2(w, h);
 		m_tri_data.mouse_pos = mouse_pos;
@@ -603,6 +691,12 @@ void Application::update(const float dt, bool auto_triangulate)
 		
 		m_tri_mutex.unlock();
 	}
+	else if (m_show_imgui)
+	{
+		ImGui::Begin("Working");
+		ImGui::Text("Working...");
+		ImGui::End();
+	}
 }
 
 void Application::draw()
@@ -626,6 +720,43 @@ void Application::draw()
 		m_ray_march_done = false;
 	}
 #endif
+
+	if (m_save_images)
+	{
+		const uint8_t offset = sizeof(uint8_t) * 4 * 8;	// 8 pixel offset
+
+		// Raster
+		uint8_t* raster_image_data = (uint8_t*)m_raster_data + offset;
+
+		// Swap BGRA format to RGBA
+		for (size_t ii = 0; ii < m_window_width * m_window_height; ++ii)
+		{
+			uint8_t temp_b = raster_image_data[ii * 4];
+
+			// B = R
+			raster_image_data[ii * 4] = raster_image_data[ii * 4 + 2];
+			raster_image_data[ii * 4 + 2] = temp_b;
+		}
+
+		stbi_write_png(m_raster_image_name.c_str(), m_window_width, m_window_height, 4, raster_image_data, m_window_width * sizeof(uint8_t) * 4);
+
+#ifdef RAY_MARCH_WINDOW
+		// Ray march
+		uint8_t* ray_march_image_data = (uint8_t*)m_ray_march_data + offset;
+
+		// Swap BGRA format to RGBA
+		for (size_t ii = 0; ii < m_window_width * m_window_height; ++ii)
+		{
+			uint8_t temp_b = ray_march_image_data[ii * 4];
+
+			// B = R
+			ray_march_image_data[ii * 4] = ray_march_image_data[ii * 4 + 2];
+			ray_march_image_data[ii * 4 + 2] = temp_b;
+		}
+
+		stbi_write_png(m_ray_march_image_name.c_str(), m_window_width, m_window_height, 4, ray_march_image_data, m_window_width * sizeof(uint8_t) * 4);
+#endif
+	}
 }
 
 void Application::draw_main()
@@ -808,6 +939,56 @@ void Application::draw_main()
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 	}
 
+	if (m_save_images)
+	{
+		// Transfer CPU image to dst optimal layout
+		m_main_queue.cmd_image_barrier(
+			m_cpu_raster_image.get_image(),
+			0,
+			VK_ACCESS_TRANSFER_READ_BIT,
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+		// Transfer swapchain image
+		m_main_queue.cmd_image_barrier(
+			image,
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_ACCESS_TRANSFER_READ_BIT,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+		m_main_queue.cmd_copy_image(image, m_cpu_raster_image.get_image(), 
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			{ m_window_width, m_window_height, 1 });
+
+		// Transfer CPU image back to general layout
+		m_main_queue.cmd_image_barrier(
+			m_cpu_raster_image.get_image(),
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_HOST_READ_BIT,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_HOST_BIT);
+
+		m_main_queue.cmd_image_barrier(
+			image,
+			VK_ACCESS_TRANSFER_READ_BIT,
+			VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	}
 
 	m_main_queue.end_recording();
 	m_main_queue.submit();
@@ -869,6 +1050,57 @@ void Application::draw_ray_march()
 			m_ray_march_compute_queue.cmd_dispatch(m_ray_march_window->get_size().x / group_size + 1, m_ray_march_window->get_size().y / group_size + 1, 1);
 
 			// end of RENDER------------------
+
+			if (m_save_images)
+			{
+				// Transfer CPU image to dst optimal layout
+				m_ray_march_compute_queue.cmd_image_barrier(
+					m_cpu_ray_march_image.get_image(),
+					0,
+					VK_ACCESS_TRANSFER_READ_BIT,
+					VK_IMAGE_LAYOUT_GENERAL,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					VK_IMAGE_ASPECT_COLOR_BIT,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+				// Transfer swapchain image
+				m_ray_march_compute_queue.cmd_image_barrier(
+					image,
+					VK_ACCESS_SHADER_WRITE_BIT,
+					VK_ACCESS_TRANSFER_READ_BIT,
+					VK_IMAGE_LAYOUT_GENERAL,
+					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					VK_IMAGE_ASPECT_COLOR_BIT,
+					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+				m_ray_march_compute_queue.cmd_copy_image(image, m_cpu_ray_march_image.get_image(),
+					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					{ m_window_width, m_window_height, 1 });
+
+				// Transfer CPU image back to general layout
+				m_ray_march_compute_queue.cmd_image_barrier(
+					m_cpu_ray_march_image.get_image(),
+					VK_ACCESS_TRANSFER_WRITE_BIT,
+					VK_ACCESS_HOST_READ_BIT,
+					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					VK_IMAGE_LAYOUT_GENERAL,
+					VK_IMAGE_ASPECT_COLOR_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					VK_PIPELINE_STAGE_HOST_BIT);
+
+				m_ray_march_compute_queue.cmd_image_barrier(
+					image,
+					VK_ACCESS_TRANSFER_READ_BIT,
+					VK_ACCESS_SHADER_WRITE_BIT,
+					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					VK_IMAGE_LAYOUT_GENERAL,
+					VK_IMAGE_ASPECT_COLOR_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+			}
 
 			m_ray_march_compute_queue.cmd_image_barrier(
 				image,
@@ -1170,4 +1402,11 @@ void Application::create_pipelines()
 		nullptr,
 		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 		VK_POLYGON_MODE_LINE);
+}
+
+void Application::snapshot(std::string raster_image_name, std::string raymarch_image_name)
+{
+	m_save_images = true;
+	m_raster_image_name = raster_image_name;
+	m_ray_march_image_name = raymarch_image_name;
 }

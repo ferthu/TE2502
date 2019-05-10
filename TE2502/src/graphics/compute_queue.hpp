@@ -50,6 +50,8 @@ public:
 
 	void cmd_copy_buffer(VkBuffer src, VkBuffer dst, VkDeviceSize size, VkDeviceSize src_offset = 0, VkDeviceSize dst_offset = 0);
 
+	void cmd_copy_image(VkImage src, VkImage dst, VkImageLayout src_layout, VkImageLayout dst_layout, VkExtent3D size);
+
 	void cmd_pipeline_barrier();
 
 protected:

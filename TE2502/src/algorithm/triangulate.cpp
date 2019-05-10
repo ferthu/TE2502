@@ -1,6 +1,8 @@
 #define NOMINMAX
 #include "algorithm/triangulate.hpp"
+#include "array.hpp"
 #include <iostream>
+
 
 namespace triangulate
 {
@@ -82,6 +84,8 @@ namespace triangulate
 			{
 				if (tb->data[global_node_index].new_points_triangles[ii] == index)
 				{
+					bool found = false;
+
 					// Look through all newly added triangles only
 					for (uint tt = 0; tt < g.new_triangle_index_count[g.owning_node[j]]; ++tt)
 					{
@@ -97,9 +101,13 @@ namespace triangulate
 						if (dx * dx + dy * dy < circumradius2)
 						{
 							tb->data[global_node_index].new_points_triangles[ii] = triangle_index;
+							found = true;
 							break;
 						}
 					}
+
+					if (!found)
+						int a = 0;
 				}
 				else if (tb->data[global_node_index].new_points_triangles[ii] == last_triangle)
 				{
@@ -226,29 +234,26 @@ namespace triangulate
 
 					uint ec = tr * 3;
 					// Edge 0
-					bool biggest_point = p0.y < p1.y;
-					g.edges[ec + 0].p1 = biggest_point ? p0 : p1;
-					g.edges[ec + 0].p2 = !biggest_point ? p0 : p1;
-					g.edges[ec + 0].p1_index = biggest_point ? index0 : index1;
-					g.edges[ec + 0].p2_index = !biggest_point ? index0 : index1;
+					g.edges[ec + 0].p1 = p0;
+					g.edges[ec + 0].p2 = p1;
+					g.edges[ec + 0].p1_index = index0;
+					g.edges[ec + 0].p2_index = index1;
 					g.edges[ec + 0].node_index = local_owner_index;
 					g.edges[ec + 0].connection = tb->data[global_owner_index].triangle_connections[triangle_index * 3 + 0];
 					g.edges[ec + 0].old_triangle_index = triangle_index;
 					// Edge 1
-					biggest_point = p1.y < p2.y;
-					g.edges[ec + 1].p1 = biggest_point ? p1 : p2;
-					g.edges[ec + 1].p2 = !biggest_point ? p1 : p2;
-					g.edges[ec + 1].p1_index = biggest_point ? index1 : index2;
-					g.edges[ec + 1].p2_index = !biggest_point ? index1 : index2;
+					g.edges[ec + 1].p1 = p1;
+					g.edges[ec + 1].p2 = p2;
+					g.edges[ec + 1].p1_index = index1;
+					g.edges[ec + 1].p2_index = index2;
 					g.edges[ec + 1].node_index = local_owner_index;
 					g.edges[ec + 1].connection = tb->data[global_owner_index].triangle_connections[triangle_index * 3 + 1];
 					g.edges[ec + 1].old_triangle_index = triangle_index;
 					// Edge 2
-					biggest_point = p2.y < p0.y;
-					g.edges[ec + 2].p1 = biggest_point ? p2 : p0;
-					g.edges[ec + 2].p2 = !biggest_point ? p2 : p0;
-					g.edges[ec + 2].p1_index = biggest_point ? index2 : index0;
-					g.edges[ec + 2].p2_index = !biggest_point ? index2 : index0;
+					g.edges[ec + 2].p1 = p2;
+					g.edges[ec + 2].p2 = p0;
+					g.edges[ec + 2].p1_index = index2;
+					g.edges[ec + 2].p2_index = index0;
 					g.edges[ec + 2].node_index = local_owner_index;
 					g.edges[ec + 2].connection = tb->data[global_owner_index].triangle_connections[triangle_index * 3 + 2];
 					g.edges[ec + 2].old_triangle_index = triangle_index;
@@ -262,7 +267,7 @@ namespace triangulate
 					{
 						const uint index = tb->data[global_owner_index].triangle_connections[triangle_index * 3 + ss];
 
-						if (index <= INVALID - 9)
+						if (index < INVALID - 9)
 						{
 							if (g.seen_triangle_count >= test_triangle_buffer_size || g.test_count >= test_triangle_buffer_size)
 							{
@@ -304,34 +309,28 @@ namespace triangulate
 							{
 								if (nn != SELF_INDEX)
 								{
-									const vec2 adjusted_max = node_max + vec2(side) * ADJUST_PERCENTAGE;
-									const vec2 adjusted_min = node_min - vec2(side) * ADJUST_PERCENTAGE;
-									if (current_point.x >= adjusted_min.x && current_point.x <= adjusted_max.x
-										&& current_point.z >= adjusted_min.y && current_point.z <= adjusted_max.y)
+									const uint node = g.ltg[nn];
+									if (node != INVALID)
 									{
-										const uint node = g.ltg[nn];
-										if (node != INVALID)
+										const uint triangle_count = tb->data[node].border_count;
+										for (uint tt = 0; tt < triangle_count; ++tt)
 										{
-											const uint triangle_count = tb->data[node].border_count;
-											for (uint tt = 0; tt < triangle_count; ++tt)
+											const uint border_triangle = tb->data[node].border_triangle_indices[tt];
+											const vec2 cc = tb->data[node].triangles[border_triangle].circumcentre;
+											const float cr2 = tb->data[node].triangles[border_triangle].circumradius2;
+
+											const float ddx = current_point.x - cc.x;
+											const float ddy = current_point.z - cc.y;
+
+											if (ddx * ddx + ddy * ddy < cr2)
 											{
-												const uint border_triangle = tb->data[node].border_triangle_indices[tt];
-												const vec2 cc = tb->data[node].triangles[border_triangle].circumcentre;
-												const float cr2 = tb->data[node].triangles[border_triangle].circumradius2;
-
-												const float ddx = current_point.x - cc.x;
-												const float ddy = current_point.z - cc.y;
-
-												if (ddx * ddx + ddy * ddy < cr2)
+												if (g.seen_triangle_count >= test_triangle_buffer_size || g.test_count >= test_triangle_buffer_size)
 												{
-													if (g.seen_triangle_count >= test_triangle_buffer_size || g.test_count >= test_triangle_buffer_size)
-													{
-														finish = true;
-														break;
-													}
-
-													add_connection(g, nn, border_triangle);
+													finish = true;
+													break;
 												}
+
+												add_connection(g, nn, border_triangle);
 											}
 										}
 									}
@@ -355,9 +354,11 @@ namespace triangulate
 				bool found = false;
 				for (uint j = 0; j < edge_count; ++j)
 				{
-					if (i != j &&
-						g.edges[i].p1 == g.edges[j].p1 &&
-						g.edges[i].p2 == g.edges[j].p2)
+					if ((i != j) &&
+						(g.edges[i].p1 == g.edges[j].p1 &&
+							g.edges[i].p2 == g.edges[j].p2) || 
+						(g.edges[i].p1 == g.edges[j].p2 &&
+							g.edges[i].p2 == g.edges[j].p1))
 					{
 						// Mark as invalid
 						g.edges[j].p1.y = INVALID_HEIGHT;
@@ -390,10 +391,10 @@ namespace triangulate
 			const uint MAX_MOVED_POINTS = 10;
 
 			// Array of points moved into other nodes
-			std::array<moved_point, MAX_MOVED_POINTS> moved_points;
+			Array<moved_point, MAX_MOVED_POINTS> moved_points;
 			uint moved_points_count = 0;
 
-			std::array<uint, 9> participating_nodes;
+			Array<uint, 9> participating_nodes;
 			uint participation_count = 0;
 
 			// True if this point should be skipped due to an array being full
@@ -507,7 +508,7 @@ namespace triangulate
 				{
 					bool is_border = false;
 
-					if (g.edges[i].connection <= INVALID - 9)
+					if (g.edges[i].connection < INVALID - 9)
 					{
 						// Check if old neighbour is a border triangle
 						for (uint border = 0; border < 3; ++border)
@@ -604,43 +605,60 @@ namespace triangulate
 						bool p2_found = false;
 
 						// If triangle pointed to another node, update the connection
-						if (g.edges[i].connection >= INVALID - 9)
+						if (g.edges[i].connection >= INVALID - 8)
 						{
-							// Local index of connected node
-							uint connected = uint(int(INVALID - g.edges[i].connection) - (SELF_INDEX - int(old_node_index)));
+							int old_connection = INVALID - g.edges[i].connection;
 
 							// Convert local connection from source node to target node
 							g.edges[i].connection = INVALID - uint(int(INVALID - g.edges[i].connection) + ((int)old_node_index - (int)g.edges[i].node_index));
 
-							// Search through connected node for neighbour triangle and update its connection
-							uint connected_border_count = tb->data[g.ltg[connected]].border_count;
+							// Find global index of source node
+							int old_node_x = cx + ((old_node_index % 3) - 1);
+							int old_node_y = cy + ((old_node_index / 3) - 1);
 
-							// Loop through border triangles of connected to node to find connection
-							bool found_neighbour = false;
-							for (uint c_tri = 0; c_tri < connected_border_count && !found_neighbour; ++c_tri)
+							// Find global index of node pointed to by triangle
+							int connected_node_x = old_node_x + ((old_connection % 3) - 1);
+							int connected_node_y = old_node_y + ((old_connection / 3) - 1);
+
+							if (connected_node_x >= 0 && connected_node_x < nodes_per_side &&
+								connected_node_y >= 0 && connected_node_y < nodes_per_side)
 							{
-								const uint border_index = tb->data[g.ltg[connected]].border_triangle_indices[c_tri];
+								// Global index of connected node
+								uint connected = tb->quadtree_index_map[connected_node_y * nodes_per_side + connected_node_x];
 
-								uint inds[3];
-								inds[0] = tb->data[g.ltg[connected]].indices[border_index * 3 + 0];
-								inds[1] = tb->data[g.ltg[connected]].indices[border_index * 3 + 1];
-								inds[2] = tb->data[g.ltg[connected]].indices[border_index * 3 + 2];
-
-								vec3 p[3];
-								p[0] = tb->data[g.ltg[connected]].positions[inds[0]];
-								p[1] = tb->data[g.ltg[connected]].positions[inds[1]];
-								p[2] = tb->data[g.ltg[connected]].positions[inds[2]];
-
-								// For every edge in border triangle
-								for (uint bb = 0; bb < 3; ++bb)
+								if (connected != INVALID)
 								{
-									if (p[bb] == vec3(g.edges[i].p1) && p[(bb + 1) % 3] == vec3(g.edges[i].p2) ||
-										p[bb] == vec3(g.edges[i].p2) && p[(bb + 1) % 3] == vec3(g.edges[i].p1))
+									// Search through connected node for neighbour triangle and update its connection
+									uint connected_border_count = tb->data[connected].border_count;
+
+									// Loop through border triangles of connected to node to find connection
+									bool found_neighbour = false;
+									for (uint c_tri = 0; c_tri < connected_border_count && !found_neighbour; ++c_tri)
 									{
-										// Set neighbour triangle connection to inverse of moved triangle
-										tb->data[g.ltg[connected]].triangle_connections[border_index * 3 + bb] = INVALID - (8 - (INVALID - g.edges[i].connection));
-										found_neighbour = true;
-										break;
+										const uint border_index = tb->data[connected].border_triangle_indices[c_tri];
+
+										uint inds[3];
+										inds[0] = tb->data[connected].indices[border_index * 3 + 0];
+										inds[1] = tb->data[connected].indices[border_index * 3 + 1];
+										inds[2] = tb->data[connected].indices[border_index * 3 + 2];
+
+										vec3 p[3];
+										p[0] = tb->data[connected].positions[inds[0]];
+										p[1] = tb->data[connected].positions[inds[1]];
+										p[2] = tb->data[connected].positions[inds[2]];
+
+										// For every edge in border triangle
+										for (uint bb = 0; bb < 3; ++bb)
+										{
+											if (p[bb] == vec3(g.edges[i].p1) && p[(bb + 1) % 3] == vec3(g.edges[i].p2) ||
+												p[bb] == vec3(g.edges[i].p2) && p[(bb + 1) % 3] == vec3(g.edges[i].p1))
+											{
+												// Set neighbour triangle connection to inverse of moved triangle
+												tb->data[connected].triangle_connections[border_index * 3 + bb] = INVALID - (8 - (INVALID - g.edges[i].connection));
+												found_neighbour = true;
+												break;
+											}
+										}
 									}
 								}
 							}

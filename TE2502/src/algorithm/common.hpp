@@ -5,6 +5,7 @@
 #include <glm/gtc/constants.hpp>
 #include <algorithm>
 #include <array>
+#include "array.hpp"
 
 #include "terrain_interface.h"
 
@@ -13,6 +14,7 @@ typedef uint32_t uint;
 typedef const uint32_t cuint;
 
 const uint INVALID = ~0u;
+const uint UNKNOWN = INVALID - 9;
 
 const float TERRAIN_GENERATE_TOTAL_SIDE_LENGTH = max_view_dist * 2 + 100;
 constexpr uint TERRAIN_GENERATE_NUM_INDICES = 12000;
@@ -21,7 +23,8 @@ constexpr uint TERRAIN_GENERATE_GRID_SIDE = 5;
 constexpr uint TRIANGULATE_MAX_NEW_POINTS = 1024;
 constexpr uint QUADTREE_LEVELS = 3;
 constexpr uint MAX_BORDER_TRIANGLE_COUNT = 2000;
-constexpr float ADJUST_PERCENTAGE = 0.35f;
+
+static_assert(TERRAIN_GENERATE_GRID_SIDE % 2 == 1, "TERRAIN_GENERATE_GRID_SIDE must be an uneven number.");
 
 constexpr uint num_indices = TERRAIN_GENERATE_NUM_INDICES;
 constexpr uint num_vertices = TERRAIN_GENERATE_NUM_VERTICES;
@@ -42,13 +45,13 @@ struct Triangle
 
 struct TerrainData
 {
-	std::array<uint, TERRAIN_GENERATE_NUM_INDICES> indices;
-	std::array<vec4, TERRAIN_GENERATE_NUM_VERTICES> positions;
-	std::array<Triangle, TERRAIN_GENERATE_NUM_INDICES / 3> triangles;
-	std::array<uint, TERRAIN_GENERATE_NUM_INDICES> triangle_connections;
-	std::array<uint, MAX_BORDER_TRIANGLE_COUNT> border_triangle_indices;
-	std::array<vec4, TRIANGULATE_MAX_NEW_POINTS> new_points;
-	std::array<uint, TRIANGULATE_MAX_NEW_POINTS> new_points_triangles;
+	Array<uint, TERRAIN_GENERATE_NUM_INDICES> indices;
+	Array<vec4, TERRAIN_GENERATE_NUM_VERTICES> positions;
+	Array<Triangle, TERRAIN_GENERATE_NUM_INDICES / 3> triangles;
+	Array<uint, TERRAIN_GENERATE_NUM_INDICES> triangle_connections;
+	Array<uint, MAX_BORDER_TRIANGLE_COUNT> border_triangle_indices;
+	Array<vec4, TRIANGULATE_MAX_NEW_POINTS> new_points;
+	Array<uint, TRIANGULATE_MAX_NEW_POINTS> new_points_triangles;
 
 	bool is_invalid;
 
@@ -72,10 +75,10 @@ const uint quadtree_data_size = (1 << QUADTREE_LEVELS) * (1 << QUADTREE_LEVELS) 
 
 struct TerrainBuffer
 {
-	std::array<uint, (1 << QUADTREE_LEVELS) * (1 << QUADTREE_LEVELS)> quadtree_index_map;
+	Array<uint, (1 << QUADTREE_LEVELS) * (1 << QUADTREE_LEVELS)> quadtree_index_map;
 	vec2 quadtree_min;
 	vec2 quadtree_max;
-	std::array<TerrainData, num_nodes> data;
+	Array<TerrainData, num_nodes> data;
 };
 
 
@@ -84,6 +87,8 @@ struct GenerateInfo
 	vec2 min;
 	vec2 max;
 	uint index;
+	uint x;
+	uint y;
 };
 struct Quadtree
 {

@@ -5,8 +5,6 @@
 
 #include "../src/terrain_interface.h"
 
-#define WIDTH 1080
-#define HEIGHT 720
 #define WORKGROUP_SIZE 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
 layout(push_constant) uniform frame_data_t
@@ -23,7 +21,7 @@ layout(set = 0, binding = 0, rgba8) uniform image2D image;
 //--------------------------------------------------------------------------
 void main(void)
 {
-	if (gl_GlobalInvocationID.x >= WIDTH || gl_GlobalInvocationID.y >= HEIGHT)
+	if (gl_GlobalInvocationID.x >= frame_data.screen_size.x || gl_GlobalInvocationID.y >= frame_data.screen_size.y)
 		return;
 
 	const float deg_to_rad = 3.1415 / 180.0;

@@ -342,7 +342,7 @@ inline vec3 renderSky(vec3 ro, vec3 rd)
 inline vec3 fog(vec3 col, float t, vec3 ro, vec3 rd)
 {
 	vec3 fogCol = renderSky(ro, rd);
-	return mix(col, fogCol, 1.0f - exp(-0.0000001f*t*t*t));
+	return mix(col, fogCol, 1.0f - exp(-0.00000003f*t*t*t));
 }
 
 

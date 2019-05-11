@@ -17,6 +17,7 @@
 #include "tfile.hpp"
 #include "path_handler.hpp"
 #include "algorithm/cpu_triangulate.hpp"
+#include "algorithm/common.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -24,7 +25,7 @@
 class Application
 {
 public:
-	Application(uint32_t window_width, uint32_t window_height);
+	Application(uint32_t window_width, uint32_t window_height, std::vector<std::string> texture_paths);
 	virtual ~Application();
 	
 	// Start the "game"-loop
@@ -61,6 +62,9 @@ private:
 
 	// Save next rendered frames as png images with specified names
 	void snapshot(std::string raster_image_name, std::string raymarch_image_name);
+
+	// Setup terrain textures
+	void terrain_texture_setup(std::vector<std::string>& texture_path_names);
 
 	struct RayMarchFrameData
 	{
@@ -134,13 +138,20 @@ private:
 	// CPU image data
 	GPUMemory m_cpu_raster_image_memory;
 	GPUMemory m_cpu_ray_march_image_memory;
-	GPUImage m_cpu_raster_image;
-	GPUImage m_cpu_ray_march_image;
+	GPUBuffer m_cpu_raster_image;
+	GPUBuffer m_cpu_ray_march_image;
 	void* m_raster_data;
 	void* m_ray_march_data;
 	bool m_save_images = false;
 	std::string m_raster_image_name;
 	std::string m_ray_march_image_name;
+
+	// Textures
+	TerrainTexture m_terrain_textures[max_terrain_textures];
+	GPUMemory m_terrain_image_memory[max_terrain_textures];
+	GPUImage m_terrain_images[max_terrain_textures];
+	ImageView m_terrain_image_views[max_terrain_textures];
+	uint8_t m_default_texture[4];
 
 	// Width/height of swapchain images
 	uint32_t m_window_width;

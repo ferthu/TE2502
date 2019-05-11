@@ -127,6 +127,15 @@ struct Quadtree
 	const float quadtree_shift_distance = TERRAIN_GENERATE_TOTAL_SIDE_LENGTH / 2.f - TERRAIN_GENERATE_TOTAL_SIDE_LENGTH / (1 << quadtree_levels);
 };
 
+const uint32_t max_terrain_textures = 4;
+const uint32_t pixel_size = sizeof(uint8_t) * 4;
+struct TerrainTexture
+{
+	int x;
+	int y;
+	uint8_t* texture_data;
+};
+
 void replace_connection_index(TerrainBuffer* tb, cuint node_index, cuint triangle_to_check, cuint index_to_replace, cuint new_value);
 float curvature(vec3 p, float* log_filter);
 

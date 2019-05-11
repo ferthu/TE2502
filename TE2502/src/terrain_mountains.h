@@ -1,3 +1,6 @@
+// Mountains. By David Hoskins - 2013
+// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+
 #ifdef __cplusplus
 #pragma once
 #include <glm/glm.hpp>

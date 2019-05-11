@@ -18,10 +18,14 @@
 #define STBI_MSC_SECURE_CRT
 #include "stb_image_write.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <string>
 #include <array>
 #include <fstream>
+#include <iostream>
 
 #define RAY_MARCH_WINDOW
 
@@ -36,7 +40,7 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
-Application::Application(uint32_t window_width, uint32_t window_height) :
+Application::Application(uint32_t window_width, uint32_t window_height, std::vector<std::string> texture_paths) :
 	m_tfile("shaders/vars.txt", "shaders/"),
 	m_path_handler("camera_paths.txt"),
 	m_window_width(window_width),
@@ -64,38 +68,10 @@ Application::Application(uint32_t window_width, uint32_t window_height) :
 
 	m_cpu_raster_image_memory = m_vulkan_context.allocate_host_memory(cpu_image_data_size + 2000);
 	m_cpu_ray_march_image_memory = m_vulkan_context.allocate_host_memory(cpu_image_data_size + 2000);
-	m_cpu_raster_image = GPUImage(m_vulkan_context, { window_width, window_height, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, m_cpu_raster_image_memory);
+	m_cpu_raster_image = GPUBuffer(m_vulkan_context, window_width * window_height * pixel_size, VK_IMAGE_USAGE_TRANSFER_DST_BIT, m_cpu_raster_image_memory);
 #ifdef RAY_MARCH_WINDOW
-	m_cpu_ray_march_image = GPUImage(m_vulkan_context, { window_width, window_height, 1 }, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, m_cpu_ray_march_image_memory);
+	m_cpu_ray_march_image = GPUBuffer(m_vulkan_context, window_width * window_height * pixel_size, VK_IMAGE_USAGE_TRANSFER_DST_BIT, m_cpu_ray_march_image_memory);
 #endif
-
-	// Transfer image layouts
-	m_main_queue.start_recording();		
-	
-	m_main_queue.cmd_image_barrier(
-		m_cpu_raster_image.get_image(),
-		0,
-		VK_ACCESS_TRANSFER_READ_BIT,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT);
-#ifdef RAY_MARCH_WINDOW
-	m_main_queue.cmd_image_barrier(
-		m_cpu_ray_march_image.get_image(),
-		0,
-		VK_ACCESS_TRANSFER_READ_BIT,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_GENERAL,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT);
-#endif
-
-	m_main_queue.end_recording();
-	m_main_queue.submit();
-	m_main_queue.wait();
 
 	// Memory map image data
 	vkMapMemory(m_vulkan_context.get_device(), m_cpu_raster_image.get_memory(), 0, cpu_image_data_size, 0, &m_raster_data);
@@ -107,13 +83,20 @@ Application::Application(uint32_t window_width, uint32_t window_height) :
 
 	glfwSetWindowPos(m_window->get_glfw_window(), 100, 100);
 
+	terrain_texture_setup(texture_paths);
+
 #ifdef RAY_MARCH_WINDOW
 	glfwSetWindowPos(m_ray_march_window->get_glfw_window(), 0, 100);
 
-
 	// Ray marching
 	m_ray_march_set_layout = DescriptorSetLayout(m_vulkan_context);
+	// Swapchain buffer
 	m_ray_march_set_layout.add_storage_image(VK_SHADER_STAGE_COMPUTE_BIT);
+	// Terrain textures
+	for (uint32_t ii = 0; ii < max_terrain_textures; ++ii)
+	{
+		m_ray_march_set_layout.add_storage_image(VK_SHADER_STAGE_COMPUTE_BIT);
+	}
 	m_ray_march_set_layout.create();
 
 	m_ray_march_image_descriptor_set = DescriptorSet(m_vulkan_context, m_ray_march_set_layout);
@@ -250,6 +233,15 @@ Application::~Application()
 	{
 		vkDestroySemaphore(m_vulkan_context.get_device(), m_imgui_vulkan_state.done_drawing_semaphores[i], 
 			m_vulkan_context.get_allocation_callbacks());
+	}
+
+	// Free terrain textures
+	for (uint32_t ii = 0; ii < max_terrain_textures; ++ii)
+	{
+		if (m_terrain_textures[ii].texture_data != m_default_texture)
+		{
+			stbi_image_free(m_terrain_textures[ii].texture_data);
+		}
 	}
 
 	delete m_debug_camera;
@@ -723,10 +715,8 @@ void Application::draw()
 
 	if (m_save_images)
 	{
-		const uint8_t offset = sizeof(uint8_t) * 4 * 8;	// 8 pixel offset
-
 		// Raster
-		uint8_t* raster_image_data = (uint8_t*)m_raster_data + offset;
+		uint8_t* raster_image_data = (uint8_t*)m_raster_data;
 
 		// Swap BGRA format to RGBA
 		for (size_t ii = 0; ii < m_window_width * m_window_height; ++ii)
@@ -742,7 +732,7 @@ void Application::draw()
 
 #ifdef RAY_MARCH_WINDOW
 		// Ray march
-		uint8_t* ray_march_image_data = (uint8_t*)m_ray_march_data + offset;
+		uint8_t* ray_march_image_data = (uint8_t*)m_ray_march_data;
 
 		// Swap BGRA format to RGBA
 		for (size_t ii = 0; ii < m_window_width * m_window_height; ++ii)
@@ -941,17 +931,6 @@ void Application::draw_main()
 
 	if (m_save_images)
 	{
-		// Transfer CPU image to dst optimal layout
-		m_main_queue.cmd_image_barrier(
-			m_cpu_raster_image.get_image(),
-			0,
-			VK_ACCESS_TRANSFER_READ_BIT,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT);
-
 		// Transfer swapchain image
 		m_main_queue.cmd_image_barrier(
 			image,
@@ -963,21 +942,10 @@ void Application::draw_main()
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-		m_main_queue.cmd_copy_image(image, m_cpu_raster_image.get_image(), 
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		m_main_queue.cmd_copy_image_to_buffer(m_cpu_raster_image.get_buffer(), 
+			image, 
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 
 			{ m_window_width, m_window_height, 1 });
-
-		// Transfer CPU image back to general layout
-		m_main_queue.cmd_image_barrier(
-			m_cpu_raster_image.get_image(),
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_HOST_READ_BIT,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_HOST_BIT);
 
 		m_main_queue.cmd_image_barrier(
 			image,
@@ -1020,7 +988,14 @@ void Application::draw_ray_march()
 			VkImage image = m_ray_march_window->get_swapchain_image(index);
 
 			m_ray_march_image_descriptor_set.clear();
+			// Swapchain image
 			m_ray_march_image_descriptor_set.add_storage_image(m_ray_march_window->get_swapchain_image_view(index), VK_IMAGE_LAYOUT_GENERAL);
+			// Terrain textures
+			for (uint32_t ii = 0; ii < max_terrain_textures; ++ii)
+			{
+				m_ray_march_image_descriptor_set.add_storage_image(m_terrain_image_views[ii], VK_IMAGE_LAYOUT_GENERAL);
+			}
+
 			m_ray_march_image_descriptor_set.bind();
 
 			m_ray_march_compute_queue.start_recording();
@@ -1053,17 +1028,6 @@ void Application::draw_ray_march()
 
 			if (m_save_images)
 			{
-				// Transfer CPU image to dst optimal layout
-				m_ray_march_compute_queue.cmd_image_barrier(
-					m_cpu_ray_march_image.get_image(),
-					0,
-					VK_ACCESS_TRANSFER_READ_BIT,
-					VK_IMAGE_LAYOUT_GENERAL,
-					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					VK_IMAGE_ASPECT_COLOR_BIT,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-					VK_PIPELINE_STAGE_TRANSFER_BIT);
-
 				// Transfer swapchain image
 				m_ray_march_compute_queue.cmd_image_barrier(
 					image,
@@ -1075,21 +1039,10 @@ void Application::draw_ray_march()
 					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 					VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-				m_ray_march_compute_queue.cmd_copy_image(image, m_cpu_ray_march_image.get_image(),
-					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				m_ray_march_compute_queue.cmd_copy_image_to_buffer(m_cpu_ray_march_image.get_buffer(),
+					image,
+					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0,
 					{ m_window_width, m_window_height, 1 });
-
-				// Transfer CPU image back to general layout
-				m_ray_march_compute_queue.cmd_image_barrier(
-					m_cpu_ray_march_image.get_image(),
-					VK_ACCESS_TRANSFER_WRITE_BIT,
-					VK_ACCESS_HOST_READ_BIT,
-					VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					VK_IMAGE_LAYOUT_GENERAL,
-					VK_IMAGE_ASPECT_COLOR_BIT,
-					VK_PIPELINE_STAGE_TRANSFER_BIT,
-					VK_PIPELINE_STAGE_HOST_BIT);
 
 				m_ray_march_compute_queue.cmd_image_barrier(
 					image,
@@ -1409,4 +1362,112 @@ void Application::snapshot(std::string raster_image_name, std::string raymarch_i
 	m_save_images = true;
 	m_raster_image_name = raster_image_name;
 	m_ray_march_image_name = raymarch_image_name;
+}
+
+void Application::terrain_texture_setup(std::vector<std::string>& texture_path_names)
+{
+	// Setup default texture
+	m_default_texture[0] = 255;
+	m_default_texture[1] = 0;
+	m_default_texture[2] = 255;
+	m_default_texture[3] = 255;
+
+	// Initialize texture data
+	for (uint32_t ii = 0; ii < max_terrain_textures; ++ii)
+	{
+		int comp;
+
+		// Use default texture
+		if (ii >= texture_path_names.size())
+		{
+			m_terrain_textures[ii].texture_data = nullptr;
+		}
+		else
+		{
+			// Load image
+			m_terrain_textures[ii].texture_data = stbi_load(texture_path_names[ii].c_str(), &m_terrain_textures[ii].x, &m_terrain_textures[ii].y, &comp, 4);
+
+			if (m_terrain_textures[ii].texture_data == nullptr)
+			{
+				std::cerr << "Failed to load texture '" << texture_path_names[ii] << "'\n";
+			}
+		}
+
+		// Use default texture
+		if (m_terrain_textures[ii].texture_data == nullptr)
+		{
+			m_terrain_textures[ii].texture_data = m_default_texture;
+			m_terrain_textures[ii].x = 1;
+			m_terrain_textures[ii].y = 1;
+		}
+	}
+
+	// Upload textures to GPU
+	for (uint32_t ii = 0; ii < max_terrain_textures; ++ii)
+	{
+		GPUMemory temp_cpu_texture_mem = m_vulkan_context.allocate_host_memory(pixel_size * m_terrain_textures[ii].x * m_terrain_textures[ii].y + 100000);
+		GPUBuffer temp_cpu_texture = GPUBuffer(m_vulkan_context, m_terrain_textures[ii].x * m_terrain_textures[ii].y * pixel_size,
+			VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+			temp_cpu_texture_mem);
+
+		// Memory map image
+		void* temp_data;
+		vkMapMemory(m_vulkan_context.get_device(), temp_cpu_texture.get_memory(), 0, VK_WHOLE_SIZE, 0, &temp_data);
+
+		// Copy data into CPU image
+		memcpy(temp_data, m_terrain_textures[ii].texture_data, pixel_size * m_terrain_textures[ii].x * m_terrain_textures[ii].y);
+
+
+		// Unmap memory
+		vkUnmapMemory(m_vulkan_context.get_device(), temp_cpu_texture.get_memory());
+
+		// Create GPU image
+		m_terrain_image_memory[ii] = m_vulkan_context.allocate_device_memory(pixel_size * m_terrain_textures[ii].x * m_terrain_textures[ii].y + 3000000);
+		m_terrain_images[ii] = GPUImage(m_vulkan_context,
+			{ (uint32_t)m_terrain_textures[ii].x, (uint32_t)m_terrain_textures[ii].y, 1 },
+			VK_FORMAT_R8G8B8A8_UNORM,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+			m_terrain_image_memory[ii]);
+
+		// Create image view
+		m_terrain_image_views[ii] = ImageView(m_vulkan_context, m_terrain_images[ii], VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+
+		// Copy image to GPU
+		m_main_queue.start_recording();
+
+		// Transfer gpu image layout
+		m_main_queue.cmd_image_barrier(
+			m_terrain_images[ii].get_image(),
+			0,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+		// Copy image
+		m_main_queue.cmd_copy_buffer_to_image(temp_cpu_texture.get_buffer(), 
+			m_terrain_images[ii].get_image(), 
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+			0,
+			{ (uint32_t)m_terrain_textures[ii].x, (uint32_t)m_terrain_textures[ii].y, 1 });
+
+		// Transfer to read only layout
+		m_main_queue.cmd_image_barrier(
+			m_terrain_images[ii].get_image(),
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+
+		m_main_queue.end_recording();
+		m_main_queue.submit();
+		m_main_queue.wait();
+
+	}
 }

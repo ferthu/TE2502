@@ -14,7 +14,8 @@ public:
 		VkFormat format, 
 		VkImageTiling tiling, 
 		VkImageUsageFlags usage, 
-		GPUMemory& memory_heap);
+		GPUMemory& memory_heap,
+		bool preinitialized_layout = false);
 	~GPUImage();
 
 	GPUImage(GPUImage&& other);

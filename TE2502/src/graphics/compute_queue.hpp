@@ -52,6 +52,10 @@ public:
 
 	void cmd_copy_image(VkImage src, VkImage dst, VkImageLayout src_layout, VkImageLayout dst_layout, VkExtent3D size);
 
+	void cmd_copy_buffer_to_image(VkBuffer src, VkImage dst, VkImageLayout dst_layout, uint32_t buffer_offset, VkExtent3D image_size);
+
+	void cmd_copy_image_to_buffer(VkBuffer dst, VkImage src, VkImageLayout src_layout, uint32_t buffer_offset, VkExtent3D image_size);
+
 	void cmd_pipeline_barrier();
 
 protected:

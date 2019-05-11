@@ -5,7 +5,7 @@
 #include "utilities.hpp"
 
 GPUImage::GPUImage(VulkanContext& context, VkExtent3D size, VkFormat format, 
-	VkImageTiling tiling, VkImageUsageFlags usage, GPUMemory& memory_heap)
+	VkImageTiling tiling, VkImageUsageFlags usage, GPUMemory& memory_heap, bool preinitialized_layout)
 	: m_context(&context), m_size(size), m_usage(usage), m_format(format)
 {
 	VkImageCreateInfo image_info;
@@ -23,7 +23,7 @@ GPUImage::GPUImage(VulkanContext& context, VkExtent3D size, VkFormat format,
 	image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	image_info.queueFamilyIndexCount = 0;
 	image_info.pQueueFamilyIndices = nullptr;
-	image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;	// VK_IMAGE_LAYOUT_UNDEFINED and VK_IMAGE_LAYOUT_PREINITIALIZED are allowed
+	image_info.initialLayout = preinitialized_layout ? VK_IMAGE_LAYOUT_PREINITIALIZED : VK_IMAGE_LAYOUT_UNDEFINED;	// VK_IMAGE_LAYOUT_UNDEFINED and VK_IMAGE_LAYOUT_PREINITIALIZED are allowed
 
 	VkResult result = vkCreateImage(context.get_device(), &image_info, context.get_allocation_callbacks(), &m_image);
 

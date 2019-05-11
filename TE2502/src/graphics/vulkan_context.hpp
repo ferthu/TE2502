@@ -182,9 +182,6 @@ private:
 	// Gets queues from device and places them in m_graphics_queue_family etc.
 	void get_queues();
 
-	// Creates command pools for queue families
-	void create_command_pools();
-
 	// Compiles a shader to a SPIR-V binary. Returns the binary as a vector of 32-bit words.
 	//std::vector<char> compile_from_file(const std::string& file_name, shaderc_shader_kind kind);
 
@@ -224,9 +221,7 @@ private:
 	QueueFamily m_compute_queue_family;
 	QueueFamily m_transfer_queue_family;
 
-	VkCommandPool m_graphics_command_pool;
-	VkCommandPool m_compute_command_pool;
-	VkCommandPool m_transfer_command_pool;
+	std::vector<VkCommandPool> m_command_pools;
 
 	VkDescriptorPool m_descriptor_pool;
 

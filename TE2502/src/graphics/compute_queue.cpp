@@ -134,6 +134,38 @@ void ComputeQueue::cmd_copy_image(VkImage src, VkImage dst, VkImageLayout src_la
 	vkCmdCopyImage(m_command_buffer, src, src_layout, dst, dst_layout, 1, &ic);
 }
 
+void ComputeQueue::cmd_copy_buffer_to_image(VkBuffer src, VkImage dst, VkImageLayout dst_layout, uint32_t buffer_offset, VkExtent3D image_size)
+{
+	VkBufferImageCopy imcop;
+	imcop.bufferOffset = buffer_offset;
+	imcop.bufferRowLength = 0;		// Tightly packed
+	imcop.bufferImageHeight = 0;	// Tightly packed
+	imcop.imageSubresource.mipLevel = 0;
+	imcop.imageSubresource.layerCount = 1;
+	imcop.imageSubresource.baseArrayLayer = 0;
+	imcop.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imcop.imageOffset = { 0, 0, 0 };
+	imcop.imageExtent = image_size;
+
+	vkCmdCopyBufferToImage(m_command_buffer, src, dst, dst_layout, 1, &imcop);
+}
+
+void ComputeQueue::cmd_copy_image_to_buffer(VkBuffer dst, VkImage src, VkImageLayout src_layout, uint32_t buffer_offset, VkExtent3D image_size)
+{
+	VkBufferImageCopy imcop;
+	imcop.bufferOffset = buffer_offset;
+	imcop.bufferRowLength = 0;		// Tightly packed
+	imcop.bufferImageHeight = 0;	// Tightly packed
+	imcop.imageSubresource.mipLevel = 0;
+	imcop.imageSubresource.layerCount = 1;
+	imcop.imageSubresource.baseArrayLayer = 0;
+	imcop.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imcop.imageOffset = { 0, 0, 0 };
+	imcop.imageExtent = image_size;
+
+	vkCmdCopyImageToBuffer(m_command_buffer, src, src_layout, dst, 1, &imcop);
+}
+
 void ComputeQueue::cmd_pipeline_barrier()
 {
 	VkMemoryBarrier barrier;

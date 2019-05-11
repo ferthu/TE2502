@@ -778,7 +778,7 @@ namespace generate
 					// +4 for supertriangle points
 					g.gen_starting_points[nn] = 4 + g.gen_new_points_count;	// Before add_supernode_new_point(), which increments g.new_triangle_count
 
-				add_supernode_new_point(vec4(x, terrain(vec2(x, z)) - 0.5, z, curvature(vec3(x, 0.0f, z), log_filter)), g);
+				add_supernode_new_point(vec4(x, terrain(vec2(x, z)), z, curvature(vec3(x, 0.0f, z), log_filter)), g);
 			}
 		}
 

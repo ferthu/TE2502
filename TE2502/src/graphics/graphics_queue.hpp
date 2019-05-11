@@ -50,6 +50,8 @@ public:
 
 	void cmd_end_render_pass();
 
+	void cmd_bind_descriptor_set(VkPipelineLayout layout, uint32_t index, VkDescriptorSet descriptor_set);
+
 
 private:
 	// Move other into this

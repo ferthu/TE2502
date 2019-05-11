@@ -6,6 +6,7 @@
 #include "algorithm/generate.hpp"
 #include "algorithm/process.hpp"
 #include "algorithm/triangulate.hpp"
+#include "algorithm/terrain_texture.hpp"
 #include "imgui/imgui.h"
 
 #include <mutex>
@@ -27,6 +28,12 @@
 //   |     |
 //   |     |
 //  _|     |_
+
+// Terrain textures
+TerrainTexture* storage_tex0;
+TerrainTexture* storage_tex1;
+TerrainTexture* storage_tex2;
+TerrainTexture* storage_tex3;
 
 namespace cputri
 {
@@ -61,7 +68,7 @@ namespace cputri
 
 	float log_filter[filter_side * filter_side];
 
-	void setup(TFile& tfile)
+	void setup(TFile& tfile, TerrainTexture* terrain_textures)
 	{
 		assert(quadtree_levels > 0);
 
@@ -96,6 +103,11 @@ namespace cputri
 		{
 			threads[ii] = std::thread(worker_thread);
 		}
+
+		storage_tex0 = &terrain_textures[0];
+		storage_tex1 = &terrain_textures[1];
+		storage_tex2 = &terrain_textures[2];
+		storage_tex3 = &terrain_textures[3];
 	}
 
 	void destroy(VulkanContext& context, GPUBuffer& cpu_buffer)

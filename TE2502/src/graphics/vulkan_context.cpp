@@ -527,10 +527,10 @@ void VulkanContext::write_required_features(VkPhysicalDeviceFeatures& features)
 	features.fillModeNonSolid = VK_TRUE;
 	assert(m_device_features.depthBounds);
 	features.depthBounds = VK_TRUE;
-	assert(m_device_features.wideLines);
-	features.wideLines = VK_TRUE;
-	assert(m_device_features.largePoints);
-	features.largePoints = VK_TRUE;
+	//assert(m_device_features.wideLines);
+	//features.wideLines = VK_TRUE;
+	//assert(m_device_features.largePoints);
+	//features.largePoints = VK_TRUE;
 	assert(m_device_features.samplerAnisotropy);
 	features.samplerAnisotropy = VK_TRUE;
 	assert(m_device_features.vertexPipelineStoresAndAtomics);
@@ -539,22 +539,24 @@ void VulkanContext::write_required_features(VkPhysicalDeviceFeatures& features)
 	features.shaderImageGatherExtended = VK_TRUE;
 	assert(m_device_features.shaderStorageImageExtendedFormats);
 	features.shaderStorageImageExtendedFormats = VK_TRUE;
-	assert(m_device_features.shaderUniformBufferArrayDynamicIndexing);
-	features.shaderUniformBufferArrayDynamicIndexing = VK_TRUE;
-	assert(m_device_features.shaderSampledImageArrayDynamicIndexing);
-	features.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
-	assert(m_device_features.shaderStorageBufferArrayDynamicIndexing);
-	features.shaderStorageBufferArrayDynamicIndexing = VK_TRUE;
-	assert(m_device_features.shaderStorageImageArrayDynamicIndexing);
-	features.shaderStorageImageArrayDynamicIndexing = VK_TRUE;
+	//assert(m_device_features.shaderUniformBufferArrayDynamicIndexing);
+	//features.shaderUniformBufferArrayDynamicIndexing = VK_TRUE;
+	//assert(m_device_features.shaderSampledImageArrayDynamicIndexing);
+	//features.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
+	//assert(m_device_features.shaderStorageBufferArrayDynamicIndexing);
+	//features.shaderStorageBufferArrayDynamicIndexing = VK_TRUE;
+	//assert(m_device_features.shaderStorageImageArrayDynamicIndexing);
+	//features.shaderStorageImageArrayDynamicIndexing = VK_TRUE;
 	assert(m_device_features.shaderClipDistance);
 	features.shaderClipDistance = VK_TRUE;
 	assert(m_device_features.shaderCullDistance);
 	features.shaderCullDistance = VK_TRUE;
-	assert(m_device_features.multiDrawIndirect);
-	features.multiDrawIndirect = VK_TRUE;
-	assert(m_device_features.geometryShader);
-	features.geometryShader = VK_TRUE;
+	//assert(m_device_features.multiDrawIndirect);
+	//features.multiDrawIndirect = VK_TRUE;
+	//assert(m_device_features.geometryShader);
+	//features.geometryShader = VK_TRUE;
+	assert(m_device_features.fragmentStoresAndAtomics);
+	features.fragmentStoresAndAtomics = VK_TRUE;
 }
 
 static std::vector<char> read_file(const std::string& filename)

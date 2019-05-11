@@ -1,7 +1,5 @@
 #version 450 core
 
-#include "../src/terrain_interface.h"
-
 #define WORKGROUP_SIZE 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
 layout(push_constant) uniform frame_data_t
@@ -11,15 +9,9 @@ layout(push_constant) uniform frame_data_t
 	vec2 screen_size;
 } frame_data;
 
-layout(set = 0, binding = 0, rgba8) uniform image2D image;
+layout(set = 0, binding = 4, rgba8) uniform image2D image;
 
-// Terrain textures
-layout(set = 0, binding = 1, rgba8) uniform image2D storage_tex0;
-layout(set = 0, binding = 2, rgba8) uniform image2D storage_tex1;
-layout(set = 0, binding = 3, rgba8) uniform image2D storage_tex2;
-layout(set = 0, binding = 4, rgba8) uniform image2D storage_tex3;
-
-
+#include "../src/terrain_interface.h"
 
 //--------------------------------------------------------------------------
 void main(void)

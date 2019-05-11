@@ -3,6 +3,7 @@
 #include "graphics/debug_drawer.hpp"
 #include "tfile.hpp"
 #include "camera.hpp"
+#include "common.hpp"
 
 #include <mutex>
 
@@ -56,7 +57,7 @@ namespace cputri
 		std::mutex* debug_draw_mutex;
 	};
 
-	void setup(TFile& tfile);
+	void setup(TFile& tfile, TerrainTexture* terrain_textures);
 
 	void destroy(VulkanContext& context, GPUBuffer& cpu_buffer);
 

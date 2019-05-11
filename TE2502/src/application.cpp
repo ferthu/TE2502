@@ -9,6 +9,7 @@
 
 #include "algorithm/common.hpp"
 #include "algorithm/cpu_triangulate.hpp"
+#include "algorithm/terrain_texture.hpp"
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
@@ -90,13 +91,13 @@ Application::Application(uint32_t window_width, uint32_t window_height, std::vec
 
 	// Ray marching
 	m_ray_march_set_layout = DescriptorSetLayout(m_vulkan_context);
-	// Swapchain buffer
-	m_ray_march_set_layout.add_storage_image(VK_SHADER_STAGE_COMPUTE_BIT);
 	// Terrain textures
 	for (uint32_t ii = 0; ii < max_terrain_textures; ++ii)
 	{
 		m_ray_march_set_layout.add_storage_image(VK_SHADER_STAGE_COMPUTE_BIT);
 	}
+	// Swapchain buffer
+	m_ray_march_set_layout.add_storage_image(VK_SHADER_STAGE_COMPUTE_BIT);
 	m_ray_march_set_layout.create();
 
 	m_ray_march_image_descriptor_set = DescriptorSet(m_vulkan_context, m_ray_march_set_layout);
@@ -132,6 +133,16 @@ Application::Application(uint32_t window_width, uint32_t window_height, std::vec
 	}
 #endif
 
+	m_raster_set_layout = DescriptorSetLayout(m_vulkan_context);
+	// Terrain textures
+	for (uint32_t ii = 0; ii < max_terrain_textures; ++ii)
+	{
+		m_raster_set_layout.add_storage_image(VK_SHADER_STAGE_FRAGMENT_BIT);
+	}
+	m_raster_set_layout.create();
+
+	m_raster_descriptor_set = DescriptorSet(m_vulkan_context, m_raster_set_layout);
+
 	VkPushConstantRange push;
 	push.offset = 0;
 	push.size = sizeof(DrawData);
@@ -148,6 +159,7 @@ Application::Application(uint32_t window_width, uint32_t window_height, std::vec
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 	m_draw_pipeline_layout = PipelineLayout(m_vulkan_context);
+	m_draw_pipeline_layout.add_descriptor_set_layout(m_raster_set_layout);
 	m_draw_pipeline_layout.create(&push);
 
 	m_window_states.depth_memory = m_vulkan_context.allocate_device_memory(m_window->get_size().x * m_window->get_size().y * 2 * m_window->get_swapchain_size() * 4 + 1024);
@@ -220,7 +232,7 @@ Application::Application(uint32_t window_width, uint32_t window_height, std::vec
 
 	m_tri_thread = std::thread(&Application::triangulate_thread, this);
 
-	cputri::setup(m_tfile);
+	cputri::setup(m_tfile, m_terrain_textures);
 
 	cputri::gpu_data_setup(m_vulkan_context, m_gpu_buffer_memory, m_cpu_buffer_memory, m_gpu_buffer, m_cpu_buffer);
 }
@@ -786,6 +798,16 @@ void Application::draw_main()
 		m_draw_data.vp = m_current_camera->get_vp();
 		m_draw_data.camera_pos = glm::vec4(m_current_camera->get_pos(), 1.0f);
 
+		m_raster_descriptor_set.clear();
+		// Terrain textures
+		for (uint32_t ii = 0; ii < max_terrain_textures; ++ii)
+		{
+			m_raster_descriptor_set.add_storage_image(m_terrain_image_views[ii], VK_IMAGE_LAYOUT_GENERAL);
+		}
+		m_raster_descriptor_set.bind();
+
+		m_main_queue.cmd_bind_descriptor_set(m_draw_pipeline_layout.get_pipeline_layout(), 0, m_raster_descriptor_set.get_descriptor_set());
+
 		// Start renderpass
 		if (!m_draw_wireframe)
 			m_main_queue.cmd_bind_graphics_pipeline(m_draw_pipeline->m_pipeline);
@@ -988,13 +1010,13 @@ void Application::draw_ray_march()
 			VkImage image = m_ray_march_window->get_swapchain_image(index);
 
 			m_ray_march_image_descriptor_set.clear();
-			// Swapchain image
-			m_ray_march_image_descriptor_set.add_storage_image(m_ray_march_window->get_swapchain_image_view(index), VK_IMAGE_LAYOUT_GENERAL);
 			// Terrain textures
 			for (uint32_t ii = 0; ii < max_terrain_textures; ++ii)
 			{
 				m_ray_march_image_descriptor_set.add_storage_image(m_terrain_image_views[ii], VK_IMAGE_LAYOUT_GENERAL);
 			}
+			// Swapchain image
+			m_ray_march_image_descriptor_set.add_storage_image(m_ray_march_window->get_swapchain_image_view(index), VK_IMAGE_LAYOUT_GENERAL);
 
 			m_ray_march_image_descriptor_set.bind();
 

@@ -1,12 +1,31 @@
-
 #ifdef __cplusplus
 #pragma once
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
+#include "algorithm/terrain_texture.hpp"
 using namespace glm;
+
+inline vec4 imageLoad(TerrainTexture* tex, ivec2 texel_coords)
+{
+	if (texel_coords.x < 0 || texel_coords.x >= tex->x ||
+		texel_coords.y < 0 || texel_coords.y >= tex->y)
+		return vec4(0, 0, 0, 0);
+	
+	vec4 res;
+	res.x = (float)tex->texture_data[texel_coords.y * pixel_size + texel_coords.x + 0] / 255.0f;
+	res.y = (float)tex->texture_data[texel_coords.y * pixel_size + texel_coords.x + 1] / 255.0f;
+	res.z = (float)tex->texture_data[texel_coords.y * pixel_size + texel_coords.x + 2] / 255.0f;
+	res.w = 1.0f;
+}
 #else
 #define inline 
 #define static 
+
+// Terrain textures
+layout(set = 0, binding = 0, rgba8) uniform image2D storage_tex0;
+layout(set = 0, binding = 1, rgba8) uniform image2D storage_tex1;
+layout(set = 0, binding = 2, rgba8) uniform image2D storage_tex2;
+layout(set = 0, binding = 3, rgba8) uniform image2D storage_tex3;
 #endif
 
 

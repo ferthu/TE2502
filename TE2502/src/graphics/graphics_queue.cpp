@@ -151,6 +151,11 @@ void GraphicsQueue::cmd_end_render_pass()
 	vkCmdEndRenderPass(m_command_buffer);
 }
 
+void GraphicsQueue::cmd_bind_descriptor_set(VkPipelineLayout layout, uint32_t index, VkDescriptorSet descriptor_set)
+{
+	vkCmdBindDescriptorSets(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, index, 1, &descriptor_set, 0, nullptr);
+}
+
 GraphicsQueue::GraphicsQueue(GraphicsQueue&& other)
 {
 	move_from(std::move(other));

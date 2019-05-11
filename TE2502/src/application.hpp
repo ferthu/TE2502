@@ -148,6 +148,8 @@ private:
 	std::string m_raster_image_name;
 	std::string m_ray_march_image_name;
 
+	bool m_update_terrain = true;
+
 	// Textures
 	TerrainTexture m_terrain_textures[max_terrain_textures];
 	GPUMemory m_terrain_image_memory[max_terrain_textures];
@@ -177,10 +179,10 @@ private:
 	RenderPass m_debug_render_pass;
 
 	bool m_show_imgui = true;
-	bool m_draw_ray_march = true;
+	bool m_draw_ray_march = false;
 	bool m_draw_wireframe = true;
 	bool m_draw_triangulated = true;
-	bool m_triangulate = false;
+	bool m_triangulate = true;
 	bool m_triangulate_button_held = false;
 
 	PathHandler m_path_handler;

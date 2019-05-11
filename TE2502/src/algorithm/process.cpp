@@ -21,8 +21,8 @@ namespace process
 		const vec2 node_max = tb->data[node_index].max;
 		const float side = node_max.x - node_min.x;
 
-		const int cx = int((node_min.x - tb->quadtree_min.x + 1) / side);  // current node x
-		const int cy = int((node_min.y - tb->quadtree_min.y + 1) / side);  // current node z/y
+		const int cx = int((node_min.x - tb->quadtree_min->x + 1) / side);  // current node x
+		const int cy = int((node_min.y - tb->quadtree_min->y + 1) / side);  // current node z/y
 
 		const uint nodes_per_side = 1 << quadtree_levels;
 

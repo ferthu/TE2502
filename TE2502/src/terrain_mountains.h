@@ -163,6 +163,7 @@ inline vec3 get_sky(vec3 rd)
 inline vec3 apply_fog(vec3 rgb, float dis, vec3 dir)
 {
 	float fogAmount = 1.0f - exp(-0.000000000000001f*dis*dis*dis);
+	fogAmount = 0;
 	return mix(rgb, get_sky(dir), fogAmount);
 }
 

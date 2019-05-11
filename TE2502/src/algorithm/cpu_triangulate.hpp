@@ -17,6 +17,7 @@ namespace cputri
 	extern Quadtree quadtree;
 
 	extern std::vector<std::vector<glm::vec3>> debug_lines;
+	extern std::vector<std::vector<std::vector<glm::vec3>>> old_debug_lines;
 
 	struct TriData
 	{
@@ -36,6 +37,7 @@ namespace cputri
 
 		vec2 mouse_pos;
 		vec2 window_size;
+		bool x_pressed;
 
 		bool triangulate;
 
@@ -53,6 +55,7 @@ namespace cputri
 		// DEBUG
 		bool debug_generation;
 		int debug_stage;
+		int debug_version;
 
 		std::mutex* debug_draw_mutex;
 	};
@@ -119,6 +122,13 @@ namespace cputri
 
 	// Restore current terrain state
 	void restore();
+
+	void backup_auto();
+
+	// Restore autosaved terrain
+	void restore_auto(int version);
+
+	int get_num_autosaves();
 
 	// Returns vector of messages indicating hovered triangles
 	std::vector<std::string> get_hovered_tris();

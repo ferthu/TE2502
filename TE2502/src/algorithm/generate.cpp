@@ -136,7 +136,7 @@ namespace generate
 					if (!found)
 					{
 						/*cputri::debug_lines.back().push_back(vec3(new_point));
-						cputri::debug_lines.back().push_back(vec3(new_point) + vec3(0, -10, 0));
+						cputri::debug_lines.back().push_back(vec3(new_point) + vec3(0, 10, 0));
 						cputri::debug_lines.back().push_back({1, 0, 0});*/
 					}
 				}
@@ -173,7 +173,7 @@ namespace generate
 
 		g.triangles_removed = 0;
 
-		for (uint n = 0; n < new_points_count && n < TERRAIN_GENERATE_NUM_VERTICES; ++n)
+		for (uint n = 0; n < new_points_count; ++n)
 		{
 			//if (true) // Supertris
 			//{
@@ -408,7 +408,7 @@ namespace generate
 			//		cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
 			//		cputri::debug_lines.back().push_back(mid);
-			//		cputri::debug_lines.back().push_back(mid + vec3(0, -50, 0));
+			//		cputri::debug_lines.back().push_back(mid + vec3(0, 50, 0));
 			//		cputri::debug_lines.back().push_back(vec3(0, 1, 1));
 
 			//		//cputri::debug_lines.back().push_back(mid);
@@ -785,8 +785,8 @@ namespace generate
 		// For every node, add points from neighbours
 		for (uint nn = 0; nn < num_nodes; ++nn)
 		{
-			const int cx = int((gen_info[nn].min.x - tb->quadtree_min.x + 1) / side);  // current node x
-			const int cy = int((gen_info[nn].min.y - tb->quadtree_min.y + 1) / side);  // current node z/y
+			const int cx = int((gen_info[nn].min.x - tb->quadtree_min->x + 1) / side);  // current node x
+			const int cy = int((gen_info[nn].min.y - tb->quadtree_min->y + 1) / side);  // current node z/y
 
 			for (int y = -1; y <= 1; ++y)
 			{
@@ -837,7 +837,7 @@ namespace generate
 			for (uint i = 0; i < g.gen_new_points_count; ++i)
 			{
 				cputri::debug_lines.back().push_back(g.new_points[i]);
-				cputri::debug_lines.back().push_back(vec3(g.new_points[i]) + vec3(0, -500, 0));
+				cputri::debug_lines.back().push_back(vec3(g.new_points[i]) + vec3(0, 500, 0));
 				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 			}
 		}
@@ -915,20 +915,20 @@ namespace generate
 				vec3 p1 = g.positions[g.indices[i + 1]];
 				vec3 p2 = g.positions[g.indices[i + 2]];
 
-				cputri::debug_lines.back().push_back(p0 + vec3(0, -105, 0));
-				cputri::debug_lines.back().push_back(p1 + vec3(0, -105, 0));
+				cputri::debug_lines.back().push_back(p0 + vec3(0, 105, 0));
+				cputri::debug_lines.back().push_back(p1 + vec3(0, 105, 0));
 				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
-				cputri::debug_lines.back().push_back(p1 + vec3(0, -105, 0));
-				cputri::debug_lines.back().push_back(p2 + vec3(0, -105, 0));
+				cputri::debug_lines.back().push_back(p1 + vec3(0, 105, 0));
+				cputri::debug_lines.back().push_back(p2 + vec3(0, 105, 0));
 				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
-				cputri::debug_lines.back().push_back(p2 + vec3(0, -105, 0));
-				cputri::debug_lines.back().push_back(p0 + vec3(0, -105, 0));
+				cputri::debug_lines.back().push_back(p2 + vec3(0, 105, 0));
+				cputri::debug_lines.back().push_back(p0 + vec3(0, 105, 0));
 				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
-				cputri::debug_lines.back().push_back((p0 + p1 + p2) / 3.0f + vec3(0, -105, 0));
-				cputri::debug_lines.back().push_back((p0 + p1 + p2) / 3.0f + vec3(0, -110, 0));
+				cputri::debug_lines.back().push_back((p0 + p1 + p2) / 3.0f + vec3(0, 105, 0));
+				cputri::debug_lines.back().push_back((p0 + p1 + p2) / 3.0f + vec3(0, 110, 0));
 				cputri::debug_lines.back().push_back(vec3(0, 0, 1));
 			}
 		}
@@ -973,7 +973,7 @@ namespace generate
 				}
 			}
 
-			if (HARDCORE_DEBUG) // Start tris
+			if (HARDCORE_DEBUG && g.test_count > 0) // Start tris
 			{
 				const uint test_triangle = g.triangles_to_test[g.test_count - 1];
 				const vec4 sides[3] = { g.positions[g.indices[test_triangle * 3 + 0]],
@@ -982,8 +982,8 @@ namespace generate
 
 				vec4 m = (sides[0] + sides[1] + sides[2]) / 3.0f;
 
-				cputri::debug_lines.back().push_back(vec3(m) + vec3(0, -105, 0));
-				cputri::debug_lines.back().push_back(vec3(m) + vec3(0, -135, 0));
+				cputri::debug_lines.back().push_back(vec3(m) + vec3(0, 105, 0));
+				cputri::debug_lines.back().push_back(vec3(m) + vec3(0, 135, 0));
 				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 			}
 
@@ -1006,16 +1006,16 @@ namespace generate
 
 					if (HARDCORE_DEBUG)
 					{
-						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
-						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, 104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, 104, 0));
 						cputri::debug_lines.back().push_back(vec3(1, 1, 0));
 
-						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
-						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, 104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, 104, 0));
 						cputri::debug_lines.back().push_back(vec3(1, 1, 0));
 
-						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
-						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, 104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, 104, 0));
 						cputri::debug_lines.back().push_back(vec3(1, 1, 0));
 					}
 
@@ -1090,8 +1090,8 @@ namespace generate
 
 										if (HARDCORE_DEBUG)
 										{
-											cputri::debug_lines.back().push_back(vec3(e1p1) + vec3(0, -105, 0));
-											cputri::debug_lines.back().push_back(vec3(e1p2) + vec3(0, -105, 0));
+											cputri::debug_lines.back().push_back(vec3(e1p1) + vec3(0, 105, 0));
+											cputri::debug_lines.back().push_back(vec3(e1p2) + vec3(0, 105, 0));
 											cputri::debug_lines.back().push_back(vec3(1, 1, 1));
 										}
 									}
@@ -1116,16 +1116,16 @@ namespace generate
 
 				if (HARDCORE_DEBUG)
 				{
-					cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
-					cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
+					cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, 104, 0));
+					cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, 104, 0));
 					cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
-					cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
-					cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
+					cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, 104, 0));
+					cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, 104, 0));
 					cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
-					cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
-					cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
+					cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, 104, 0));
+					cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, 104, 0));
 					cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 				}
 
@@ -1154,8 +1154,8 @@ namespace generate
 
 						vec3 nm = (pn[0] + pn[1] + pn[2]) / 3.0f;
 
-						cputri::debug_lines.back().push_back(vec3(test_middle) + vec3(0, -110, 0));
-						cputri::debug_lines.back().push_back(vec3(nm) + vec3(0, -105, 0));
+						cputri::debug_lines.back().push_back(vec3(test_middle) + vec3(0, 110, 0));
+						cputri::debug_lines.back().push_back(vec3(nm) + vec3(0, 105, 0));
 						cputri::debug_lines.back().push_back(vec3(1, 0.5, 0.5f));
 					}
 
@@ -1235,8 +1235,8 @@ namespace generate
 
 				vec4 m = (sides[0] + sides[1] + sides[2]) / 3.0f;
 
-				cputri::debug_lines.back().push_back(vec3(m) + vec3(0, -105, 0));
-				cputri::debug_lines.back().push_back(vec3(m) + vec3(0, -135, 0));
+				cputri::debug_lines.back().push_back(vec3(m) + vec3(0, 105, 0));
+				cputri::debug_lines.back().push_back(vec3(m) + vec3(0, 135, 0));
 				cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 			}
 
@@ -1337,16 +1337,16 @@ namespace generate
 
 					if (HARDCORE_DEBUG)
 					{
-						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
-						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, 104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, 104, 0));
 						cputri::debug_lines.back().push_back(remove_col);
 
-						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
-						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, 104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, 104, 0));
 						cputri::debug_lines.back().push_back(remove_col);
 
-						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
-						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, 104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, 104, 0));
 						cputri::debug_lines.back().push_back(remove_col);
 					}
 
@@ -1426,8 +1426,8 @@ namespace generate
 
 										if (HARDCORE_DEBUG)
 										{
-											cputri::debug_lines.back().push_back(vec3(e1p1) + vec3(0, -106, 0));
-											cputri::debug_lines.back().push_back(vec3(e1p2) + vec3(0, -106, 0));
+											cputri::debug_lines.back().push_back(vec3(e1p1) + vec3(0, 106, 0));
+											cputri::debug_lines.back().push_back(vec3(e1p2) + vec3(0, 106, 0));
 											cputri::debug_lines.back().push_back(vec3(0, 1, 1));
 										}
 									}
@@ -1476,8 +1476,8 @@ namespace generate
 
 							vec3 nm = (pn[0] + pn[1] + pn[2]) / 3.0f;
 
-							cputri::debug_lines.back().push_back(vec3(test_middle) + vec3(0, -110, 0));
-							cputri::debug_lines.back().push_back(vec3(nm) + vec3(0, -105, 0));
+							cputri::debug_lines.back().push_back(vec3(test_middle) + vec3(0, 110, 0));
+							cputri::debug_lines.back().push_back(vec3(nm) + vec3(0, 105, 0));
 							cputri::debug_lines.back().push_back(vec3(1, 0.5, 0.5f));
 						}
 
@@ -1492,16 +1492,16 @@ namespace generate
 
 					if (HARDCORE_DEBUG)
 					{
-						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
-						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, 104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, 104, 0));
 						cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
-						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
-						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, 104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, 104, 0));
 						cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 
-						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
-						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, 104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, 104, 0));
 						cputri::debug_lines.back().push_back(vec3(0, 1, 0));
 					}
 
@@ -1535,16 +1535,16 @@ namespace generate
 				{
 					if (HARDCORE_DEBUG)
 					{
-						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
-						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, 104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, 104, 0));
 						cputri::debug_lines.back().push_back(vec3(1, 1, 0.5f));
 
-						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, -104, 0));
-						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[1]) + vec3(0, 104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, 104, 0));
 						cputri::debug_lines.back().push_back(vec3(1, 1, 0.5f));
 
-						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, -104, 0));
-						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, -104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[2]) + vec3(0, 104, 0));
+						cputri::debug_lines.back().push_back(vec3(sides[0]) + vec3(0, 104, 0));
 						cputri::debug_lines.back().push_back(vec3(1, 1, 0.5f));
 					}
 				}
@@ -1633,6 +1633,45 @@ namespace generate
 				cputri::debug_lines.back().push_back(p2);
 				cputri::debug_lines.back().push_back(p0);
 				cputri::debug_lines.back().push_back(vec3(1, 0, 0));
+			}
+		}
+
+		if (HARDCORE_DEBUG)	// Inter-node connections
+		{
+			for (uint ii = 0; ii < 10; ++ii)
+			{
+				cputri::debug_lines.push_back({});
+
+				for (uint nn = 0; nn < num_nodes; ++nn)
+				{
+					TerrainData& node = tb->data[gen_info[nn].index];
+
+					for (uint tri = 0; tri < node.index_count / 3; ++tri)
+					{
+						vec3 p0 = vec3(node.positions[node.indices[tri * 3 + 0]]) + vec3(0, 107, 0);
+						vec3 p1 = vec3(node.positions[node.indices[tri * 3 + 1]]) + vec3(0, 107, 0);
+						vec3 p2 = vec3(node.positions[node.indices[tri * 3 + 2]]) + vec3(0, 107, 0);
+
+						if (node.triangle_connections[tri * 3 + 0] == INVALID - ii)
+						{
+							cputri::debug_lines.back().push_back(p0);
+							cputri::debug_lines.back().push_back(p1);
+							cputri::debug_lines.back().push_back(vec3(0, 1, 0));
+						}
+						if (node.triangle_connections[tri * 3 + 1] == INVALID - ii)
+						{
+							cputri::debug_lines.back().push_back(p1);
+							cputri::debug_lines.back().push_back(p2);
+							cputri::debug_lines.back().push_back(vec3(0, 1, 0));
+						}
+						if (node.triangle_connections[tri * 3 + 2] == INVALID - ii)
+						{
+							cputri::debug_lines.back().push_back(p2);
+							cputri::debug_lines.back().push_back(p0);
+							cputri::debug_lines.back().push_back(vec3(0, 1, 0));
+						}
+					}
+				}
 			}
 		}
 

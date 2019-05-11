@@ -41,7 +41,7 @@ namespace cputri
 
 	std::mutex shared_data_lock = std::mutex();
 
-	static const uint num_threads = 8;
+	static const uint num_threads = 1;
 
 	// Atomic variables used for multithreading
 	std::atomic<int> atomic_started;
@@ -53,6 +53,10 @@ namespace cputri
 
 	// DEBUG
 	std::vector<std::vector<glm::vec3>> debug_lines;
+	std::vector<std::vector<std::vector<glm::vec3>>> old_debug_lines;
+
+	std::vector<TerrainBuffer*> autosaves;
+	std::vector<Quadtree*> quadtree_autosaves;
 
 	// Strings of hovered triangles
 	std::vector<std::string> hovered_tris;
@@ -65,6 +69,7 @@ namespace cputri
 	TerrainBuffer* tb;
 	TerrainBuffer* backup_tb;
 	Quadtree quadtree;
+	Quadtree backup_quadtree;
 
 	float log_filter[filter_side * filter_side];
 
@@ -72,25 +77,28 @@ namespace cputri
 	{
 		assert(quadtree_levels > 0);
 
-		quadtree.buffer_index_filled = new bool[num_nodes];
+		autosaves.reserve(50);
+		quadtree_autosaves.reserve(50);
+
 		memset(quadtree.buffer_index_filled, 0, num_nodes * sizeof(bool));
 
 		quadtree.num_generate_nodes = 0;
-		quadtree.generate_nodes = new GenerateInfo[num_nodes];
 		quadtree.num_generate_nodes_draw = 0;
-		quadtree.generate_nodes_draw = new GenerateInfo[num_nodes];
 
 		quadtree.num_draw_nodes = 0;
-		quadtree.draw_nodes = new uint[num_nodes];
 		quadtree.num_draw_nodes_draw = 0;
-		quadtree.draw_nodes_draw = new uint[num_nodes];
 
 		quadtree.node_memory_size = sizeof(TerrainData);
+
+		quadtree.total_side_length = TERRAIN_GENERATE_TOTAL_SIDE_LENGTH;
+		float half_length = quadtree.total_side_length * 0.5f;
+		quadtree.quadtree_min = vec2(-half_length, -half_length);
+		quadtree.quadtree_max = vec2(half_length, half_length);
 
 		backup_tb = new TerrainBuffer();
 
 		// Add space for an additional two vec2's to store the quadtree min and max
-		cpu_index_buffer_size = (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint) + sizeof(vec2) * 2;
+		cpu_index_buffer_size = sizeof(uint*) + sizeof(vec2) * 2;
 
 		filter_setup();
 
@@ -116,17 +124,21 @@ namespace cputri
 
 		quit = true;
 
+		for (TerrainBuffer* tb : autosaves)
+		{
+			delete tb;
+		}
+		for (Quadtree* q : quadtree_autosaves)
+		{
+			delete q;
+		}
+
 		for (uint ii = 0; ii < num_threads; ii++)
 		{
 			threads[ii].join();
 		}
 
 		vkUnmapMemory(context.get_device(), cpu_buffer.get_memory());
-		delete[] quadtree.draw_nodes;
-		delete[] quadtree.generate_nodes; 
-		delete[] quadtree.draw_nodes_draw;
-		delete[] quadtree.generate_nodes_draw;
-		delete[] quadtree.buffer_index_filled;
 	}
 
 	bool do_triangulation = false;
@@ -137,6 +149,9 @@ namespace cputri
 
 		do_triangulation = false;
 		cputri::intersect(tri_data->mc_frustum, *tri_data->dd, tri_data->mc_pos, tri_data);
+
+		if (quadtree.num_generate_nodes > 0)
+			backup_auto();
 
 		// Clear copy data
 		for (uint ii = 0; ii < quadtree.num_draw_nodes; ++ii)
@@ -150,12 +165,18 @@ namespace cputri
 		{
 			cputri::process_triangles(tri_data);
 			triangulate(tri_data);
+			backup_auto();
 		}
 		else if (do_triangulation)
 		{
 			triangulate(tri_data);
+			backup_auto();
 		}
 
+		if (debug_lines.size() > 0)
+		{
+			old_debug_lines.push_back(std::move(debug_lines));
+		}
 	}
 
 	void draw(GraphicsQueue& queue, GPUBuffer& gpu_buffer, GPUBuffer& cpu_buffer)
@@ -380,22 +401,15 @@ namespace cputri
 		// Map CPU buffer to TerrainBuffer pointer
 		vkMapMemory(context.get_device(), cpu_buffer.get_memory(), 0, VK_WHOLE_SIZE, 0, (void**) &tb);
 
-
-		// Setup remaining quadtree variables
-		quadtree.node_index_to_buffer_index = (uint*)tb;
-
-		// Point to the end of cpu index buffer
-		quadtree.quadtree_minmax = (vec2*)(((char*)quadtree.node_index_to_buffer_index) + (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
-
-		quadtree.total_side_length = TERRAIN_GENERATE_TOTAL_SIDE_LENGTH;
-		float half_length = quadtree.total_side_length * 0.5f;
-		quadtree.quadtree_minmax[0] = vec2(-half_length, -half_length);
-		quadtree.quadtree_minmax[1] = vec2(half_length, half_length);
+		tb->quadtree_min = &quadtree.quadtree_min;
+		tb->quadtree_max = &quadtree.quadtree_max; 
 
 		// (1 << levels) is number of nodes per axis
 		memset(quadtree.node_index_to_buffer_index, INVALID, (1 << quadtree_levels) * (1 << quadtree_levels) * sizeof(uint));
 
 		quadtree.node_size = vec2(quadtree.total_side_length / (1 << quadtree_levels), quadtree.total_side_length / (1 << quadtree_levels));
+
+		tb->quadtree_index_map = quadtree.node_index_to_buffer_index;
 	}
 
 	void shift_quadtree(glm::vec3 camera_pos)
@@ -408,12 +422,12 @@ namespace cputri
 		{
 			shifted = false;
 
-			if (camera_pos.x + quadtree.quadtree_shift_distance >= quadtree.quadtree_minmax[1].x)
+			if (camera_pos.x + quadtree.quadtree_shift_distance >= tb->quadtree_max->x)
 			{
 				shifted = true;
 
-				quadtree.quadtree_minmax[0].x += quadtree.node_size.x;
-				quadtree.quadtree_minmax[1].x += quadtree.node_size.x;
+				tb->quadtree_min->x += quadtree.node_size.x;
+				tb->quadtree_max->x += quadtree.node_size.x;
 
 				for (size_t y = 0; y < nodes_per_side; ++y)
 				{
@@ -437,12 +451,12 @@ namespace cputri
 					}
 				}
 			}
-			else if (camera_pos.x - quadtree.quadtree_shift_distance <= quadtree.quadtree_minmax[0].x)
+			else if (camera_pos.x - quadtree.quadtree_shift_distance <= tb->quadtree_min->x)
 			{
 				shifted = true;
 
-				quadtree.quadtree_minmax[0].x -= quadtree.node_size.x;
-				quadtree.quadtree_minmax[1].x -= quadtree.node_size.x;
+				tb->quadtree_min->x -= quadtree.node_size.x;
+				tb->quadtree_max->x -= quadtree.node_size.x;
 
 				for (size_t y = 0; y < nodes_per_side; ++y)
 				{
@@ -466,12 +480,12 @@ namespace cputri
 					}
 				}
 			}
-			else if (camera_pos.z + quadtree.quadtree_shift_distance >= quadtree.quadtree_minmax[1].y)
+			else if (camera_pos.z + quadtree.quadtree_shift_distance >= tb->quadtree_max->y)
 			{
 				shifted = true;
 
-				quadtree.quadtree_minmax[0].y += quadtree.node_size.y;
-				quadtree.quadtree_minmax[1].y += quadtree.node_size.y;
+				tb->quadtree_min->y += quadtree.node_size.y;
+				tb->quadtree_max->y += quadtree.node_size.y;
 
 				for (size_t y = 0; y < nodes_per_side; ++y)
 				{
@@ -495,12 +509,12 @@ namespace cputri
 					}
 				}
 			}
-			else if (camera_pos.z - quadtree.quadtree_shift_distance <= quadtree.quadtree_minmax[0].y)
+			else if (camera_pos.z - quadtree.quadtree_shift_distance <= tb->quadtree_min->y)
 			{
 				shifted = true;
 
-				quadtree.quadtree_minmax[0].y -= quadtree.node_size.y;
-				quadtree.quadtree_minmax[1].y -= quadtree.node_size.y;
+				tb->quadtree_min->y -= quadtree.node_size.y;
+				tb->quadtree_max->y -= quadtree.node_size.y;
 
 				for (int64_t y = nodes_per_side - 1; y >= 0; --y)
 				{
@@ -689,8 +703,8 @@ namespace cputri
 			quadtree.num_draw_nodes = 0;
 
 			// Gather status of nodes
-			intersect(frustum, dd, AabbXZ{ quadtree.quadtree_minmax[0],
-				quadtree.quadtree_minmax[1] }, 0, 0, 0);
+			intersect(frustum, dd, AabbXZ{ *tb->quadtree_min,
+				*tb->quadtree_max }, 0, 0, 0);
 
 			for (uint i = 0; i < quadtree.num_generate_nodes; i++)
 			{
@@ -699,13 +713,13 @@ namespace cputri
 				tb->data[quadtree.generate_nodes[i].index].draw_index_count = 0;
 			}
 
-			if (quadtree.num_generate_nodes > 0)
-			{
-				generate::generate(tb, gg, log_filter, tri_data, quadtree.generate_nodes, quadtree.num_generate_nodes);
-				do_triangulation = true;
-			}
 		}
 
+		if (quadtree.num_generate_nodes > 0)
+		{
+			generate::generate(tb, gg, log_filter, tri_data, quadtree.generate_nodes, quadtree.num_generate_nodes);
+			do_triangulation = true;
+		}
 
 		// Update draw index counts
 		{
@@ -762,11 +776,36 @@ namespace cputri
 	void backup()
 	{
 		memcpy(backup_tb, tb, sizeof(TerrainBuffer));
+		memcpy(&backup_quadtree, &quadtree, sizeof(Quadtree));
 	}
 
 	void restore()
 	{
 		memcpy(tb, backup_tb, sizeof(TerrainBuffer));
+		memcpy(&quadtree, &backup_quadtree, sizeof(Quadtree));
+	}
+
+	void backup_auto()
+	{
+		autosaves.push_back(new TerrainBuffer());
+		quadtree_autosaves.push_back(new Quadtree());
+
+		memcpy(autosaves[autosaves.size() - 1], tb, sizeof(TerrainBuffer));
+		memcpy(quadtree_autosaves[quadtree_autosaves.size() - 1], &quadtree, sizeof(Quadtree));
+	}
+
+	void restore_auto(int version)
+	{
+		if (version < autosaves.size())
+		{
+			memcpy(tb, autosaves[version], sizeof(TerrainBuffer));
+			memcpy(&quadtree, quadtree_autosaves[version], sizeof(Quadtree));
+		}
+	}
+
+	int get_num_autosaves()
+	{
+		return (int)autosaves.size();
 	}
 
 	std::vector<std::string> get_hovered_tris()
@@ -848,11 +887,15 @@ namespace cputri
 		std::unique_lock<std::mutex> lock(*tri_data->debug_draw_mutex);
 
 		// DEBUG
-		if (tri_data->debug_stage >= 0 && tri_data->debug_stage < debug_lines.size())
+		if (tri_data->debug_stage >= 0 && tri_data->debug_version >= 0 && 
+			tri_data->debug_version < old_debug_lines.size() && 
+			tri_data->debug_stage < old_debug_lines[tri_data->debug_version].size())
 		{
-			for (uint v = 0; v < debug_lines[tri_data->debug_stage].size(); v += 3)
+			for (uint v = 0; v < old_debug_lines[tri_data->debug_version][tri_data->debug_stage].size(); v += 3)
 			{
-				tri_data->dd->draw_line(debug_lines[tri_data->debug_stage][v], debug_lines[tri_data->debug_stage][v + 1], debug_lines[tri_data->debug_stage][v + 2]);
+				tri_data->dd->draw_line(old_debug_lines[tri_data->debug_version][tri_data->debug_stage][v], 
+					old_debug_lines[tri_data->debug_version][tri_data->debug_stage][v + 1],
+					old_debug_lines[tri_data->debug_version][tri_data->debug_stage][v + 2]);
 			}
 		}
 
@@ -867,7 +910,7 @@ namespace cputri
 				if (quadtree.buffer_index_filled[ii] && (ii == tri_data->show_node || tri_data->show_node == -1))
 				{
 					int hovered_triangle = -1;
-					const float height = -100.0f;
+					const float height = 100.0f;
 
 
 					// If C is pressed, do ray-triangle intersection and show connection of hovered triangle
@@ -882,7 +925,7 @@ namespace cputri
 						const float fov = tri_data->cc_fov;	// In degrees
 						float px = 2.0f * (tri_data->mouse_pos.x + 0.5f - tri_data->window_size.x / 2) / tri_data->window_size.x * tan(fov / 2.0f * deg_to_rad);
 						float py = 2.0f * (tri_data->mouse_pos.y + 0.5f - tri_data->window_size.y / 2) / tri_data->window_size.y * tan(fov / 2.0f * deg_to_rad) * tri_data->window_size.y / tri_data->window_size.x;
-						ray_dir = vec3(px, py, 1);
+						ray_dir = vec3(px, -py, 1);
 						ray_dir = normalize(vec3((inverse(tri_data->cc_view)) * vec4(normalize(ray_dir), 0.0f)));
 
 						dir = ray_dir;
@@ -911,6 +954,50 @@ namespace cputri
 							msg += ": Triangle ";
 							msg += std::to_string(hovered_triangle);
 							hovered_tris.push_back(msg);
+
+							// Add point if x is pressed
+							if (tri_data->x_pressed)
+							{
+								glm::vec4 v0 = tb->data[ii].positions[tb->data[ii].indices[hovered_triangle * 3 + 0]];
+								glm::vec4 v1 = tb->data[ii].positions[tb->data[ii].indices[hovered_triangle * 3 + 1]];
+								glm::vec4 v2 = tb->data[ii].positions[tb->data[ii].indices[hovered_triangle * 3 + 2]];
+
+								glm::vec3 mid = (glm::vec3(v0) + glm::vec3(v1) + glm::vec3(v2)) / 3.0f;
+								float curv0 = v0.w;		// Curvature is stored in w coordinate
+								float curv1 = v1.w;
+								float curv2 = v2.w;
+
+								float inv_total_curv = 1.0f / (curv0 + curv1 + curv2);
+
+								// Create linear combination of corners based on curvature
+								glm::vec3 curv_point = (curv0 * inv_total_curv * glm::vec3(v0)) + (curv1 * inv_total_curv * glm::vec3(v1)) + (curv2 * inv_total_curv * glm::vec3(v2));
+
+								// Linearly interpolate between triangle middle and curv_point
+								glm::vec3 new_pos = mix(mid, curv_point, 0.5f);
+
+								// Y position of potential new point
+								float terrain_y = terrain(glm::vec2(new_pos.x, new_pos.z)) - 0.5f;
+
+								const glm::vec4 point = glm::vec4(new_pos.x, terrain_y, new_pos.z, curvature(vec3(new_pos.x, terrain_y, new_pos.z), log_filter));
+
+								bool add_point = true;
+
+								for (size_t p = 0; p < tb->data[ii].new_points_count; ++p)
+								{
+									if (tb->data[ii].new_points[p] == point)
+									{
+										add_point = false;
+										break;
+									}
+								}
+
+								if (add_point)
+								{
+									tb->data[ii].new_points[tb->data[ii].new_points_count] = point;
+									tb->data[ii].new_points_triangles[tb->data[ii].new_points_count] = hovered_triangle;
+									tb->data[ii].new_points_count++;
+								}
+							}
 						}
 					}
 
@@ -992,7 +1079,7 @@ namespace cputri
 
 					for (uint bt = 0; bt < tb->data[ii].border_count; ++bt)
 					{
-						const float height = -102.0f;
+						const float height = 102.0f;
 						uint ind = tb->data[ii].border_triangle_indices[bt] * 3;
 						vec3 p0 = vec3(tb->data[ii].positions[tb->data[ii].indices[ind + 0]]) + vec3(0.0f, height, 0.0f);
 						vec3 p1 = vec3(tb->data[ii].positions[tb->data[ii].indices[ind + 1]]) + vec3(0.0f, height, 0.0f);
@@ -1000,15 +1087,15 @@ namespace cputri
 
 						if (tri_data->sideshow_bob != -1 && tb->data[ii].triangle_connections[ind + 0] == INVALID - tri_data->sideshow_bob)
 						{
-							tri_data->dd->draw_line(p0 - vec3{ 0, 2, 0 }, p1 - vec3{ 0, 2, 0 }, { 0.0f, 1.0f, 0.0f });
+							tri_data->dd->draw_line(p0 + vec3{ 0, 2, 0 }, p1 + vec3{ 0, 2, 0 }, { 0.0f, 1.0f, 0.0f });
 						}
 						if (tri_data->sideshow_bob != -1 && tb->data[ii].triangle_connections[ind + 1] == INVALID - tri_data->sideshow_bob)
 						{
-							tri_data->dd->draw_line(p1 - vec3{ 0, 2, 0 }, p2 - vec3{ 0, 2, 0 }, { 0.0f, 1.0f, 0.0f });
+							tri_data->dd->draw_line(p1 + vec3{ 0, 2, 0 }, p2 + vec3{ 0, 2, 0 }, { 0.0f, 1.0f, 0.0f });
 						}
 						if (tri_data->sideshow_bob != -1 && tb->data[ii].triangle_connections[ind + 2] == INVALID - tri_data->sideshow_bob)
 						{
-							tri_data->dd->draw_line(p2 - vec3{ 0, 2, 0 }, p0 - vec3{ 0, 2, 0 }, { 0.0f, 1.0f, 0.0f });
+							tri_data->dd->draw_line(p2 + vec3{ 0, 2, 0 }, p0 + vec3{ 0, 2, 0 }, { 0.0f, 1.0f, 0.0f });
 						}
 
 						tri_data->dd->draw_line(p0, p1, { 0, 0, 1 });

@@ -152,8 +152,8 @@ namespace triangulate
 
 		const int nodes_per_side = 1 << quadtree_levels;
 
-		const int cx = int((node_min.x - tb->quadtree_min.x + 1) / side);  // current node x
-		const int cy = int((node_min.y - tb->quadtree_min.y + 1) / side);  // current node z/y
+		const int cx = int((node_min.x - tb->quadtree_min->x + 1) / side);  // current node x
+		const int cy = int((node_min.y - tb->quadtree_min->y + 1) / side);  // current node z/y
 
 		const uint old_triangle_count = tb->data[node_index].index_count / 3;
 
@@ -212,7 +212,7 @@ namespace triangulate
 				const float circumradius2 = tb->data[global_owner_index].triangles[triangle_index].circumradius2;
 
 				const float dx = current_point.x - circumcentre.x;
-				const float dy = current_point.z - circumcentre.y;
+ 				const float dy = current_point.z - circumcentre.y;
 
 				if (dx * dx + dy * dy < circumradius2)
 				{

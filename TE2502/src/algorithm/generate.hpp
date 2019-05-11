@@ -18,15 +18,15 @@ namespace generate
 	};
 
 	// Constants
-	const uint max_border_edges = 6000;
-	const uint max_triangles_to_remove = 6000;
-	const uint num_new_triangle_indices = 1800;
-	const uint test_triangle_buffer_size = 3000;
+	const uint max_border_edges = 60000;
+	const uint max_triangles_to_remove = 60000;
+	const uint num_new_triangle_indices = 18000;
+	const uint test_triangle_buffer_size = 30000;
 
-	const uint gen_indices = 20000;
-	const uint gen_vertices = 7000;
-	const uint gen_border_tris = 1000;
-	const uint gen_new_points = 2048;
+	const uint gen_indices = 200000;
+	const uint gen_vertices = 70000;
+	const uint gen_border_tris = 10000;
+	const uint gen_new_points = 2048 * 8;
 
 	struct MarkedTriangle
 	{
@@ -77,7 +77,7 @@ namespace generate
 		Array<uint, gen_indices / 3> gen_triangle_targets;	// Index into GenerateInfo array specifying the target node for corresponding triangle
 		Array<uint, gen_indices / 3> gen_triangle_new_indices;	// Index of corresponding triangle in new node
 		Array<uint, num_nodes> gen_starting_points; // gen_starting_points[i] specifies the point to start iteration from in node gen_info[i]
-		Array<MarkedTriangle, 6000> gen_marked_triangles;
+		Array<MarkedTriangle, 60000> gen_marked_triangles;
 		uint gen_marked_count;
 		// ------------------------------------------
 	};

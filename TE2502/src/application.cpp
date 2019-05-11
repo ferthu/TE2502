@@ -396,6 +396,9 @@ void Application::run(bool auto_triangulate)
 void Application::update(const float dt, bool auto_triangulate)
 {
 	m_save_images = false;
+	vec3 a = m_main_camera->get_pos();
+	a.z = 0;
+	m_main_camera->set_pos(a);
 
 	m_path_handler.update(dt);
 	m_current_camera->update(dt, m_window->get_mouse_locked(), m_debug_drawer);
@@ -547,6 +550,8 @@ void Application::update(const float dt, bool auto_triangulate)
 		if (ImGui::Button("Snapshot"))
 			snapshot("snapshot_raster.png", "snapshot_ray_march.png");
 
+		ImGui::Checkbox("Update terrain", &m_update_terrain);
+
 		ImGui::End();
 	}
 	
@@ -555,18 +560,22 @@ void Application::update(const float dt, bool auto_triangulate)
 	static int refine_node = -1;
 	static int refine_vertices = 8000;
 	static int sideshow_bob = -1;
-	static float area_mult = 1.0f;
-	static float curv_mult = 1.0f;
-	static float threshold = 0.0f;
+	static float area_mult = 100000.0f;
+	static float curv_mult = 10.0f;
+	static float threshold = 1.1f;
 
 	// DEBUG
 	static bool debug_generation = true;
 	static int debug_stage = -1;
+	static int debug_version = -1;
 
 	static bool refine = false;
 
 	static bool backup = false;
 	static bool restore = false;
+
+	static int restore_auto_version = 0;
+	static bool restore_auto = false;
 
 	if (m_show_imgui)
 	{
@@ -584,7 +593,7 @@ void Application::update(const float dt, bool auto_triangulate)
 		{
 			refine = true;
 		}
-		if (ImGui::Button("Clear Terrain"))
+		if (ImGui::Button("Clear Terrain") && m_update_terrain)
 		{
 			cputri::clear_terrain();
 		}
@@ -596,11 +605,22 @@ void Application::update(const float dt, bool auto_triangulate)
 		ImGui::Checkbox("Show Debug", &show_debug);
 
 		ImGui::Checkbox("Debug Generation", &debug_generation);
-		ImGui::SliderInt("Debug Stage", &debug_stage, -1, 15);
+		ImGui::SliderInt("Debug Stage", &debug_stage, -1, 20);
+		ImGui::SliderInt("Debug Version", &debug_version, -1, 40);
+		if (ImGui::Button("-"))
+			--debug_version;
+		if (ImGui::Button("+"))
+			++debug_version;
+
 		if (ImGui::Button("Backup"))
 			backup = true;		
 		if (ImGui::Button("Restore"))
 			restore = true;
+
+		ImGui::SliderInt("Restore Auto Version", &restore_auto_version, 0, cputri::get_num_autosaves());
+		if (ImGui::Button("Restore Auto"))
+			restore_auto = true;
+
 		ImGui::End();
 
 		std::vector<std::string> hovered_tris = cputri::get_hovered_tris();
@@ -631,68 +651,79 @@ void Application::update(const float dt, bool auto_triangulate)
 			cputri::restore();
 			restore = false;
 		}
-
-		m_tri_done = false;
-
-		m_tri_debug_drawer.new_frame();
-
-		refine = refine || m_triangulate || m_triangulate_button_held || auto_triangulate;
-
-		// Fill TriData struct
-		m_tri_data.dd = &m_tri_debug_drawer;
-
-		m_tri_data.mc_fov = m_main_camera->get_fov();
-		m_tri_data.mc_pos = m_main_camera->get_pos();
-		m_tri_data.mc_view = m_main_camera->get_view();
-		m_tri_data.mc_vp = m_main_camera->get_big_vp();
-		m_tri_data.mc_frustum = m_main_camera->get_frustum();
-
-		m_tri_data.cc_fov = m_current_camera->get_fov();
-		m_tri_data.cc_pos = m_current_camera->get_pos();
-		m_tri_data.cc_view = m_current_camera->get_view();
-		m_tri_data.cc_vp = m_current_camera->get_big_vp();
-		m_tri_data.cc_frustum = m_current_camera->get_frustum();
-
-		// DEBUG
-		m_tri_data.debug_generation = debug_generation;
-		m_tri_data.debug_stage = debug_stage;
-
-		vec2 mouse_pos{0, 0};
-		// Get mouse pos
-		const bool focused = glfwGetWindowAttrib(m_window->get_glfw_window(), GLFW_FOCUSED) != 0;
-		if (focused)
+		if (restore_auto)
 		{
-			double mouse_x, mouse_y;
-			glfwGetCursorPos(m_window->get_glfw_window(), &mouse_x, &mouse_y);
-			mouse_pos = vec2((float)mouse_x, (float)mouse_y);
+			cputri::restore_auto(restore_auto_version);
+			restore_auto = false;
 		}
 
-		int w, h;
 
-		glfwGetWindowSize(m_window->get_glfw_window(), &w, &h);
-		vec2 window_size = vec2(w, h);
-		m_tri_data.mouse_pos = mouse_pos;
-		m_tri_data.window_size = window_size;
+		if (m_update_terrain)
+		{
+			m_tri_done = false;
 
-		m_tri_data.triangulate = refine;
-		refine = false;
+			m_tri_debug_drawer.new_frame();
 
-		m_tri_data.show_debug = show_debug;
-		m_tri_data.show_hovered = glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_C) == GLFW_PRESS;
-		m_tri_data.show_node = show_node;
-		m_tri_data.refine_node = refine_node;
-		m_tri_data.refine_vertices = refine_vertices;
-		m_tri_data.sideshow_bob = sideshow_bob;
-		m_tri_data.area_mult = area_mult;
-		m_tri_data.curv_mult = curv_mult;
-		m_tri_data.threshold = threshold;
+			refine = refine || m_triangulate || m_triangulate_button_held || auto_triangulate;
 
-		m_tri_data.debug_draw_mutex = &m_debug_draw_mutex;
+			// Fill TriData struct
+			m_tri_data.dd = &m_tri_debug_drawer;
+
+			m_tri_data.mc_fov = m_main_camera->get_fov();
+			m_tri_data.mc_pos = m_main_camera->get_pos();
+			m_tri_data.mc_view = m_main_camera->get_view();
+			m_tri_data.mc_vp = m_main_camera->get_big_vp();
+			m_tri_data.mc_frustum = m_main_camera->get_frustum();
+
+			m_tri_data.cc_fov = m_current_camera->get_fov();
+			m_tri_data.cc_pos = m_current_camera->get_pos();
+			m_tri_data.cc_view = m_current_camera->get_view();
+			m_tri_data.cc_vp = m_current_camera->get_big_vp();
+			m_tri_data.cc_frustum = m_current_camera->get_frustum();
+
+			// DEBUG
+			m_tri_data.debug_generation = debug_generation;
+			m_tri_data.debug_stage = debug_stage;
+			m_tri_data.debug_version = debug_version;
+
+			vec2 mouse_pos{ 0, 0 };
+			// Get mouse pos
+			const bool focused = glfwGetWindowAttrib(m_window->get_glfw_window(), GLFW_FOCUSED) != 0;
+			if (focused)
+			{
+				double mouse_x, mouse_y;
+				glfwGetCursorPos(m_window->get_glfw_window(), &mouse_x, &mouse_y);
+				mouse_pos = vec2((float)mouse_x, (float)mouse_y);
+			}
+
+			int w, h;
+
+			glfwGetWindowSize(m_window->get_glfw_window(), &w, &h);
+			vec2 window_size = vec2(w, h);
+			m_tri_data.mouse_pos = mouse_pos;
+			m_tri_data.window_size = window_size;
+
+			m_tri_data.triangulate = refine;
+			refine = false;
+
+			m_tri_data.show_debug = show_debug;
+			m_tri_data.show_hovered = glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_C) == GLFW_PRESS;
+			m_tri_data.x_pressed = glfwGetKey(m_window->get_glfw_window(), GLFW_KEY_X) == GLFW_PRESS;
+			m_tri_data.show_node = show_node;
+			m_tri_data.refine_node = refine_node;
+			m_tri_data.refine_vertices = refine_vertices;
+			m_tri_data.sideshow_bob = sideshow_bob;
+			m_tri_data.area_mult = area_mult;
+			m_tri_data.curv_mult = curv_mult;
+			m_tri_data.threshold = threshold;
+
+			m_tri_data.debug_draw_mutex = &m_debug_draw_mutex;
+		}
 
 		// Start recording and upload triangulated data to GPU
 		m_main_queue.start_recording();
 		cputri::upload(m_main_queue, m_gpu_buffer, m_cpu_buffer);
-		
+
 		m_tri_mutex.unlock();
 	}
 	else if (m_show_imgui)

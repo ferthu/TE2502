@@ -7,7 +7,7 @@ void replace_connection_index(TerrainBuffer* tb, cuint node_index, cuint triangl
 		for (uint tt = 0; tt < 3; ++tt)
 		{
 			const uint triangle_index = tb->data[node_index].triangle_connections[triangle_to_check * 3 + tt];
-			if (triangle_index == index_to_replace)
+ 			if (triangle_index == index_to_replace)
 			{
 				tb->data[node_index].triangle_connections[triangle_to_check * 3 + tt] = new_value;
 				break;

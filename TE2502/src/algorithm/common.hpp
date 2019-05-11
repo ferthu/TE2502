@@ -16,12 +16,12 @@ typedef const uint32_t cuint;
 const uint INVALID = ~0u;
 const uint UNKNOWN = INVALID - 9;
 
-const float TERRAIN_GENERATE_TOTAL_SIDE_LENGTH = max_view_dist * 2 + 100;
+const float TERRAIN_GENERATE_TOTAL_SIDE_LENGTH = 500;//max_view_dist * 2 + 100;
 constexpr uint TERRAIN_GENERATE_NUM_INDICES = 12000;
 constexpr uint TERRAIN_GENERATE_NUM_VERTICES = 4000;
-constexpr uint TERRAIN_GENERATE_GRID_SIDE = 5;
+constexpr uint TERRAIN_GENERATE_GRID_SIDE = 3;
 constexpr uint TRIANGULATE_MAX_NEW_POINTS = 1024;
-constexpr uint QUADTREE_LEVELS = 3;
+constexpr uint QUADTREE_LEVELS = 4;
 constexpr uint MAX_BORDER_TRIANGLE_COUNT = 2000;
 
 static_assert(TERRAIN_GENERATE_GRID_SIDE % 2 == 1, "TERRAIN_GENERATE_GRID_SIDE must be an uneven number.");
@@ -75,9 +75,9 @@ const uint quadtree_data_size = (1 << QUADTREE_LEVELS) * (1 << QUADTREE_LEVELS) 
 
 struct TerrainBuffer
 {
-	Array<uint, (1 << QUADTREE_LEVELS) * (1 << QUADTREE_LEVELS)> quadtree_index_map;
-	vec2 quadtree_min;
-	vec2 quadtree_max;
+	uint* quadtree_index_map;
+	vec2* quadtree_min;
+	vec2* quadtree_max;
 	Array<TerrainData, num_nodes> data;
 };
 
@@ -94,17 +94,17 @@ struct Quadtree
 {
 	// Number and array of indices to nodes that needs to generate terrain
 	uint num_generate_nodes;
-	GenerateInfo* generate_nodes;
+	GenerateInfo generate_nodes[num_nodes];
 	uint num_generate_nodes_draw;
-	GenerateInfo* generate_nodes_draw;
+	GenerateInfo generate_nodes_draw[num_nodes];
 
 	uint generated_triangle_count;
 
 	// Number and array of indices to nodes that needs to draw terrain
 	uint num_draw_nodes;
-	uint* draw_nodes;
+	uint draw_nodes[num_nodes];
 	uint num_draw_nodes_draw;
-	uint* draw_nodes_draw;
+	uint draw_nodes_draw[num_nodes];
 
 	uint drawn_triangle_count;
 	uint new_points_added;
@@ -115,14 +115,16 @@ struct Quadtree
 	uint64_t max_nodes;
 
 	// For chunk i of m_buffer, quadtree.buffer_index_filled[i] is true if that chunk is used by a node
-	bool* buffer_index_filled;
+	bool buffer_index_filled[num_nodes];
 
-	uint* node_index_to_buffer_index;
+	uint node_index_to_buffer_index[num_nodes];
 
 	uint64_t node_memory_size;
-	vec2* quadtree_minmax;
 
 	vec2 node_size;
+
+	vec2 quadtree_min;
+	vec2 quadtree_max;
 
 	const float quadtree_shift_distance = TERRAIN_GENERATE_TOTAL_SIDE_LENGTH / 2.f - TERRAIN_GENERATE_TOTAL_SIDE_LENGTH / (1 << quadtree_levels);
 };

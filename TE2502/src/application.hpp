@@ -206,6 +206,11 @@ private:
 	std::mutex m_debug_draw_mutex;
 
 	// Testing 
+	struct Fps
+	{
+		int fps;
+		float time;
+	};
 	struct Sample
 	{
 		uint gen_nodes = 0;
@@ -223,7 +228,7 @@ private:
 	float m_time_to_sample1;
 	float m_time_to_sample2;
 	Sample m_current_sample;
-	std::vector<int> m_fps_data;
+	std::vector<Fps> m_fps_data;
 	std::vector<Sample> m_test_data;
 	const float m_sample_rate = 0.25f;
 };

@@ -18,15 +18,15 @@ namespace generate
 	};
 
 	// Constants
-	const uint max_border_edges = 60000;
-	const uint max_triangles_to_remove = 60000;
-	const uint num_new_triangle_indices = 18000;
-	const uint test_triangle_buffer_size = 30000;
+	const uint max_border_edges = 10000;
+	const uint max_triangles_to_remove = 10000;
+	const uint num_new_triangle_indices = 5000;
+	const uint test_triangle_buffer_size = 5000;
 
-	const uint gen_indices = 200000;
-	const uint gen_vertices = 70000;
-	const uint gen_border_tris = 10000;
-	const uint gen_new_points = 2048 * 8;
+	const uint gen_indices = 21000;
+	const uint gen_vertices = 7000;
+	const uint gen_border_tris = 3000;
+	const uint gen_new_points = 3096;
 
 	struct MarkedTriangle
 	{

@@ -431,7 +431,7 @@ void Application::update(const float dt, bool auto_triangulate)
 				m_test_run_time = 0.f;
 			m_started_sampling = true;
 			m_time_to_sample1 = 1.0f / 30;
-			m_fps_data.push_back((int)running_fps);
+			m_fps_data.push_back(Fps{ (int)running_fps, m_test_run_time });
 		}
 
 		std::string text = "Frame info: " + std::to_string(running_fps) + "fps  "
@@ -496,9 +496,10 @@ void Application::update(const float dt, bool auto_triangulate)
 			std::ofstream out("testresults\\" + std::string(m_test_name) + "\\fps.txt");
 			if (out.is_open())
 			{
-				for (int i : m_fps_data)
+				out.precision(6);
+				for (Fps f : m_fps_data)
 				{
-					out << i << "\n";
+					out << f.time << "\t" << f.fps << "\n";
 				}
 			}
 			out.close();

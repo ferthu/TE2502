@@ -19,10 +19,10 @@ namespace triangulate
 	};
 
 	// Constants
-	const uint max_border_edges = 2000;
-	const uint max_triangles_to_remove = 2000;
-	const uint num_new_triangle_indices = 600;
-	const uint test_triangle_buffer_size = 5000;
+	const uint max_border_edges = 100000;
+	const uint max_triangles_to_remove = 100000;
+	const uint num_new_triangle_indices = 300000;
+	const uint test_triangle_buffer_size = 300000;
 
 #define EPSILON 1.0f - 0.0001f
 #define SELF_INDEX 4

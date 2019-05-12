@@ -17,12 +17,12 @@ const uint INVALID = ~0u;
 const uint UNKNOWN = INVALID - 9;
 
 const float TERRAIN_GENERATE_TOTAL_SIDE_LENGTH = max_view_dist * 2 + 100;
-constexpr uint TERRAIN_GENERATE_NUM_INDICES = 60000;
-constexpr uint TERRAIN_GENERATE_NUM_VERTICES = 20000;
+constexpr uint TERRAIN_GENERATE_NUM_INDICES = 6000;
+constexpr uint TERRAIN_GENERATE_NUM_VERTICES = 2000;
 constexpr uint TERRAIN_GENERATE_GRID_SIDE = 3;
-constexpr uint TRIANGULATE_MAX_NEW_POINTS = 2024;
-constexpr uint QUADTREE_LEVELS = 5;
-constexpr uint MAX_BORDER_TRIANGLE_COUNT = 2000;
+constexpr uint TRIANGULATE_MAX_NEW_POINTS = 1024;
+constexpr uint QUADTREE_LEVELS = 6;
+constexpr uint MAX_BORDER_TRIANGLE_COUNT = 700;
 
 static_assert(TERRAIN_GENERATE_GRID_SIDE % 2 == 1, "TERRAIN_GENERATE_GRID_SIDE must be an uneven number.");
 
@@ -45,13 +45,13 @@ struct Triangle
 
 struct TerrainData
 {
-	Array<uint, TERRAIN_GENERATE_NUM_INDICES> indices;
-	Array<vec4, TERRAIN_GENERATE_NUM_VERTICES> positions;
-	Array<Triangle, TERRAIN_GENERATE_NUM_INDICES / 3> triangles;
-	Array<uint, TERRAIN_GENERATE_NUM_INDICES> triangle_connections;
-	Array<uint, MAX_BORDER_TRIANGLE_COUNT> border_triangle_indices;
-	Array<vec4, TRIANGULATE_MAX_NEW_POINTS> new_points;
-	Array<uint, TRIANGULATE_MAX_NEW_POINTS> new_points_triangles;
+	std::array<uint, TERRAIN_GENERATE_NUM_INDICES> indices;
+	std::array<vec4, TERRAIN_GENERATE_NUM_VERTICES> positions;
+	std::array<Triangle, TERRAIN_GENERATE_NUM_INDICES / 3> triangles;
+	std::array<uint, TERRAIN_GENERATE_NUM_INDICES> triangle_connections;
+	std::array<uint, MAX_BORDER_TRIANGLE_COUNT> border_triangle_indices;
+	std::array<vec4, TRIANGULATE_MAX_NEW_POINTS> new_points;
+	std::array<uint, TRIANGULATE_MAX_NEW_POINTS> new_points_triangles;
 
 	bool is_invalid;
 

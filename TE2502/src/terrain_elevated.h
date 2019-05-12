@@ -116,10 +116,10 @@ inline float softShadow(vec3 ro, vec3 rd)
 {
 	float res = 1.0f;
 	float t = 0.001f;
-	for (int i = 0; i < 80; i++)
+	for (int i = 0; i < 40; i++)
 	{
 		vec3  p = ro + t * rd;
-		float h = p.y - terrainM(vec2(p.x, p.z));
+		float h = p.y - terrainL(vec2(p.x, p.z));
 		res = min(res, 16.0f*h / t);
 		t += h;
 		if (res<0.001f || p.y>(SC*200.0f)) break;

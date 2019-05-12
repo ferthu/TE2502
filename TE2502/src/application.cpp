@@ -560,8 +560,8 @@ void Application::update(const float dt, bool auto_triangulate)
 	static int refine_node = -1;
 	static int refine_vertices = 8000;
 	static int sideshow_bob = -1;
-	static float area_mult = 100000.0f;
-	static float curv_mult = 10.0f;
+	static float area_mult = 0.0f;
+	static float curv_mult = 20.0f;
 	static float threshold = 1.1f;
 
 	// DEBUG
@@ -569,7 +569,7 @@ void Application::update(const float dt, bool auto_triangulate)
 	static int debug_stage = -1;
 	static int debug_version = -1;
 
-	static bool refine = false;
+	static bool refine = true;
 
 	static bool backup = false;
 	static bool restore = false;

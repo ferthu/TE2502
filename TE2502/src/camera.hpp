@@ -58,7 +58,7 @@ private:
 	const float m_near = 0.05f;
 	const float m_far = max_view_dist; 
 	const float m_mouse_sensitivity = 0.01f;
-	const float m_fov_multiplier = 1.2f;	// This value is multiplied by m_fov to get the big frustum FOV
+	const float m_fov_multiplier = 1.3f;	// This value is multiplied by m_fov to get the big frustum FOV
 
 	GLFWwindow* m_window;
 	int m_window_width;

@@ -95,7 +95,7 @@ namespace process
 				glm::vec3 curv_point = (curv0 * inv_total_curv * glm::vec3(v0)) + (curv1 * inv_total_curv * glm::vec3(v1)) + (curv2 * inv_total_curv * glm::vec3(v2));
 
 				// Linearly interpolate between triangle middle and curv_point
-				glm::vec3 new_pos = mix(mid, curv_point, 0.8f);
+				glm::vec3 new_pos = mix(mid, curv_point, 0.9f);
 
 				// Y position of potential new point
 				float terrain_y = terrain(glm::vec2(new_pos.x, new_pos.z));

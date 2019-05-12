@@ -15,7 +15,7 @@ bool frustum_aabbxz_intersection(Frustum& frustum, AabbXZ& aabb)
 	for (int i = 0; i < 6; i++)
 	{
 		float min_y = -200.0f;
-		float max_y =  200.0f;
+		float max_y =  400.0f;
 
 		// Number of points on the negative halfspace
 		int num_out = 0;

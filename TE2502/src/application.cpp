@@ -377,8 +377,11 @@ void Application::run(bool auto_triangulate)
 
 		// Reset debug drawer
 		m_debug_drawer.new_frame();
-			   		 	  	  
-		update(delta_time.count(), auto_triangulate);
+
+		float dt = delta_time.count();
+		if (dt > 0.05f)
+			dt = 0.05f;
+		update(dt, auto_triangulate);
 
 		draw();
 	}
@@ -477,6 +480,10 @@ void Application::update(const float dt, bool auto_triangulate)
 			CreateDirectory(path.c_str(), NULL);
 			path += "\\" + std::string(m_test_name);
 			CreateDirectory(path.c_str(), NULL);
+			m_rast_path = path + "\\rast";
+			m_ray_path = path + "\\ray";
+			CreateDirectory(m_rast_path.c_str(), NULL);
+			CreateDirectory(m_ray_path.c_str(), NULL);
 
 			m_test_data.clear();
 			m_test_data.reserve(15000);
@@ -538,14 +545,28 @@ void Application::update(const float dt, bool auto_triangulate)
 		cputri::quadtree.new_points_added = 0;
 
 		m_time_to_sample2 -= dt;
-		if (m_time_to_sample2 < 0.f)
+		if (m_is_testing && m_time_to_sample2 < 0.f)
 		{
 			m_time_to_sample2 = m_sample_rate;
 			
 			m_current_sample.run_time = m_test_run_time;
+
+			m_current_sample.gen_nodes *= 4;
+			m_current_sample.gen_tris *= 4;
+			m_current_sample.draw_nodes *= 4;
+			m_current_sample.draw_tris *= 4;
+			m_current_sample.new_points *= 4;
+
 			m_test_data.push_back(m_current_sample);
 			m_current_sample = Sample();
+
+			if (m_save_snapshots)
+				snapshot(m_rast_path + "\\img" + std::to_string(m_snapshot_number) + ".png"
+					, m_ray_path + "\\img" + std::to_string(m_snapshot_number) + ".png");
+			++m_snapshot_number;
 		}
+
+		ImGui::Checkbox("Save snapshots", &m_save_snapshots);
 
 		if (ImGui::Button("Snapshot"))
 			snapshot("snapshot_raster.png", "snapshot_ray_march.png");

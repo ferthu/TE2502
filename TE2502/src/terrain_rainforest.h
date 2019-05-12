@@ -333,6 +333,7 @@ const vec3  kSunDir = vec3(-0.624695f, 0.468521f, -0.624695f);
 
 inline vec3 renderSky(vec3 ro, vec3 rd)
 {
+	return clear_color;
 	// background sky     
 	vec3 col = 0.9f*vec3(0.4f, 0.65f, 1.0f) - rd.y*vec3(0.4f, 0.36f, 0.4f);
 
@@ -341,8 +342,8 @@ inline vec3 renderSky(vec3 ro, vec3 rd)
 
 inline vec3 fog(vec3 col, float t, vec3 ro, vec3 rd)
 {
-	//float fogAmount = 1.0f - exp(-0.00000003f*t*t*t);  // Short
-	float fogAmount = 1.0f - exp(-0.000000002f*t*t*t);  // Far
+	float fogAmount = 1.0f - exp(-0.00000003f*t*t*t);  // Short
+	//float fogAmount = 1.0f - exp(-0.000000002f*t*t*t);  // Far
 	return mix(col, renderSky(ro, rd), fogAmount);
 }
 

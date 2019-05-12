@@ -47,6 +47,7 @@ namespace cputri
 		int refine_node;
 		// Max new vertices per refine step
 		int refine_vertices;
+		int refine_triangles;
 		int sideshow_bob;
 		float area_mult;
 		float curv_mult;

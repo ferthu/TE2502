@@ -559,6 +559,7 @@ void Application::update(const float dt, bool auto_triangulate)
 	static int show_node = -1;
 	static int refine_node = -1;
 	static int refine_vertices = 8000;
+	static int refine_triangles = 8000;
 	static int sideshow_bob = -1;
 	static float area_mult = 0.0f;
 	static float curv_mult = 20.0f;
@@ -584,6 +585,7 @@ void Application::update(const float dt, bool auto_triangulate)
 		ImGui::Begin("Lol");
 		ImGui::SliderInt("Index", &show_node, -1, 15);
 		ImGui::SliderInt("Vertices per refine", &refine_vertices, 1, 10);
+		ImGui::SliderInt("Triangles per refine", &refine_triangles, 1, 10);
 		ImGui::SliderInt("Refine Node", &refine_node, -1, num_nodes - 1);
 		ImGui::SliderInt("Sideshow", &sideshow_bob, -1, 9);
 
@@ -729,6 +731,7 @@ void Application::update(const float dt, bool auto_triangulate)
 			m_tri_data.show_node = show_node;
 			m_tri_data.refine_node = refine_node;
 			m_tri_data.refine_vertices = refine_vertices;
+			m_tri_data.refine_triangles = refine_triangles;
 			m_tri_data.sideshow_bob = sideshow_bob;
 			m_tri_data.area_mult = area_mult;
 			m_tri_data.curv_mult = curv_mult;

@@ -17,6 +17,8 @@ namespace process
 		if (tb->data[node_index].new_points_count != 0)
 			return;
 
+		TerrainData& node = tb->data[node_index];
+
 		const vec2 node_min = tb->data[node_index].min;
 		const vec2 node_max = tb->data[node_index].max;
 		const float side = node_max.x - node_min.x;
@@ -52,8 +54,15 @@ namespace process
 
 		uint new_point_count = 0;
 
+		if (node.first_process_triangle * 3 >= index_count)
+			node.first_process_triangle = 0;
+
 		// For every triangle
-		for (uint i = 0; i + 3 <= index_count && new_point_count < TRIANGULATE_MAX_NEW_POINTS; i += 3)
+		for (uint i = node.first_process_triangle * 3; 
+			i + 3 <= index_count && 
+				new_point_count < TRIANGULATE_MAX_NEW_POINTS && 
+				i < (node.first_process_triangle + tri_data->refine_triangles) * 3;
+			i += 3)
 		{
 			// Get vertices
 			vec4 v0 = tb->data[node_index].positions[tb->data[node_index].indices[i]];
@@ -120,5 +129,8 @@ namespace process
 				}
 			}
 		}
+	
+
+			node.first_process_triangle += tri_data->refine_triangles;
 	}
 }

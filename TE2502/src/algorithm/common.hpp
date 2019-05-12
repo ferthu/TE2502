@@ -59,6 +59,7 @@ struct TerrainData
 	uint vertex_count;
 	uint new_points_count;
 	uint draw_index_count;
+	uint first_process_triangle;
 
 	uint border_count;
 

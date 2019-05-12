@@ -651,6 +651,7 @@ namespace generate
 		{
 			tb->data[gen_info[ii].index].min = gen_info[ii].min;
 			tb->data[gen_info[ii].index].max = gen_info[ii].max;
+			tb->data[gen_info[ii].index].first_process_triangle = 0;
 
 			if (gen_info[ii].min.x < min.x)
 				min.x = gen_info[ii].min.x;

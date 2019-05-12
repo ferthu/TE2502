@@ -761,6 +761,9 @@ void Application::update(const float dt, bool auto_triangulate)
 		// Start recording and upload triangulated data to GPU
 		m_main_queue.start_recording();
 		cputri::upload(m_main_queue, m_gpu_buffer, m_cpu_buffer);
+		m_main_queue.end_recording();
+		m_main_queue.submit();
+		m_main_queue.wait();
 
 		m_tri_mutex.unlock();
 	}

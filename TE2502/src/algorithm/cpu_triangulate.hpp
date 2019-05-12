@@ -128,6 +128,10 @@ namespace cputri
 	// Restore autosaved terrain
 	void restore_auto(int version);
 
+	// Backup/restore from file
+	void file_backup();
+	void file_restore();
+
 	int get_num_autosaves();
 
 	// Returns vector of messages indicating hovered triangles

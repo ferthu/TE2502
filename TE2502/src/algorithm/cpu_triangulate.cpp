@@ -12,6 +12,7 @@
 #include <mutex>
 #include <atomic>
 #include <thread>
+#include <fstream>
 
 // Fritjof when coding in this file:
 //    ,,,,,
@@ -145,13 +146,26 @@ namespace cputri
 
 	void run(TriData* tri_data)
 	{
+		// Erase old autosave data
+		if (autosaves.size() > 500)
+		{
+			for (uint i = 0; i < 300; i++)
+			{
+				delete autosaves[i];
+				delete quadtree_autosaves[i];
+			}
+
+			autosaves.erase(autosaves.begin(), autosaves.begin() + 300);
+			quadtree_autosaves.erase(quadtree_autosaves.begin(), quadtree_autosaves.begin() + 300);
+		}
+
 		cputri::draw_terrain(tri_data);
 
 		do_triangulation = false;
 		cputri::intersect(tri_data->mc_frustum, *tri_data->dd, tri_data->mc_pos, tri_data);
 
-		if (quadtree.num_generate_nodes > 0)
-			backup_auto();
+		//if (quadtree.num_generate_nodes > 0)
+		//	backup_auto();
 
 		// Clear copy data
 		for (uint ii = 0; ii < quadtree.num_draw_nodes; ++ii)
@@ -165,12 +179,12 @@ namespace cputri
 		{
 			cputri::process_triangles(tri_data);
 			triangulate(tri_data);
-			backup_auto();
+			//backup_auto();
 		}
 		else if (do_triangulation)
 		{
 			triangulate(tri_data);
-			backup_auto();
+			//backup_auto();
 		}
 
 		if (debug_lines.size() > 0)
@@ -211,6 +225,8 @@ namespace cputri
 		for (uint32_t i = 0; i < quadtree.num_draw_nodes; i++)
 		{
 			TerrainData& node = tb->data[quadtree.draw_nodes[i]];
+			node.draw_index_count = node.index_count;
+
 			//if (node.has_data_to_copy)
 			{
 				node.has_data_to_copy = false;
@@ -254,6 +270,9 @@ namespace cputri
 		}
 		for (uint32_t i = 0; i < quadtree.num_generate_nodes; i++)
 		{
+			TerrainData& node = tb->data[quadtree.generate_nodes[i].index];
+			node.draw_index_count = node.index_count;
+
 			if (quadtree.generate_nodes[i].index != INVALID)
 			{
 				// Indices
@@ -605,16 +624,6 @@ namespace cputri
 				}
 			}
 		}
-
-		// Update draw index counts
-		{
-			std::unique_lock<std::mutex> lock(shared_data_lock);
-
-			for (uint ii = 0; ii < num_nodes; ii++)
-			{
-				tb->data[ii].draw_index_count = tb->data[ii].index_count;
-			}
-		}
 	}
 
 	void process_triangles(TriData* tri_data)
@@ -710,7 +719,6 @@ namespace cputri
 			{
 				tb->data[quadtree.generate_nodes[i].index].is_invalid = true;
 				tb->data[quadtree.generate_nodes[i].index].new_points_count = 0;
-				tb->data[quadtree.generate_nodes[i].index].draw_index_count = 0;
 			}
 
 		}
@@ -719,16 +727,6 @@ namespace cputri
 		{
 			generate::generate(tb, gg, log_filter, tri_data, quadtree.generate_nodes, quadtree.num_generate_nodes);
 			do_triangulation = true;
-		}
-
-		// Update draw index counts
-		{
-			std::unique_lock<std::mutex> lock(shared_data_lock);
-
-			for (uint ii = 0; ii < num_nodes; ii++)
-			{
-				tb->data[ii].draw_index_count = tb->data[ii].index_count;
-			}
 		}
 	}
 
@@ -801,6 +799,24 @@ namespace cputri
 			memcpy(tb, autosaves[version], sizeof(TerrainBuffer));
 			memcpy(&quadtree, quadtree_autosaves[version], sizeof(Quadtree));
 		}
+	}
+
+	void file_backup()
+	{
+		std::ofstream f("terrain_backup", std::ofstream::out | std::ofstream::binary);
+		f.write((char*)tb, sizeof(TerrainBuffer));
+		f.write((char*)&quadtree, sizeof(Quadtree));
+	}
+
+	void file_restore()
+	{
+		std::ifstream f("terrain_backup", std::ifstream::in | std::ifstream::binary);
+		f.read((char*)tb, sizeof(TerrainBuffer));
+		f.read((char*)&quadtree, sizeof(Quadtree));
+
+		tb->quadtree_index_map = quadtree.node_index_to_buffer_index;
+		tb->quadtree_min = &quadtree.quadtree_min;
+		tb->quadtree_max = &quadtree.quadtree_max;
 	}
 
 	int get_num_autosaves()

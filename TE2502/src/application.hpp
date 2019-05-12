@@ -182,7 +182,7 @@ private:
 	bool m_draw_ray_march = false;
 	bool m_draw_wireframe = true;
 	bool m_draw_triangulated = true;
-	bool m_triangulate = true;
+	bool m_triangulate = false;
 	bool m_triangulate_button_held = false;
 
 	PathHandler m_path_handler;

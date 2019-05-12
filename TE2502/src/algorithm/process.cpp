@@ -11,8 +11,8 @@ namespace process
 
 	void triangle_process(TerrainBuffer* tb, Quadtree& quadtree, float* log_filter, mat4 vp, vec4 camera_position, float threshold, float area_multiplier, float curvature_multiplier, cuint node_index, cputri::TriData* tri_data)
 	{
-		if (tri_data->refine_node != -1 && tri_data->refine_node != node_index)
-			return;
+		//if (tri_data->refine_node != -1 && tri_data->refine_node != node_index)
+		//	return;
 
 		if (tb->data[node_index].new_points_count != 0)
 			return;

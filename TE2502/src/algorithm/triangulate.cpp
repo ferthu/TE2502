@@ -106,8 +106,13 @@ namespace triangulate
 						}
 					}
 
+					// If no new triangle was found, remove the point by overwriting it with the last one
 					if (!found)
-						int a = 0;
+					{
+						tb->data[global_node_index].new_points[ii] = tb->data[global_node_index].new_points[tb->data[global_node_index].new_points_count - 1];
+						tb->data[global_node_index].new_points_triangles[ii] = tb->data[global_node_index].new_points_triangles[tb->data[global_node_index].new_points_count - 1];
+						--tb->data[global_node_index].new_points_count;
+					}
 				}
 				else if (tb->data[global_node_index].new_points_triangles[ii] == last_triangle)
 				{
@@ -142,8 +147,7 @@ namespace triangulate
 		if (tri_data->refine_node != -1 && tri_data->refine_node != node_index)
 			return;
 
-		const uint new_points_count = tb->data[node_index].new_points_count;
-		if (new_points_count == 0)
+		if (tb->data[node_index].new_points_count == 0)
 			return;
 
 		const vec2 node_min = tb->data[node_index].min;
@@ -180,7 +184,7 @@ namespace triangulate
 		g.triangles_removed = 0;
 
 		uint counter = 0;
-		for (int n = (int)new_points_count - 1; n >= 0 && counter < (uint)tri_data->refine_vertices; --n, ++counter)
+		for (int n = (int)tb->data[node_index].new_points_count - 1; n >= 0 && counter < (uint)tri_data->refine_vertices; --n, ++counter)
 		//for (uint n = 0; n < new_points_count && n < TERRAIN_GENERATE_NUM_VERTICES; ++n)
 		{
 			const vec4 current_point = tb->data[node_index].new_points[n];
@@ -223,6 +227,16 @@ namespace triangulate
 					const vec4 p0 = tb->data[global_owner_index].positions[index0];
 					const vec4 p1 = tb->data[global_owner_index].positions[index1];
 					const vec4 p2 = tb->data[global_owner_index].positions[index2];
+
+					// If new point is too close to a triangle vertex, don't add this point
+					const float eps = 0.01f;
+					if (distance(vec3(current_point), vec3(p0)) < eps ||
+						distance(vec3(current_point), vec3(p1)) < eps ||
+						distance(vec3(current_point), vec3(p2)) < eps)
+					{
+						finish = true;
+						break;
+					}
 
 					// Store edges to be removed
 					uint tr = g.triangles_removed++;
@@ -849,7 +863,7 @@ namespace triangulate
 			g.triangles_removed = 0;
 		}
 
-		const uint new_points_added = std::min((uint)tri_data->refine_vertices, new_points_count);
+		const uint new_points_added = std::min((uint)tri_data->refine_vertices, tb->data[node_index].new_points_count);
 		tb->data[node_index].new_points_count -= new_points_added;
 		quadtree.generated_triangle_count += tb->data[node_index].index_count / 3 - old_triangle_count;
 		quadtree.new_points_added += new_points_added;

@@ -635,7 +635,7 @@ namespace generate
 		const uint GRID_SIDE = TERRAIN_GENERATE_GRID_SIDE;
 
 		const float side = gen_info[0].max.x - gen_info[0].min.x;
-		const float max_triangle_side_length = (side / (GRID_SIDE - 1)) * 2.0f;
+		const float max_triangle_side_length = (side / (GRID_SIDE - 1)) * 3.0f;
 
 		// Reset supernode values
 		g.gen_index_count = 0;
@@ -1259,9 +1259,9 @@ namespace generate
 				vec3 remove_col = { 1, 1, 1 };
 
 				// If a triangle side is longer than allowed, triangle is invalid
-				if (length(sides[0] - sides[1]) > max_triangle_side_length ||
-					length(sides[1] - sides[2]) > max_triangle_side_length ||
-					length(sides[2] - sides[0]) > max_triangle_side_length)
+				if (length(vec2(sides[0].x, sides[0].z) - vec2(sides[1].x, sides[1].z)) > max_triangle_side_length ||
+					length(vec2(sides[1].x, sides[1].z) - vec2(sides[2].x, sides[2].z)) > max_triangle_side_length ||
+					length(vec2(sides[2].x, sides[2].z) - vec2(sides[0].x, sides[0].z)) > max_triangle_side_length)
 				{
 					remove = true;
 					remove_col = { 1, 0, 0 };

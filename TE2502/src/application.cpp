@@ -396,9 +396,6 @@ void Application::run(bool auto_triangulate)
 void Application::update(const float dt, bool auto_triangulate)
 {
 	m_save_images = false;
-	vec3 a = m_main_camera->get_pos();
-	a.z = 0;
-	m_main_camera->set_pos(a);
 
 	m_path_handler.update(dt);
 	m_current_camera->update(dt, m_window->get_mouse_locked(), m_debug_drawer);
@@ -443,6 +440,8 @@ void Application::update(const float dt, bool auto_triangulate)
 		text = "Position: " + std::to_string(m_main_camera->get_pos().x) + ", " + std::to_string(m_main_camera->get_pos().y) + ", " + std::to_string(m_main_camera->get_pos().z);
 		ImGui::Text(text.c_str());
 		text = "Debug Position: " + std::to_string(m_debug_camera->get_pos().x) + ", " + std::to_string(m_debug_camera->get_pos().y) + ", " + std::to_string(m_debug_camera->get_pos().z);
+		if (ImGui::Button("Teleport Debug to Main"))
+			m_debug_camera->set_pos(m_main_camera->get_pos());
 		ImGui::Text(text.c_str());
 		ImGui::Checkbox("Draw Ray Marched View", &m_draw_ray_march);
 		ImGui::Checkbox("Draw Triangulated View", &m_draw_triangulated);
@@ -565,7 +564,7 @@ void Application::update(const float dt, bool auto_triangulate)
 	static float threshold = 1.1f;
 
 	// DEBUG
-	static bool debug_generation = true;
+	static bool debug_generation = false;
 	static int debug_stage = -1;
 	static int debug_version = -1;
 
@@ -576,6 +575,8 @@ void Application::update(const float dt, bool auto_triangulate)
 
 	static int restore_auto_version = 0;
 	static bool restore_auto = false;
+	static bool file_backup = false;
+	static bool file_restore = false;
 
 	if (m_show_imgui)
 	{
@@ -621,6 +622,11 @@ void Application::update(const float dt, bool auto_triangulate)
 		if (ImGui::Button("Restore Auto"))
 			restore_auto = true;
 
+		if (ImGui::Button("File Backup"))
+			file_backup = true;
+		if (ImGui::Button("File Restore"))
+			file_restore = true;
+
 		ImGui::End();
 
 		std::vector<std::string> hovered_tris = cputri::get_hovered_tris();
@@ -655,6 +661,16 @@ void Application::update(const float dt, bool auto_triangulate)
 		{
 			cputri::restore_auto(restore_auto_version);
 			restore_auto = false;
+		}
+		if (file_restore)
+		{
+			cputri::file_restore();
+			file_restore = false;
+		}
+		if (file_backup)
+		{
+			cputri::file_backup();
+			file_backup = false;
 		}
 
 

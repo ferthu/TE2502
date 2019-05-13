@@ -7,10 +7,9 @@
 #include <iostream>
 #include <algorithm>
 #include "imgui/imgui.h"
-#include <iostream>
 
 static float speed_multiplier = 1;
-static int power = 0;
+static int power = 3;
 
 void scroll_callback(GLFWwindow * window, double xoffset, double yoffset)
 {
@@ -30,6 +29,7 @@ Camera::Camera(GLFWwindow* window)
 	m_perspective = calculate_perspective(m_fov, m_near, m_far, (float)m_window_width, (float)m_window_height);
 	get_camera_planes();
 	glfwSetScrollCallback(window, scroll_callback);
+	scroll_callback(window, 0, 0);
 }
 
 Camera::~Camera()

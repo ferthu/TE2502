@@ -12,7 +12,7 @@ int main(int argc, const char** argv)
 	srand((unsigned int)(time(NULL)));
 	clear_output_file();
 	{
-		Application app(1000, 600, {"noise_texture.png"});
+		Application app(1280, 720, {"noise_texture.png"});
 		if (argc >= 2 && strcmp(argv[1], "-r") == 0)
 		{
 			app.run(true);

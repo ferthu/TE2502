@@ -20,5 +20,7 @@ void main()
 	vec3 camera_pos = frame_data.camera_pos.xyz;
 	float dist = distance(world_pos, camera_pos);
 
+//	float t = (world_pos.y + 100) / 200.0f;
+//	out_color = vec4(t, t, t, 1);
 	out_color = vec4(post_effects(surface_color(world_pos, camera_pos, dist)), 1.0);
 }

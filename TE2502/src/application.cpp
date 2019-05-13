@@ -761,7 +761,7 @@ void Application::update(const float dt, bool auto_triangulate)
 			m_tri_data.sideshow_bob = sideshow_bob;
 			m_tri_data.area_mult = area_mult;
 			m_tri_data.curv_mult = curv_mult;
-			m_tri_data.threshold = 1.025f + threshold * 0.5f;
+			m_tri_data.threshold = 1.0f + threshold * 0.5f;
 
 			m_tri_data.debug_draw_mutex = &m_debug_draw_mutex;
 		}

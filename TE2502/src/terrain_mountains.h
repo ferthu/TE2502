@@ -226,7 +226,7 @@ inline vec3 surface_color(vec3 pos, vec3 cam_pos, float dist)
 
 	mat = do_lighting(mat, pos, normal, dir, dis_sqrd);
 
-	mat = apply_fog(mat, dis_sqrd, dir);
+	mat = apply_fog(mat, dist, dir);
 
 	return mat;
 }

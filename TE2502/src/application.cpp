@@ -545,26 +545,6 @@ void Application::update(const float dt, bool auto_triangulate)
 		cputri::quadtree.new_points_added = 0;
 
 		m_time_to_sample2 -= dt;
-		if (m_is_testing && m_time_to_sample2 < 0.f)
-		{
-			m_time_to_sample2 = m_sample_rate;
-			
-			m_current_sample.run_time = m_test_run_time;
-
-			m_current_sample.gen_nodes *= 4;
-			m_current_sample.gen_tris *= 4;
-			m_current_sample.draw_nodes *= 4;
-			m_current_sample.draw_tris *= 4;
-			m_current_sample.new_points *= 4;
-
-			m_test_data.push_back(m_current_sample);
-			m_current_sample = Sample();
-
-			if (m_save_snapshots)
-				snapshot(m_rast_path + "\\img" + std::to_string(m_snapshot_number) + ".png"
-					, m_ray_path + "\\img" + std::to_string(m_snapshot_number) + ".png");
-			++m_snapshot_number;
-		}
 
 		ImGui::Checkbox("Save snapshots", &m_save_snapshots);
 
@@ -580,11 +560,11 @@ void Application::update(const float dt, bool auto_triangulate)
 	static int show_node = -1;
 	static int refine_node = -1;
 	static int refine_vertices = 8000;
-	static int refine_triangles = 8000;
+	static int refine_triangles = 200;
 	static int sideshow_bob = -1;
-	static float area_mult = 0.0f;
-	static float curv_mult = 20.0f;
-	static float threshold = 1.1f;
+	static float area_mult = 0.5f;
+	static float curv_mult = 40.0f;
+	static float threshold = 0.5f;
 
 	// DEBUG
 	static bool debug_generation = false;
@@ -625,7 +605,7 @@ void Application::update(const float dt, bool auto_triangulate)
 
 		ImGui::DragFloat("Area mult", &area_mult, 0.01f, 0.0f, 50.0f);
 		ImGui::DragFloat("Curv mult", &curv_mult, 0.01f, 0.0f, 50.0f);
-		ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 50.0f);
+		ImGui::DragFloat("Threshold", &threshold, 0.01f, 0.0f, 1.0f);
 
 		ImGui::Checkbox("Show Debug", &show_debug);
 
@@ -671,6 +651,31 @@ void Application::update(const float dt, bool auto_triangulate)
 	// If triangulation thread is done, prepare it for another pass
 	if (m_tri_done && m_tri_mutex.try_lock())
 	{
+		if (m_is_testing && m_time_to_sample2 < 0.f)
+		{
+			m_time_to_sample2 = m_sample_rate;
+
+			m_current_sample.run_time = m_test_run_time;
+
+			m_current_sample.gen_nodes *= 4;
+			m_current_sample.gen_tris *= 4;
+			m_current_sample.draw_nodes *= 4;
+			m_current_sample.draw_tris *= 4;
+			m_current_sample.new_points *= 4;
+
+			m_test_data.push_back(m_current_sample);
+			m_current_sample = Sample();
+
+			std::string number = std::to_string(m_snapshot_number);
+			while (number.length() < 4)
+				number = number.insert(0, "0");
+
+			if (m_save_snapshots)
+				snapshot(m_rast_path + "\\img" + number + ".png"
+					, m_ray_path + "\\img" + number + ".png");
+			++m_snapshot_number;
+		}
+
 		if (backup)
 		{
 			cputri::backup();
@@ -756,7 +761,7 @@ void Application::update(const float dt, bool auto_triangulate)
 			m_tri_data.sideshow_bob = sideshow_bob;
 			m_tri_data.area_mult = area_mult;
 			m_tri_data.curv_mult = curv_mult;
-			m_tri_data.threshold = threshold;
+			m_tri_data.threshold = 1.025f + threshold * 0.5f;
 
 			m_tri_data.debug_draw_mutex = &m_debug_draw_mutex;
 		}

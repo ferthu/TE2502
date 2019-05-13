@@ -44,9 +44,9 @@ vec3 post_effects(vec3 rgb);
 
 const vec3 clear_color = vec3(0.4f, 0.5f, 0.7f);
 
-const float max_view_dist = 550.f;
-//const float max_view_dist = 1500.f;
+//const float max_view_dist = 550.f;
+const float max_view_dist = 1500.f;
 
 //#include "../src/terrain_mountains.h"
-//#include "../src/terrain_rainforest.h"
-#include "../src/terrain_elevated.h"
+#include "../src/terrain_rainforest.h"
+//#include "../src/terrain_elevated.h"

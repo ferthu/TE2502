@@ -11,9 +11,10 @@ for dir in subdirs:
 		files = [f for f in listdir(path+"/ray/") if isfile(join(path+"/ray/", f))]
 		f=open(path+"/com_res.txt","w+")
 		for file in files:
+			print(file)
 			ref_path = path + "/ray/" + file
 			a_path = path + "/rast/" + file
-			p=subprocess.Popen("pieapp\PieAPPv0.1.exe --ref_path "+ref_path+" --A_path "+a_path+" --sampling_mode sparse", shell=True, stdout=subprocess.PIPE)
+			p=subprocess.popen("pieapp\pieappv0.1.exe --ref_path "+ref_path+" --a_path "+a_path+" --sampling_mode sparse", shell=true, stdout=subprocess.pipe)
 			(output, err) = p.communicate()
 			p_status = p.wait()
 			words = output.split()

@@ -141,7 +141,8 @@ const glm::mat4& Camera::get_big_vp() const
 {
 	return m_big_vp;
 }
-
+
+
 Frustum Camera::get_big_frustum() const
 {
 	return m_big_frustum;

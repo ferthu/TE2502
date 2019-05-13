@@ -342,8 +342,8 @@ inline vec3 renderSky(vec3 ro, vec3 rd)
 
 inline vec3 fog(vec3 col, float t, vec3 ro, vec3 rd)
 {
-	float fogAmount = 1.0f - exp(-0.00000003f*t*t*t);  // Short
-	//float fogAmount = 1.0f - exp(-0.000000002f*t*t*t);  // Far
+	//float fogAmount = 1.0f - exp(-0.00000003f*t*t*t);  // Short
+	float fogAmount = 1.0f - exp(-0.000000002f*t*t*t);  // Far
 	return mix(col, renderSky(ro, rd), fogAmount);
 }
 

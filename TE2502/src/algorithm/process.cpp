@@ -91,7 +91,7 @@ namespace process
 				// s is semiperimeter
 				float s = (a + b + c) * 0.5f;
 
-				float area = pow(1 + s * (s - a) * (s - b) * (s - c), area_multiplier * 10000);
+				float area = pow(1 + s * (s - a) * (s - b) * (s - c) * 1000, area_multiplier);
 
 				glm::vec3 mid = (glm::vec3(v0) + glm::vec3(v1) + glm::vec3(v2)) / 3.0f;
 				float curv0 = v0.w;		// Curvature is stored in w coordinate

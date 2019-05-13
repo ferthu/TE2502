@@ -42,7 +42,7 @@ namespace cputri
 
 	std::mutex shared_data_lock = std::mutex();
 
-	static const uint num_threads = 1;
+	static const uint num_threads = 8;
 
 	// Atomic variables used for multithreading
 	std::atomic<int> atomic_started;

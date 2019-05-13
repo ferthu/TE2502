@@ -713,13 +713,13 @@ void Application::update(const float dt, bool auto_triangulate)
 			m_tri_data.mc_pos = m_main_camera->get_pos();
 			m_tri_data.mc_view = m_main_camera->get_view();
 			m_tri_data.mc_vp = m_main_camera->get_big_vp();
-			m_tri_data.mc_frustum = m_main_camera->get_frustum();
+			m_tri_data.mc_frustum = m_main_camera->get_big_frustum();
 
 			m_tri_data.cc_fov = m_current_camera->get_fov();
 			m_tri_data.cc_pos = m_current_camera->get_pos();
 			m_tri_data.cc_view = m_current_camera->get_view();
 			m_tri_data.cc_vp = m_current_camera->get_big_vp();
-			m_tri_data.cc_frustum = m_current_camera->get_frustum();
+			m_tri_data.cc_frustum = m_current_camera->get_big_frustum();
 
 			// DEBUG
 			m_tri_data.debug_generation = debug_generation;

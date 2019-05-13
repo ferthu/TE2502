@@ -45,6 +45,7 @@ public:
 	void set_yaw_pitch(float yaw, float pitch);
 
 	Frustum get_frustum() const;
+	Frustum get_big_frustum() const;
 
 	static glm::mat4 calculate_perspective(float horiz_fov_degrees, float near, float far, float window_width, float window_height);
 
@@ -58,7 +59,7 @@ private:
 	const float m_near = 0.05f;
 	const float m_far = max_view_dist; 
 	const float m_mouse_sensitivity = 0.01f;
-	const float m_fov_multiplier = 1.3f;	// This value is multiplied by m_fov to get the big frustum FOV
+	const float m_fov_multiplier = 1.7f;	// This value is multiplied by m_fov to get the big frustum FOV
 
 	GLFWwindow* m_window;
 	int m_window_width;
@@ -74,4 +75,5 @@ private:
 	glm::mat4 m_ray_march_view;
 
 	Frustum m_frustum;
+	Frustum m_big_frustum;
 };

@@ -142,7 +142,11 @@ const glm::mat4& Camera::get_big_vp() const
 {
 	return m_big_vp;
 }
-
+
+Frustum Camera::get_big_frustum() const
+{
+	return m_big_frustum;
+}
 const glm::mat4& Camera::get_big_perspective() const
 {
 	return m_big_perspective;
@@ -179,6 +183,10 @@ glm::mat4 Camera::calculate_perspective(float horiz_fov_degrees, float n, float 
 
 void Camera::get_camera_planes()
 {
+	//---------------
+	// Normal frustum
+	//---------------
+
 	// Left clipping plane
 	m_frustum.m_left.m_plane.x = m_vp[0][3] + m_vp[0][0];
 	m_frustum.m_left.m_plane.y = m_vp[1][3] + m_vp[1][0];
@@ -233,4 +241,62 @@ void Camera::get_camera_planes()
 	point = inv_vp * glm::vec4(-1,  1, 1, 1); m_frustum.m_corners[5] = point / point.w;
 	point = inv_vp * glm::vec4( 1, -1, 1, 1); m_frustum.m_corners[6] = point / point.w;
 	point = inv_vp * glm::vec4(-1, -1, 1, 1); m_frustum.m_corners[7] = point / point.w;
+
+	// -----------
+	// Big frustum
+	// -----------
+
+	// Left clipping plane
+	m_big_frustum.m_left.m_plane.x = m_big_vp[0][3] + m_big_vp[0][0];
+	m_big_frustum.m_left.m_plane.y = m_big_vp[1][3] + m_big_vp[1][0];
+	m_big_frustum.m_left.m_plane.z = m_big_vp[2][3] + m_big_vp[2][0];
+	m_big_frustum.m_left.m_plane.w = m_big_vp[3][3] + m_big_vp[3][0];
+	m_big_frustum.m_left.normalize();
+
+	// Right clipping plane
+	m_big_frustum.m_right.m_plane.x = m_big_vp[0][3] - m_big_vp[0][0];
+	m_big_frustum.m_right.m_plane.y = m_big_vp[1][3] - m_big_vp[1][0];
+	m_big_frustum.m_right.m_plane.z = m_big_vp[2][3] - m_big_vp[2][0];
+	m_big_frustum.m_right.m_plane.w = m_big_vp[3][3] - m_big_vp[3][0];
+	m_big_frustum.m_right.normalize();
+
+	// Top clipping plane
+	m_big_frustum.m_top.m_plane.x = m_big_vp[0][3] + m_big_vp[0][1];
+	m_big_frustum.m_top.m_plane.y = m_big_vp[1][3] + m_big_vp[1][1];
+	m_big_frustum.m_top.m_plane.z = m_big_vp[2][3] + m_big_vp[2][1];
+	m_big_frustum.m_top.m_plane.w = m_big_vp[3][3] + m_big_vp[3][1];
+	m_big_frustum.m_top.normalize();
+
+	// Bottom clipping plane
+	m_big_frustum.m_bottom.m_plane.x = m_big_vp[0][3] - m_big_vp[0][1];
+	m_big_frustum.m_bottom.m_plane.y = m_big_vp[1][3] - m_big_vp[1][1];
+	m_big_frustum.m_bottom.m_plane.z = m_big_vp[2][3] - m_big_vp[2][1];
+	m_big_frustum.m_bottom.m_plane.w = m_big_vp[3][3] - m_big_vp[3][1];
+	m_big_frustum.m_bottom.normalize();
+
+	// Near clipping plane
+	m_big_frustum.m_near.m_plane.x = m_big_vp[0][3] + m_big_vp[0][2];
+	m_big_frustum.m_near.m_plane.y = m_big_vp[1][3] + m_big_vp[1][2];
+	m_big_frustum.m_near.m_plane.z = m_big_vp[2][3] + m_big_vp[2][2];
+	m_big_frustum.m_near.m_plane.w = m_big_vp[3][3] + m_big_vp[3][2];
+	m_big_frustum.m_near.normalize();
+
+	// Far clipping plane
+	m_big_frustum.m_far.m_plane.x = m_big_vp[0][3] - m_big_vp[0][2];
+	m_big_frustum.m_far.m_plane.y = m_big_vp[1][3] - m_big_vp[1][2];
+	m_big_frustum.m_far.m_plane.z = m_big_vp[2][3] - m_big_vp[2][2];
+	m_big_frustum.m_far.m_plane.w = m_big_vp[3][3] - m_big_vp[3][2];
+	m_big_frustum.m_far.normalize();
+
+	// Calculate frustum corners
+	inv_vp = glm::inverse(m_big_vp);
+
+	point = inv_vp * glm::vec4( 1,  1, 0, 1); m_big_frustum.m_corners[0] = point / point.w;
+	point = inv_vp * glm::vec4(-1,  1, 0, 1); m_big_frustum.m_corners[1] = point / point.w;
+	point = inv_vp * glm::vec4( 1, -1, 0, 1); m_big_frustum.m_corners[2] = point / point.w;
+	point = inv_vp * glm::vec4(-1, -1, 0, 1); m_big_frustum.m_corners[3] = point / point.w;
+	point = inv_vp * glm::vec4( 1,  1, 1, 1); m_big_frustum.m_corners[4] = point / point.w;
+	point = inv_vp * glm::vec4(-1,  1, 1, 1); m_big_frustum.m_corners[5] = point / point.w;
+	point = inv_vp * glm::vec4( 1, -1, 1, 1); m_big_frustum.m_corners[6] = point / point.w;
+	point = inv_vp * glm::vec4(-1, -1, 1, 1); m_big_frustum.m_corners[7] = point / point.w;
 }

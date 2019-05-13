@@ -53,7 +53,7 @@ private:
 	void get_camera_planes();
 
 	const float m_slow_speed = 4.f;
-	const float m_fast_speed = 300.f;
+	const float m_fast_speed = 50.f;
 	const float m_fov = 90.f;	// Horizontal FOV in degrees
 	const float m_near = 0.05f;
 	const float m_far = max_view_dist; 

@@ -233,5 +233,9 @@ private:
 	std::vector<Fps> m_fps_data;
 	std::vector<Sample> m_test_data;
 	const float m_sample_rate = 0.25f;
+	bool m_save_snapshots = false;
+	int m_snapshot_number = 0;
+	std::string m_rast_path;
+	std::string m_ray_path;
 };
 

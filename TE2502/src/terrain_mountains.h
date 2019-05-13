@@ -152,6 +152,7 @@ inline vec3 do_lighting(vec3 mat, vec3 pos, vec3 normal, vec3 eye_dir, float dis
 
 inline vec3 get_sky(vec3 rd)
 {
+	return clear_color;
 	float sunAmount = max( dot( rd, sun_light), 0.0f );
 	float v = pow(1.0f-max(rd.y,0.0f),5.)*.5f;
 	vec3  sky = vec3(v*sun_color.x*0.4f+0.18f, v*sun_color.y*0.4f+0.22f, v*sun_color.z*0.4f+.4f);
@@ -160,14 +161,13 @@ inline vec3 get_sky(vec3 rd)
 	// Actual sun...
 	sky = sky+ sun_color * min(pow(sunAmount, 1150.0f), .3f)*.65f;
 	return sky;
-	//return vec3(0.1f, 0.15f, 0.3f);
 }
 
 // Merge mountains into the sky background for correct disappearance...
 inline vec3 apply_fog(vec3 rgb, float dis, vec3 dir)
 {
-	float fogAmount = 1.0f - exp(-0.000000000000001f*dis*dis*dis);  // Short
-	//float fogAmount = 1.0f - exp(-0.0000000000000000003f*dis*dis*dis);  // Far
+	//float fogAmount = 1.0f - exp(-0.000000000000001f*dis*dis*dis);  // Short
+	float fogAmount = 1.0f - exp(-0.0000000000000000003f*dis*dis*dis);  // Far
 	return mix(rgb, get_sky(dir), fogAmount);
 }
 

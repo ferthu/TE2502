@@ -3,6 +3,7 @@
 #include "graphics_queue.hpp"
 #include "framebuffer.hpp"
 #include "render_pass.hpp"
+#include "terrain_interface.h"
 
 GraphicsQueue::GraphicsQueue(VulkanContext& context, VkCommandPool command_pool, VkQueue queue) : ComputeQueue(context, command_pool, queue)
 {
@@ -116,11 +117,6 @@ void GraphicsQueue::cmd_draw_indexed(uint32_t num_indices, uint32_t num_instance
 	vkCmdDrawIndexed(m_command_buffer, num_indices, num_instances, index_offset, vertex_offset, instance_offset);
 }
 
-float post_process(float color)
-{
-	return (1.0f - expf(-color * 6.0f)) * 1.0024f;
-}
-
 void GraphicsQueue::cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& framebuffer)
 {
 	VkRenderPassBeginInfo begin_info;
@@ -132,9 +128,9 @@ void GraphicsQueue::cmd_begin_render_pass(RenderPass& render_pass, Framebuffer& 
 	begin_info.renderArea.extent = { framebuffer.get_width(), framebuffer.get_height() };
 	begin_info.clearValueCount = 2;
 	VkClearValue clear_value[2];
-	clear_value[0].color.float32[0] = post_process(0.1f);
-	clear_value[0].color.float32[1] = post_process(0.15f);
-	clear_value[0].color.float32[2] = post_process(0.3f);
+	clear_value[0].color.float32[0] = post_effects(clear_color).r;
+	clear_value[0].color.float32[1] = post_effects(clear_color).g;
+	clear_value[0].color.float32[2] = post_effects(clear_color).b;
 	clear_value[0].color.float32[3] = 1.0f;
 	clear_value[1].color.float32[0] = 0.0f;
 	clear_value[1].color.float32[1] = 0.0f;

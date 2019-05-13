@@ -7,6 +7,22 @@
 #include <iostream>
 #include <algorithm>
 #include "imgui/imgui.h"
+#include <iostream>
+
+static float speed_multiplier = 1;
+static int power = 0;
+
+void scroll_callback(GLFWwindow * window, double xoffset, double yoffset)
+{
+	power += yoffset;
+	if (power < 0)
+		power = 0;
+	else if (power > 20)
+		power = 20;
+	speed_multiplier = 0.5 + power * 5;
+	std::cout << std::to_string(yoffset) << "\t" << std::to_string(speed_multiplier) << "\t" << power << "\n";
+}
+
 
 Camera::Camera(GLFWwindow* window)
 {
@@ -14,6 +30,7 @@ Camera::Camera(GLFWwindow* window)
 	glfwGetWindowSize(m_window, &m_window_width, &m_window_height);
 	m_perspective = calculate_perspective(m_fov, m_near, m_far, (float)m_window_width, (float)m_window_height);
 	get_camera_planes();
+	glfwSetScrollCallback(window, scroll_callback);
 }
 
 Camera::~Camera()
@@ -22,10 +39,10 @@ Camera::~Camera()
 
 void Camera::update(const float dt, bool mouse_locked, DebugDrawer& dd)
 {
+	float speed = m_slow_speed * speed_multiplier * dt;
 	// Handle keyboard input
 	glm::vec2 horiz_dir = glm::vec2(0);  // x = left, y = forward
 	float up = 0.f;
-	float speed_modifier = 0.f;
 	if (glfwGetKey(m_window, GLFW_KEY_W) == GLFW_PRESS)  // Forward
 		horiz_dir.y -= 1.f;
 	if (glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS)  // Backward
@@ -39,9 +56,8 @@ void Camera::update(const float dt, bool mouse_locked, DebugDrawer& dd)
 	if (glfwGetKey(m_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)  // Down
 		up -= 1.f;
 	if (glfwGetKey(m_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)  // Speed up
-		speed_modifier = 1.f;
+		speed *= 3;
 
-	const float speed = (m_slow_speed * (1.f - speed_modifier) + m_fast_speed * speed_modifier) * dt;
 	horiz_dir *= speed;
 	up *= speed;
 

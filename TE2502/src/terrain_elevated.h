@@ -148,11 +148,11 @@ inline float fbm(vec2 p)
 	return f / 0.9375f;
 }
 
-//const float kMaxT = 5000.0f*SC;
 const vec3 light1 = normalize(vec3(-0.8f, 0.4f, -0.3f));
 
 inline vec3 get_sky(vec3 ro, vec3 rd)
 {
+	return clear_color;
 	vec3 col;
 	// sky		
 	col = vec3(0.2f, 0.5f, 0.85f)*1.1f - rd.y*rd.y*0.5f;
@@ -229,8 +229,8 @@ inline vec3 surface_color(vec3 pos, vec3 ro, float t)
 	col += s * 0.1f*pow(fre, 4.0f)*vec3(0.4f, 0.5f, 0.6f)*smoothstep(0.0f, 0.6f, ref.y);
 
 	// fog
-	//float fo = 1.0f - exp(-0.0000000014f*t*t*t / SC);  // Short
-	float fo = 1.0f - exp(-0.00000003f*t*t*t / SC);  // Far
+	//float fo = 1.0f - exp(-0.0000000014f*t*t*t / SC);  // Far
+	float fo = 1.0f - exp(-0.00000003f*t*t*t / SC);  // Short
 	//vec3 fco = 0.65f*vec3(0.4f, 0.65f, 1.0f);// + 0.1f*vec3(1.0f,0.8f,0.5f)*pow( sundot, 4.0f );
 	vec3 fco = get_sky(ro, rd);
 	col = mix(col, fco, fo);

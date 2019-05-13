@@ -227,13 +227,14 @@ namespace cputri
 			TerrainData& node = tb->data[quadtree.draw_nodes[i]];
 			node.draw_index_count = node.index_count;
 
-			//if (node.has_data_to_copy)
+			if (node.has_data_to_copy)
 			{
 				node.has_data_to_copy = false;
 
 				// Indices
 				uint offset = 0;// node.lowest_indices_index_changed * sizeof(uint);
 				uint size = node.index_count * sizeof(uint);// (node.index_count - node.lowest_indices_index_changed) * sizeof(uint);
+
 				queue.cmd_copy_buffer(cpu_buffer.get_buffer(), gpu_buffer.get_buffer(),
 					size,
 					get_cpu_index_offset_of_node(quadtree.draw_nodes[i]) + offset,
@@ -252,6 +253,7 @@ namespace cputri
 				// Vertices
 				offset = 0; // node.old_vertex_count * sizeof(vec4);
 				size = node.vertex_count * sizeof(vec4);// (node.vertex_count - node.old_vertex_count) * sizeof(vec4);
+
 				queue.cmd_copy_buffer(cpu_buffer.get_buffer(), gpu_buffer.get_buffer(),
 					size,
 					get_cpu_vertex_offset_of_node(quadtree.draw_nodes[i]) + offset,
@@ -308,6 +310,8 @@ namespace cputri
 				);
 			}
 		}
+
+
 
 		quadtree.num_generate_nodes_draw = quadtree.num_generate_nodes;
 		for (uint ii = 0; ii < quadtree.num_generate_nodes; ++ii)

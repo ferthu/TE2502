@@ -560,7 +560,7 @@ void Application::update(const float dt, bool auto_triangulate)
 	static int show_node = -1;
 	static int refine_node = -1;
 	static int refine_vertices = 8000;
-	static int refine_triangles = 200;
+	static int refine_triangles = 300;
 	static int sideshow_bob = -1;
 	static float area_mult = 0.5f;
 	static float curv_mult = 40.0f;

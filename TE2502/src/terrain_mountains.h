@@ -166,9 +166,8 @@ inline vec3 get_sky(vec3 rd)
 // Merge mountains into the sky background for correct disappearance...
 inline vec3 apply_fog(vec3 rgb, float dis, vec3 dir)
 {
-	//float fogAmount = 1.0f - exp(-0.000000000000001f*dis*dis*dis);  // Short
-	float fogAmount = 1.0f - exp(-0.0000000000000000003f*dis*dis*dis);  // Far
-	return mix(rgb, get_sky(dir), fogAmount);
+	float fo = pow(clamp((dis - fog_start_dist) / (fog_end_dist - fog_start_dist), 0.0f, 1.0f), 1.7f);
+	return mix(rgb, get_sky(dir), fo);
 }
 
 // 

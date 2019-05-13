@@ -772,9 +772,9 @@ void Application::update(const float dt, bool auto_triangulate)
 	}
 	else if (m_show_imgui)
 	{
-		ImGui::Begin("Working");
+		/*ImGui::Begin("Working");
 		ImGui::Text("Working...");
-		ImGui::End();
+		ImGui::End();*/
 	}
 }
 

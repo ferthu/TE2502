@@ -20,7 +20,6 @@ void scroll_callback(GLFWwindow * window, double xoffset, double yoffset)
 	else if (power > 20)
 		power = 20;
 	speed_multiplier = 0.5 + power * 5;
-	std::cout << std::to_string(yoffset) << "\t" << std::to_string(speed_multiplier) << "\t" << power << "\n";
 }
 
 

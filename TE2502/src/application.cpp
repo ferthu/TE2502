@@ -494,6 +494,8 @@ void Application::update(const float dt, bool auto_triangulate)
 			m_time_to_sample1 = 1.0f; 
 			m_time_to_sample2 = 1.0f + m_sample_rate;
 
+			m_snapshot_number = 0;
+
 			cputri::clear_terrain();
 			m_path_handler.follow_path(current_item);
 		}
@@ -560,11 +562,11 @@ void Application::update(const float dt, bool auto_triangulate)
 	static int show_node = -1;
 	static int refine_node = -1;
 	static int refine_vertices = 8000;
-	static int refine_triangles = 300;
+	static int refine_triangles = 1000;
 	static int sideshow_bob = -1;
 	static float area_mult = 0.5f;
 	static float curv_mult = 40.0f;
-	static float threshold = 0.5f;
+	static float threshold = 0.05f;
 
 	// DEBUG
 	static bool debug_generation = false;

@@ -10,7 +10,6 @@
 *.sln.docstates
 output.txt
 *.spv
-pieapp/
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -345,3 +344,4 @@ TE2502/imgui\.ini
 *.cap
 
 TE2502/shaders/spirv-dis\.exe
+TE2502/pieapp/pieapp*

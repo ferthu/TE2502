@@ -634,13 +634,21 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 	SpecializationInfo* vertex_shader_specialization,
 	SpecializationInfo* fragment_shader_specialization,
 	VkPrimitiveTopology topology,
-	VkPolygonMode polygon_mode)
+	VkPolygonMode polygon_mode,
+	VkCompareOp depth_op,
+	bool enable_fragment_shader)
 {
 	auto vert_shader_code = read_file("shaders/compiled/" + shader_name + ".vert.spv");
-	auto frag_shader_code = read_file("shaders/compiled/" + shader_name + ".frag.spv");
+	std::vector<char> frag_shader_code;
+
+	if (enable_fragment_shader)
+		frag_shader_code = read_file("shaders/compiled/" + shader_name + ".frag.spv");
 
 	VkShaderModule vert_shader_module = create_shader_module(vert_shader_code);
-	VkShaderModule frag_shader_module = create_shader_module(frag_shader_code);
+	VkShaderModule frag_shader_module{};
+
+	if (enable_fragment_shader)
+		frag_shader_module = create_shader_module(frag_shader_code);
 
 	std::vector<char> geom_shader_code;
 	VkShaderModule geom_shader_module{};
@@ -757,7 +765,7 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 	depth_stencil.flags = 0;
 	depth_stencil.depthTestEnable = enable_depth ? VK_TRUE : VK_FALSE;
 	depth_stencil.depthWriteEnable = enable_depth ? VK_TRUE : VK_FALSE;
-	depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS;
+	depth_stencil.depthCompareOp = depth_op;
 	depth_stencil.depthBoundsTestEnable = VK_FALSE;
 	depth_stencil.stencilTestEnable = VK_FALSE;
 
@@ -775,9 +783,16 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 	depth_stencil.minDepthBounds = 0.0f;
 	depth_stencil.maxDepthBounds = 1.0f;
 
+	uint32_t num_stages = 1;
+
+	if (enable_fragment_shader)
+		++num_stages;
+	if (enable_geometry_shader)
+		++num_stages;
+
 	VkGraphicsPipelineCreateInfo pipeline_info = {};
 	pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipeline_info.stageCount = enable_geometry_shader ? 3 : 2;
+	pipeline_info.stageCount = num_stages;
 	pipeline_info.pStages = shader_stages;
 	pipeline_info.pVertexInputState = &vertex_input_info;
 	pipeline_info.pInputAssemblyState = &input_assembly;
@@ -806,7 +821,9 @@ std::unique_ptr<Pipeline> VulkanContext::create_graphics_pipeline(
 	}
 
 	vkDestroyShaderModule(m_device, vert_shader_module, nullptr);
-	vkDestroyShaderModule(m_device, frag_shader_module, nullptr);
+
+	if (enable_fragment_shader)
+		vkDestroyShaderModule(m_device, frag_shader_module, nullptr);
 
 	if (enable_geometry_shader)
 		vkDestroyShaderModule(m_device, geom_shader_module, nullptr);

@@ -102,17 +102,19 @@ public:
 
 	// Creates and returns a graphics pipeline
 	std::unique_ptr<Pipeline> create_graphics_pipeline(
-		const std::string& shader_name, 
-		const glm::vec2 window_size, 
-		PipelineLayout& layout, 
-		VertexAttributes& vertex_attributes, 
-		RenderPass& render_pass, 
+		const std::string& shader_name,
+		const glm::vec2 window_size,
+		PipelineLayout& layout,
+		VertexAttributes& vertex_attributes,
+		RenderPass& render_pass,
 		bool enable_depth,
 		bool enable_geometry_shader,
 		SpecializationInfo* vertex_shader_specialization,
 		SpecializationInfo* fragment_shader_specialization,
 		VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		VkPolygonMode polygon_mode = VK_POLYGON_MODE_FILL);
+		VkPolygonMode polygon_mode = VK_POLYGON_MODE_FILL,
+		VkCompareOp depth_op = VK_COMPARE_OP_LESS,
+		bool enable_fragment_shader = true);
 
 	// Allocate a descriptor set from descriptor pool
 	VkDescriptorSet allocate_descriptor_set(DescriptorSetLayout& layout);

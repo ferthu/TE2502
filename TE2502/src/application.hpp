@@ -127,9 +127,11 @@ private:
 	DescriptorSetLayout m_raster_set_layout;
 	DescriptorSet m_raster_descriptor_set;
 	RenderPass m_render_pass;
+	RenderPass m_depth_prepass_render_pass;
 	PipelineLayout m_draw_pipeline_layout;
 	std::unique_ptr<Pipeline> m_draw_pipeline;
 	std::unique_ptr<Pipeline> m_draw_wireframe_pipeline;
+	std::unique_ptr<Pipeline> m_depth_prepass_pipeline;
 
 	// CPU and GPU terrain memory
 	GPUMemory m_gpu_buffer_memory;

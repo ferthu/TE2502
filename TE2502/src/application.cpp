@@ -155,9 +155,21 @@ Application::Application(uint32_t window_width, uint32_t window_height, std::vec
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 		true,
 		true,
+		false,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+	m_depth_prepass_render_pass = RenderPass(
+		m_vulkan_context,
+		VK_FORMAT_B8G8R8A8_UNORM,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		true,
+		true,
 		true,
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
 	m_draw_pipeline_layout = PipelineLayout(m_vulkan_context);
 	m_draw_pipeline_layout.add_descriptor_set_layout(m_raster_set_layout);
 	m_draw_pipeline_layout.create(&push);
@@ -677,9 +689,6 @@ void Application::update(const float dt, bool auto_triangulate)
 			m_current_sample.gen_nodes += cputri::quadtree.num_generate_nodes_draw;
 			m_current_sample.gen_tris += cputri::quadtree.generated_triangle_count;
 			m_current_sample.new_points += cputri::quadtree.new_points_added;
-
-			std::cout << "&&&&&&\n";
-			std::cout << cputri::quadtree.generated_triangle_count << ", " << cputri::quadtree.num_generate_nodes_draw << ", " << cputri::quadtree.new_points_added << "\n";
 		}
 
 		if (backup)
@@ -921,6 +930,16 @@ void Application::draw_main()
 		m_raster_descriptor_set.bind();
 
 		m_main_queue.cmd_bind_descriptor_set(m_draw_pipeline_layout.get_pipeline_layout(), 0, m_raster_descriptor_set.get_descriptor_set());
+
+		// Depth prepass
+		if (m_draw_triangulated)
+		{
+			m_main_queue.cmd_bind_graphics_pipeline(m_depth_prepass_pipeline->m_pipeline);
+			m_main_queue.cmd_begin_render_pass(m_depth_prepass_render_pass, m_window_states.swapchain_framebuffers[index]);
+			m_main_queue.cmd_push_constants(m_draw_pipeline_layout.get_pipeline_layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(DrawData), &m_draw_data);
+			cputri::draw(m_main_queue, m_gpu_buffer, m_cpu_buffer);
+			m_main_queue.cmd_end_render_pass();
+		}
 
 		// Start renderpass
 		if (!m_draw_wireframe)
@@ -1477,7 +1496,10 @@ void Application::create_pipelines()
 		true,
 		false,
 		nullptr,
-		nullptr);
+		nullptr,
+		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		VK_POLYGON_MODE_FILL,
+		VK_COMPARE_OP_EQUAL);
 
 	m_draw_wireframe_pipeline = m_vulkan_context.create_graphics_pipeline(
 		"terrain_draw",
@@ -1491,6 +1513,21 @@ void Application::create_pipelines()
 		nullptr,
 		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
 		VK_POLYGON_MODE_LINE);
+
+	m_depth_prepass_pipeline = m_vulkan_context.create_graphics_pipeline(
+		"terrain_draw",
+		m_window->get_size(),
+		m_draw_pipeline_layout,
+		va,
+		m_depth_prepass_render_pass,
+		true,
+		false,
+		nullptr,
+		nullptr,
+		VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		VK_POLYGON_MODE_FILL,
+		VK_COMPARE_OP_LESS,
+		false);
 }
 
 void Application::snapshot(std::string raster_image_name, std::string raymarch_image_name)

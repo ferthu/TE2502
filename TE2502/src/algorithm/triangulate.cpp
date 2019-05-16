@@ -221,12 +221,14 @@ namespace triangulate
 				if (dx * dx + dy * dy < circumradius2)
 				{
 					// Add triangle edges to edge buffer
-					const uint index0 = tb->data[global_owner_index].indices[triangle_index * 3 + 0];
-					const uint index1 = tb->data[global_owner_index].indices[triangle_index * 3 + 1];
-					const uint index2 = tb->data[global_owner_index].indices[triangle_index * 3 + 2];
-					const vec4 p0 = tb->data[global_owner_index].positions[index0];
-					const vec4 p1 = tb->data[global_owner_index].positions[index1];
-					const vec4 p2 = tb->data[global_owner_index].positions[index2];
+					uint inds[3] = {
+						tb->data[global_owner_index].indices[triangle_index * 3 + 0],
+						tb->data[global_owner_index].indices[triangle_index * 3 + 1],
+						tb->data[global_owner_index].indices[triangle_index * 3 + 2]
+					};
+					const vec4 p0 = tb->data[global_owner_index].positions[inds[0]];
+					const vec4 p1 = tb->data[global_owner_index].positions[inds[1]];
+					const vec4 p2 = tb->data[global_owner_index].positions[inds[2]];
 
 					// If new point is too close to a triangle vertex, don't add this point
 					const float eps = 0.01f;
@@ -250,24 +252,24 @@ namespace triangulate
 					// Edge 0
 					g.edges[ec + 0].p1 = p0;
 					g.edges[ec + 0].p2 = p1;
-					g.edges[ec + 0].p1_index = index0;
-					g.edges[ec + 0].p2_index = index1;
+					g.edges[ec + 0].p1_index = inds[0];
+					g.edges[ec + 0].p2_index = inds[1];
 					g.edges[ec + 0].node_index = local_owner_index;
 					g.edges[ec + 0].connection = tb->data[global_owner_index].triangle_connections[triangle_index * 3 + 0];
 					g.edges[ec + 0].old_triangle_index = triangle_index;
 					// Edge 1
 					g.edges[ec + 1].p1 = p1;
 					g.edges[ec + 1].p2 = p2;
-					g.edges[ec + 1].p1_index = index1;
-					g.edges[ec + 1].p2_index = index2;
+					g.edges[ec + 1].p1_index = inds[1];
+					g.edges[ec + 1].p2_index = inds[2];
 					g.edges[ec + 1].node_index = local_owner_index;
 					g.edges[ec + 1].connection = tb->data[global_owner_index].triangle_connections[triangle_index * 3 + 1];
 					g.edges[ec + 1].old_triangle_index = triangle_index;
 					// Edge 2
 					g.edges[ec + 2].p1 = p2;
 					g.edges[ec + 2].p2 = p0;
-					g.edges[ec + 2].p1_index = index2;
-					g.edges[ec + 2].p2_index = index0;
+					g.edges[ec + 2].p1_index = inds[2];
+					g.edges[ec + 2].p2_index = inds[0];
 					g.edges[ec + 2].node_index = local_owner_index;
 					g.edges[ec + 2].connection = tb->data[global_owner_index].triangle_connections[triangle_index * 3 + 2];
 					g.edges[ec + 2].old_triangle_index = triangle_index;
@@ -281,7 +283,7 @@ namespace triangulate
 					{
 						const uint index = tb->data[global_owner_index].triangle_connections[triangle_index * 3 + ss];
 
-						if (index < INVALID - 9)
+						if (index < INVALID - 9 && index < 1000000000)
 						{
 							if (g.seen_triangle_count >= test_triangle_buffer_size || g.test_count >= test_triangle_buffer_size)
 							{
@@ -289,7 +291,23 @@ namespace triangulate
 								break;
 							}
 
-							add_connection(g, local_owner_index, index);
+							// TEMP ---------------------------------
+							// Check that connection actually matches
+							bool valid_neighbour = false;
+
+							for (uint ns = 0; ns < 3; ++ns)
+							{
+								uint neighbour_edge_ind1 = tb->data[global_owner_index].indices[index * 3 + ns];
+								uint neighbour_edge_ind2 = tb->data[global_owner_index].indices[index * 3 + (ns + 1) % 3];
+
+								if ((inds[ss] == neighbour_edge_ind1 && inds[(ss + 1) % 3] == neighbour_edge_ind2) ||
+									(inds[ss] == neighbour_edge_ind2 && inds[(ss + 1) % 3] == neighbour_edge_ind1))
+									valid_neighbour = true;
+							}
+
+							if (valid_neighbour)
+							// --------------------------------------
+								add_connection(g, local_owner_index, index);
 						}
 						else if (!checked_borders)
 						{
@@ -522,7 +540,7 @@ namespace triangulate
 				{
 					bool is_border = false;
 
-					if (g.edges[i].connection < INVALID - 9)
+					if (g.edges[i].connection < INVALID - 9 && g.edges[i].connection < 1000000000)
 					{
 						// Check if old neighbour is a border triangle
 						for (uint border = 0; border < 3; ++border)

@@ -2,7 +2,7 @@
 
 void replace_connection_index(TerrainBuffer* tb, cuint node_index, cuint triangle_to_check, cuint index_to_replace, cuint new_value)
 {
-	if (triangle_to_check < INVALID - 9)
+	if (triangle_to_check < INVALID - 9 && triangle_to_check < 1000000000)
 	{
 		for (uint tt = 0; tt < 3; ++tt)
 		{

@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{A660EDBF-4A88-4DAC-8293-A316F33E7A48}</ProjectGuid>
+    <RootNamespace>TE2502</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(SolutionDir)ext/include;$(SolutionDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(SolutionDir)ext/lib/vulkan;$(SolutionDir)ext/lib/glfw;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>$(SolutionDir)ext/include;$(SolutionDir)src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>$(SolutionDir)ext/lib/vulkan;$(SolutionDir)ext/lib/glfw;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="src\algorithm\common.cpp" />
+    <ClCompile Include="src\algorithm\cpu_triangulate.cpp" />
+    <ClCompile Include="src\algorithm\generate.cpp" />
+    <ClCompile Include="src\algorithm\process.cpp" />
+    <ClCompile Include="src\algorithm\triangulate.cpp" />
+    <ClCompile Include="src\graphics\specialization_info.cpp" />
+    <ClCompile Include="src\path_handler.cpp" />
+    <ClCompile Include="src\graphics\debug_drawer.cpp" />
+    <ClCompile Include="ext\include\imgui\imgui.cpp" />
+    <ClCompile Include="ext\include\imgui\imgui_demo.cpp" />
+    <ClCompile Include="ext\include\imgui\imgui_draw.cpp" />
+    <ClCompile Include="ext\include\imgui\imgui_impl_glfw.cpp" />
+    <ClCompile Include="ext\include\imgui\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="ext\include\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="src\math\geometry.cpp" />
+    <ClCompile Include="src\application.cpp" />
+    <ClCompile Include="src\camera.cpp" />
+    <ClCompile Include="src\graphics\compute_queue.cpp" />
+    <ClCompile Include="src\graphics\descriptor_set.cpp" />
+    <ClCompile Include="src\graphics\descriptor_set_layout.cpp" />
+    <ClCompile Include="src\graphics\framebuffer.cpp" />
+    <ClCompile Include="src\graphics\gpu_buffer.cpp" />
+    <ClCompile Include="src\graphics\gpu_image.cpp" />
+    <ClCompile Include="src\graphics\gpu_memory.cpp" />
+    <ClCompile Include="src\graphics\graphics_queue.cpp" />
+    <ClCompile Include="src\graphics\pipeline.cpp" />
+    <ClCompile Include="src\graphics\pipeline_layout.cpp" />
+    <ClCompile Include="src\graphics\queue.cpp" />
+    <ClCompile Include="src\graphics\render_pass.cpp" />
+    <ClCompile Include="src\graphics\sampler.cpp" />
+    <ClCompile Include="src\graphics\transfer_queue.cpp" />
+    <ClCompile Include="src\graphics\vulkan_context.cpp" />
+    <ClCompile Include="src\graphics\window.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\tfile.cpp" />
+    <ClCompile Include="src\utilities.cpp" />
+    <ClCompile Include="src\graphics\vertex_attributes.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\algorithm\terrain_texture.hpp" />
+    <ClInclude Include="src\array.hpp" />
+    <ClInclude Include="src\algorithm\common.hpp" />
+    <ClInclude Include="src\algorithm\cpu_triangulate.hpp" />
+    <ClInclude Include="src\algorithm\generate.hpp" />
+    <ClInclude Include="src\algorithm\process.hpp" />
+    <ClInclude Include="src\algorithm\triangulate.hpp" />
+    <ClInclude Include="src\ffile.hpp" />
+    <ClInclude Include="src\graphics\specialization_info.hpp" />
+    <ClInclude Include="src\path_handler.hpp" />
+    <ClInclude Include="src\graphics\debug_drawer.hpp" />
+    <ClInclude Include="ext\include\imgui\imconfig.h" />
+    <ClInclude Include="ext\include\imgui\imgui.h" />
+    <ClInclude Include="ext\include\imgui\imgui_impl_glfw.h" />
+    <ClInclude Include="ext\include\imgui\imgui_impl_vulkan.h" />
+    <ClInclude Include="ext\include\imgui\imgui_internal.h" />
+    <ClInclude Include="ext\include\imgui\imstb_rectpack.h" />
+    <ClInclude Include="ext\include\imgui\imstb_textedit.h" />
+    <ClInclude Include="ext\include\imgui\imstb_truetype.h" />
+    <ClInclude Include="src\math\geometry.hpp" />
+    <ClInclude Include="src\application.hpp" />
+    <ClInclude Include="src\camera.hpp" />
+    <ClInclude Include="src\graphics\compute_queue.hpp" />
+    <ClInclude Include="src\graphics\descriptor_set.hpp" />
+    <ClInclude Include="src\graphics\descriptor_set_layout.hpp" />
+    <ClInclude Include="src\graphics\framebuffer.hpp" />
+    <ClInclude Include="src\graphics\gpu_buffer.hpp" />
+    <ClInclude Include="src\graphics\gpu_image.hpp" />
+    <ClInclude Include="src\graphics\gpu_memory.hpp" />
+    <ClInclude Include="src\graphics\graphics_queue.hpp" />
+    <ClInclude Include="src\graphics\pipeline.hpp" />
+    <ClInclude Include="src\graphics\pipeline_layout.hpp" />
+    <ClInclude Include="src\graphics\queue.hpp" />
+    <ClInclude Include="src\graphics\render_pass.hpp" />
+    <ClInclude Include="src\graphics\sampler.hpp" />
+    <ClInclude Include="src\graphics\transfer_queue.hpp" />
+    <ClInclude Include="src\graphics\vulkan_context.hpp" />
+    <ClInclude Include="src\graphics\window.hpp" />
+    <ClInclude Include="src\terrain_elevated.h" />
+    <ClInclude Include="src\terrain_interface.h" />
+    <ClInclude Include="src\terrain_mountains.h" />
+    <ClInclude Include="src\terrain_rainforest.h" />
+    <ClInclude Include="src\tfile.hpp" />
+    <ClInclude Include="src\utilities.hpp" />
+    <ClInclude Include="src\graphics\vertex_attributes.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="output.txt" />
+    <Text Include="shaders\vars.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\circumcircle.include" />
+    <None Include="shaders\debug.frag" />
+    <None Include="shaders\debug.vert" />
+    <None Include="shaders\terrain.comp" />
+    <None Include="shaders\terrain.include" />
+    <None Include="shaders\terrain_buffer.include" />
+    <None Include="shaders\terrain_clear.comp" />
+    <None Include="shaders\terrain_draw.frag" />
+    <None Include="shaders\terrain_draw.vert" />
+    <None Include="shaders\terrain_generate.comp" />
+    <None Include="shaders\test1.comp" />
+    <None Include="shaders\test2.comp" />
+    <None Include="shaders\triangle_processing.comp" />
+    <None Include="shaders\triangulate.comp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

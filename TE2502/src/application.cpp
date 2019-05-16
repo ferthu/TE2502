@@ -379,8 +379,8 @@ void Application::run(bool auto_triangulate)
 		m_debug_drawer.new_frame();
 
 		float dt = delta_time.count();
-		if (dt > 0.05f)
-			dt = 0.05f;
+		if (m_is_testing && m_save_snapshots)
+			dt = 1.0f / 60.0f;
 		update(dt, auto_triangulate);
 
 		draw();
@@ -428,12 +428,12 @@ void Application::update(const float dt, bool auto_triangulate)
 		running_fps = (a * running_fps) + (1.0f - a) * fps;
 		m_time_to_sample1 -= dt;
 		m_test_run_time += dt;
-		if (m_is_testing && m_time_to_sample1 < 0.f)
+		while (m_is_testing && m_time_to_sample1 < 0.f)
 		{
 			if (!m_started_sampling)
 				m_test_run_time = 0.f;
 			m_started_sampling = true;
-			m_time_to_sample1 = 1.0f / 30;
+			m_time_to_sample1 += 1.0f / 30;
 			m_fps_data.push_back(Fps{ (int)running_fps, m_test_run_time });
 		}
 
@@ -536,11 +536,8 @@ void Application::update(const float dt, bool auto_triangulate)
 
 		if (m_is_testing && m_started_sampling)
 		{
-			m_current_sample.gen_nodes += cputri::quadtree.num_generate_nodes_draw;
-			m_current_sample.gen_tris += cputri::quadtree.generated_triangle_count;
 			m_current_sample.draw_nodes += cputri::quadtree.num_draw_nodes_draw;
 			m_current_sample.draw_tris += cputri::quadtree.drawn_triangle_count;
-			m_current_sample.new_points += cputri::quadtree.new_points_added;
 		}
 
 		cputri::quadtree.generated_triangle_count = 0;
@@ -650,32 +647,36 @@ void Application::update(const float dt, bool auto_triangulate)
 		}
 	}
 
+	while (m_is_testing && m_time_to_sample2 < 0.f)
+	{
+		m_time_to_sample2 += m_sample_rate;
+
+		m_current_sample.run_time = m_test_run_time;
+
+		m_current_sample.draw_nodes /= m_sample_rate;
+		m_current_sample.draw_tris /= m_sample_rate;
+
+		m_test_data.push_back(m_current_sample);
+		m_current_sample = Sample();
+
+		std::string number = std::to_string(m_snapshot_number);
+		while (number.length() < 4)
+			number = number.insert(0, "0");
+
+		if (m_save_snapshots)
+			snapshot(m_rast_path + "\\img" + number + ".png"
+				, m_ray_path + "\\img" + number + ".png");
+		++m_snapshot_number;
+	}
+
 	// If triangulation thread is done, prepare it for another pass
 	if (m_tri_done && m_tri_mutex.try_lock())
 	{
-		if (m_is_testing && m_time_to_sample2 < 0.f)
+		if (m_is_testing && m_started_sampling)
 		{
-			m_time_to_sample2 = m_sample_rate;
-
-			m_current_sample.run_time = m_test_run_time;
-
-			m_current_sample.gen_nodes *= 4;
-			m_current_sample.gen_tris *= 4;
-			m_current_sample.draw_nodes *= 4;
-			m_current_sample.draw_tris *= 4;
-			m_current_sample.new_points *= 4;
-
-			m_test_data.push_back(m_current_sample);
-			m_current_sample = Sample();
-
-			std::string number = std::to_string(m_snapshot_number);
-			while (number.length() < 4)
-				number = number.insert(0, "0");
-
-			if (m_save_snapshots)
-				snapshot(m_rast_path + "\\img" + number + ".png"
-					, m_ray_path + "\\img" + number + ".png");
-			++m_snapshot_number;
+			m_current_sample.gen_nodes += cputri::quadtree.num_generate_nodes_draw;
+			m_current_sample.gen_tris += cputri::quadtree.generated_triangle_count;
+			m_current_sample.new_points += cputri::quadtree.new_points_added;
 		}
 
 		if (backup)

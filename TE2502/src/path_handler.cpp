@@ -196,10 +196,10 @@ void PathHandler::update(const float dt)
 		m_camera->set_yaw_pitch(yaw, pitch);
 
 		m_percent += 1.f / m_max_countdown * dt;
-		if (m_percent > 0.99)
+		if (m_percent > 1.0f)
 		{
 			++m_path_part_index;
-			m_percent = 0.f;
+			m_percent -= 1.0f;
 			if (m_path_part_index == m_paths[m_path_index].size() - 1)
 				m_mode = MODE::NOTHING;
 		}

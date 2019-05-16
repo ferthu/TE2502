@@ -73,9 +73,8 @@ void TFile::compile_shaders(std::string extension)
 	h_find = FindFirstFileA(dir, &ffd);
 	dw_error = GetLastError();
 
-#ifdef _DEBUG
-	std::cout << "Compiling shaders:\n";
-#endif
+	std::string compiled_dir = m_shader_dir + "compiled";
+	CreateDirectory(compiled_dir.c_str(), 0);
 
 	std::vector<PROCESS_INFORMATION> pis;
 

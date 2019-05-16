@@ -10,11 +10,10 @@
 typedef uint32_t uint;
 using namespace glm;
 
-struct Quadtree;
-
 namespace cputri
 {
 	extern Quadtree quadtree;
+	extern std::mutex shared_data_lock;
 
 	extern std::vector<std::vector<glm::vec3>> debug_lines;
 	extern std::vector<std::vector<std::vector<glm::vec3>>> old_debug_lines;

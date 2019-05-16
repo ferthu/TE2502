@@ -131,6 +131,6 @@ namespace process
 		}
 	
 
-			node.first_process_triangle += tri_data->refine_triangles;
+		node.first_process_triangle += tri_data->refine_triangles;
 	}
 }

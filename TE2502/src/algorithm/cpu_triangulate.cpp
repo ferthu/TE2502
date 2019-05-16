@@ -13,6 +13,7 @@
 #include <atomic>
 #include <thread>
 #include <fstream>
+#include <iostream>
 
 // Fritjof when coding in this file:
 //    ,,,,,

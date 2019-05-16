@@ -13,12 +13,12 @@ static int power = 3;
 
 void scroll_callback(GLFWwindow * window, double xoffset, double yoffset)
 {
-	power += yoffset;
+	power += int(yoffset);
 	if (power < 0)
 		power = 0;
 	else if (power > 20)
 		power = 20;
-	speed_multiplier = 0.5 + power * 5;
+	speed_multiplier = 0.5f + power * 5.0f;
 }
 
 

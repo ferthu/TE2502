@@ -883,7 +883,10 @@ namespace triangulate
 
 		const uint new_points_added = std::min((uint)tri_data->refine_vertices, tb->data[node_index].new_points_count);
 		tb->data[node_index].new_points_count -= new_points_added;
+
+		std::unique_lock<std::mutex> lock(cputri::shared_data_lock);
 		quadtree.generated_triangle_count += tb->data[node_index].index_count / 3 - old_triangle_count;
 		quadtree.new_points_added += new_points_added;
+
 	}
 }

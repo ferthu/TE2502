@@ -25,7 +25,7 @@ for dir in subdirs:
 			#p_status = p.wait()
 			#words = output.split()
 			words = p.communicate()[0].decode("utf-8").split()
-			f.write("{}\t{}\r\n".format(time, words[-1]))
+			f.write("{}\t{}\n".format(time, words[-1]))
 			time+=0.25
 			f.close()
 		count += 1

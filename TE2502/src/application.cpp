@@ -381,6 +381,8 @@ void Application::run(bool auto_triangulate)
 		float dt = delta_time.count();
 		if (m_is_testing && m_save_snapshots)
 			dt = 1.0f / 60.0f;
+		if (dt > 0.05f)
+			dt = 0.05f;
 		update(dt, auto_triangulate);
 
 		draw();
@@ -431,8 +433,17 @@ void Application::update(const float dt, bool auto_triangulate)
 		while (m_is_testing && m_time_to_sample1 < 0.f)
 		{
 			if (!m_started_sampling)
+			{
 				m_test_run_time = 0.f;
-			m_started_sampling = true;
+
+				std::unique_lock<std::mutex> lock(cputri::shared_data_lock);
+				cputri::quadtree.generated_triangle_count = 0;
+				cputri::quadtree.new_points_added = 0;
+				cputri::quadtree.drawn_triangle_count = 0;
+				cputri::quadtree.new_points_added = 0;
+
+				m_started_sampling = true;
+			}
 			m_time_to_sample1 += 1.0f / 30;
 			m_fps_data.push_back(Fps{ (int)running_fps, m_test_run_time });
 		}
@@ -498,6 +509,16 @@ void Application::update(const float dt, bool auto_triangulate)
 
 			cputri::clear_terrain();
 			m_path_handler.follow_path(current_item);
+
+			{
+				std::unique_lock<std::mutex> lock(cputri::shared_data_lock);
+				cputri::quadtree.generated_triangle_count = 0;
+				cputri::quadtree.new_points_added = 0;
+				cputri::quadtree.drawn_triangle_count = 0;
+				cputri::quadtree.new_points_added = 0;
+			}
+
+			m_current_sample = Sample();
 		}
 		else if (m_is_testing && m_path_handler.get_mode() == MODE::NOTHING)
 		{
@@ -539,9 +560,6 @@ void Application::update(const float dt, bool auto_triangulate)
 			m_current_sample.draw_nodes += cputri::quadtree.num_draw_nodes_draw;
 			m_current_sample.draw_tris += cputri::quadtree.drawn_triangle_count;
 		}
-
-		cputri::quadtree.generated_triangle_count = 0;
-		cputri::quadtree.new_points_added = 0;
 
 		m_time_to_sample2 -= dt;
 
@@ -647,36 +665,21 @@ void Application::update(const float dt, bool auto_triangulate)
 		}
 	}
 
-	while (m_is_testing && m_time_to_sample2 < 0.f)
-	{
-		m_time_to_sample2 += m_sample_rate;
 
-		m_current_sample.run_time = m_test_run_time;
-
-		m_current_sample.draw_nodes /= m_sample_rate;
-		m_current_sample.draw_tris /= m_sample_rate;
-
-		m_test_data.push_back(m_current_sample);
-		m_current_sample = Sample();
-
-		std::string number = std::to_string(m_snapshot_number);
-		while (number.length() < 4)
-			number = number.insert(0, "0");
-
-		if (m_save_snapshots)
-			snapshot(m_rast_path + "\\img" + number + ".png"
-				, m_ray_path + "\\img" + number + ".png");
-		++m_snapshot_number;
-	}
 
 	// If triangulation thread is done, prepare it for another pass
 	if (m_tri_done && m_tri_mutex.try_lock())
 	{
 		if (m_is_testing && m_started_sampling)
 		{
+			std::unique_lock<std::mutex> lock(cputri::shared_data_lock);
+
 			m_current_sample.gen_nodes += cputri::quadtree.num_generate_nodes_draw;
 			m_current_sample.gen_tris += cputri::quadtree.generated_triangle_count;
 			m_current_sample.new_points += cputri::quadtree.new_points_added;
+
+			std::cout << "&&&&&&\n";
+			std::cout << cputri::quadtree.generated_triangle_count << ", " << cputri::quadtree.num_generate_nodes_draw << ", " << cputri::quadtree.new_points_added << "\n";
 		}
 
 		if (backup)
@@ -783,6 +786,34 @@ void Application::update(const float dt, bool auto_triangulate)
 		/*ImGui::Begin("Working");
 		ImGui::Text("Working...");
 		ImGui::End();*/
+	}
+
+	while (m_is_testing && m_time_to_sample2 < 0.f)
+	{
+		m_time_to_sample2 += m_sample_rate;
+
+		m_current_sample.run_time = m_test_run_time;
+
+		m_current_sample.draw_nodes /= m_sample_rate;
+		m_current_sample.draw_tris /= m_sample_rate;
+
+		m_test_data.push_back(m_current_sample);
+		m_current_sample = Sample();
+
+		std::string number = std::to_string(m_snapshot_number);
+		while (number.length() < 4)
+			number = number.insert(0, "0");
+
+		if (m_save_snapshots)
+			snapshot(m_rast_path + "\\img" + number + ".png"
+				, m_ray_path + "\\img" + number + ".png");
+		++m_snapshot_number;
+
+		{
+			std::unique_lock<std::mutex> lock(cputri::shared_data_lock);
+			cputri::quadtree.generated_triangle_count = 0;
+			cputri::quadtree.new_points_added = 0;
+		}
 	}
 }
 

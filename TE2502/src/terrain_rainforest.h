@@ -367,7 +367,11 @@ inline vec2 terrainMap(vec2 p)
 
 inline float terrain(vec2 p)
 {
+#ifdef __cplusplus
+	return terrainMap(p).x + 0.5f;
+#else
 	return terrainMap(p).x;
+#endif
 }
 
 inline float terrain(vec3 p)
@@ -466,7 +470,7 @@ inline float raymarchTerrain(vec3 ro, vec3 rd, float tmin, float tmax)
 	float odis2 = 0.0f;
 	while (t < tmax)
 	{
-		th = 0.001f*t;
+		th = 0.5;
 
 		vec3  pos = ro + t * rd;
 		vec2  env = terrainMap(vec2(pos.x, pos.z));
@@ -478,7 +482,7 @@ inline float raymarchTerrain(vec3 ro, vec3 rd, float tmin, float tmax)
 
 		ot = t;
 		odis = dis;
-		t += dis * 0.8f*(1.0f - 0.75f*env.y); // slow down in step areas
+		t += dis * 0.5f*(1.0f - 0.75f*env.y); // slow down in step areas
 		if (t > tmax) break;
 	}
 

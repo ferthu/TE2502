@@ -22,7 +22,7 @@ colors[2] = "#922428"
 colors[3] = "#948B3D"
 
 set term wxt
-set xrange [0:26]
+set xrange [0:20]
 set yrange [0:]
 
 plot for [f=1:tc] 'testresults/'.terrains[f].'-simple/fps.txt' u 1:2 title titles[f] with lines lw 5 linecolor rgb colors[f]

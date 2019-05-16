@@ -49,6 +49,6 @@ const float max_view_dist = 3500.f;
 const float fog_start_dist = 300.0f;
 const float fog_end_dist = max_view_dist - 300.0f;
 
-#include "../src/terrain_mountains.h"
+//#include "../src/terrain_mountains.h"
 //#include "../src/terrain_rainforest.h"
-//#include "../src/terrain_elevated.h"
+#include "../src/terrain_elevated.h"

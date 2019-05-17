@@ -34,9 +34,9 @@ rasters[3] = terrain."-rast-1.0"
 rasters[4] = terrain."-ray"
 
 array raster_titles[rc]
-raster_titles[1] = "t=0.05"
-raster_titles[2] = "t=0.2"
-raster_titles[3] = "t=1.0"
+raster_titles[1] = "e = 0.05"
+raster_titles[2] = "e = 0.2"
+raster_titles[3] = "e = 1.0"
 raster_titles[4] = "ray marching"
 
 array colors[rc]
@@ -45,16 +45,15 @@ colors[2] = "#DA7C30"
 colors[3] = "#3E9651"
 colors[4] = "#922428"
 
-linesize = 5
-
-set key font ",16"
+linesize = 2
 
 do for [i=1:hc] {
 	reset
+	set key font ",16"
 	set term wxt
 	set ylabel h[i] font ",20"
 	set yrange [0:]
-	set grid
+	#set grid
 	set xlabel "runtime (s)" font ",20"
 	
 	plot for [f=1:rc-1] 'testresults/'.rasters[f].'/draw.txt' u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]

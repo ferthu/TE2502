@@ -1,6 +1,6 @@
 reset
 
-set grid
+#set grid
 
 set ylabel "frame rate (Hz)" font ",20"
 set xlabel "runtime (s)" font ",20"
@@ -21,11 +21,15 @@ colors[1] = "#6B4C9A"
 colors[2] = "#922428"
 colors[3] = "#948B3D"
 
+set key font ",16"
+
 set term wxt
 set xrange [0:20]
 set yrange [0:]
 
-plot for [f=1:tc] 'testresults/'.terrains[f].'-simple/fps.txt' u 1:2 title titles[f] with lines lw 5 linecolor rgb colors[f]
+#set ytics 
+
+plot for [f=1:tc] 'testresults/'.terrains[f].'-simple/fps.txt' u 1:2 every 5 title titles[f] with lines lw 2 linecolor rgb colors[f]
 
 
 set term png

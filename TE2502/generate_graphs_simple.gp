@@ -2,7 +2,7 @@ reset
 
 #set grid
 
-set ylabel "frame rate (Hz)" font ",20"
+set ylabel "frame rate (Hz)" font ",20" offset 0.3,0
 set xlabel "runtime (s)" font ",20"
 
 tc = 3
@@ -21,11 +21,13 @@ colors[1] = "#6B4C9A"
 colors[2] = "#922428"
 colors[3] = "#948B3D"
 
-set key font ",16"
+set key font ",18"
 
 set term wxt
 set xrange [0:20]
-set yrange [0:]
+set yrange [0:2500]
+set tics font ", 16" 
+set ytics offset 1.0,-0.2
 
 #set ytics 
 

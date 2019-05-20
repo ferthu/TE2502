@@ -247,6 +247,8 @@ Application::Application(uint32_t window_width, uint32_t window_height, std::vec
 	cputri::setup(m_tfile, m_terrain_textures);
 
 	cputri::gpu_data_setup(m_vulkan_context, m_gpu_buffer_memory, m_cpu_buffer_memory, m_gpu_buffer, m_cpu_buffer);
+
+	stbi_write_png_compression_level = 0;
 }
 
 Application::~Application()
@@ -613,11 +615,20 @@ void Application::update(const float dt, bool auto_triangulate)
 	if (m_show_imgui)
 	{
 		ImGui::Begin("Lol");
-		ImGui::SliderInt("Index", &show_node, -1, 15);
+		ImGui::SliderInt("Index", &show_node, -1, num_nodes - 1);
 		ImGui::SliderInt("Vertices per refine", &refine_vertices, 1, 10);
 		ImGui::SliderInt("Triangles per refine", &refine_triangles, 1, 10);
 		ImGui::SliderInt("Refine Node", &refine_node, -1, num_nodes - 1);
 		ImGui::SliderInt("Sideshow", &sideshow_bob, -1, 9);
+
+		if (show_node >= 0 && show_node < num_nodes)
+		{
+			std::string s = "Node ";
+			s += std::to_string(show_node);
+			s += " tris: ";
+			s += std::to_string(cputri::tb->data[show_node].draw_index_count / 3);
+			ImGui::Text(s.c_str());
+		}
 
 		ImGui::End();
 
@@ -990,7 +1001,8 @@ void Application::draw_main()
 		if (m_current_camera != m_main_camera)
 		{
 			// Draw frustum
-			m_debug_drawer.draw_frustum(m_main_camera->get_vp(), {1, 0, 1});
+			m_debug_drawer.draw_frustum(m_main_camera->get_vp(), { 1, 0, 0 });
+			m_debug_drawer.draw_frustum(m_main_camera->get_big_vp(), { 0, 1, 0 });
 
 			//glm::mat4 inv_vp = glm::inverse(m_main_camera->get_vp());
 			//glm::vec4 left_pos = inv_vp * glm::vec4(-1, 0, 0.99f, 1); left_pos /= left_pos.w;

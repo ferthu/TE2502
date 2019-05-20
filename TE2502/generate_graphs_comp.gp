@@ -12,7 +12,7 @@ colors[1] = "#396AB1"
 colors[2] = "#DA7C30"
 colors[3] = "#3E9651"
 
-array raster_titles[tc]
+array titles[tc]
 titles[1] = "e = 0.05"
 titles[2] = "e = 0.2"
 titles[3] = "e = 1.0"
@@ -27,10 +27,13 @@ do for [terrain in terrains]{
 	rasters[3] = terrain."-comp-1.0"
 
 	reset
-	set ylabel "similarity index" font ",20"
-	set key font ",16"
 	set term wxt
-	set yrange [0:]
+	set key right bottom
+	set ylabel "similarity index" font ",20"
+	set tics font ",16"
+	set ytics offset 1.0,-0.2
+	set key font ",18"
+	set yrange [0:1]
 	#set grid
 	set xlabel "runtime (s)" font ",20"
 	

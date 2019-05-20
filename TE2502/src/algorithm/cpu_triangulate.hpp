@@ -14,6 +14,7 @@ namespace cputri
 {
 	extern Quadtree quadtree;
 	extern std::mutex shared_data_lock;
+	extern TerrainBuffer* tb;
 
 	extern std::vector<std::vector<glm::vec3>> debug_lines;
 	extern std::vector<std::vector<std::vector<glm::vec3>>> old_debug_lines;

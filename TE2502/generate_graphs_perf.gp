@@ -131,7 +131,7 @@ plot for [f=1:rc-1] 'testresults/'.rasters[f].'/draw.txt' u 1:i+1 title raster_t
 
 
 # fps ---------------------------------------------------------------------------------
-terrains = "elev mount rain"
+terrains = "elev rain"
 do for [terrain in terrains]{
 	rasters[1] = terrain."-rast-0.05"
 	rasters[2] = terrain."-rast-0.2"
@@ -139,10 +139,20 @@ do for [terrain in terrains]{
 	rasters[4] = terrain."-ray"
 	set output 'testresults/'.terrain.'-fps.png'
 	set ylabel "frame rate (Hz)" font ", ".fontsize offset 0.3,0
-	set yrange [0:500]
-	set ytics 0,100,500
+	set yrange [0:150]
+	set ytics 0,30,150
 	plot for [f=1:rc] 'testresults/'.rasters[f].'/fps.txt' u 1:2 with lines title raster_titles[f] lw linesize linecolor rgb colors[f]
 }
+terrain = "mount"
+rasters[1] = terrain."-rast-0.05"
+rasters[2] = terrain."-rast-0.2"
+rasters[3] = terrain."-rast-1.0"
+rasters[4] = terrain."-ray"
+set output 'testresults/'.terrain.'-fps.png'
+set ylabel "frame rate (Hz)" font ", ".fontsize offset 0.3,0
+set yrange [0:500]
+set ytics 0,100,500
+plot for [f=1:rc] 'testresults/'.rasters[f].'/fps.txt' u 1:2 with lines title raster_titles[f] lw linesize linecolor rgb colors[f]
 
 
 

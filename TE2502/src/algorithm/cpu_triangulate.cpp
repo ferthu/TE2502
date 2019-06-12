@@ -145,7 +145,7 @@ namespace cputri
 
 	bool do_triangulation = false;
 
-	void run(TriData* tri_data)
+	void run(TriData* tri_data, const std::chrono::time_point<std::chrono::system_clock>& start_time, Timings& timings)
 	{
 		// Erase old autosave data
 		if (autosaves.size() > 500)
@@ -164,6 +164,8 @@ namespace cputri
 
 		do_triangulation = false;
 		cputri::intersect(tri_data->mc_frustum, *tri_data->dd, tri_data->mc_pos, tri_data);
+		std::chrono::duration<float> elapsed_time = std::chrono::system_clock::now() - start_time;
+		timings.generate = elapsed_time.count();
 
 		//if (quadtree.num_generate_nodes > 0)
 		//	backup_auto();
@@ -179,6 +181,8 @@ namespace cputri
 		if (tri_data->triangulate)
 		{
 			cputri::process_triangles(tri_data);
+			std::chrono::duration<float> elapsed_time = std::chrono::system_clock::now() - start_time;
+			timings.process = elapsed_time.count();
 			triangulate(tri_data);
 			//backup_auto();
 		}

@@ -24,6 +24,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <string>
+#include <string.h>
 #include <array>
 #include <fstream>
 #include <iostream>
@@ -414,6 +415,16 @@ void Application::run(bool auto_triangulate)
 
 void Application::update(const float dt, bool auto_triangulate)
 {
+	static bool show_debug = false;
+	static int show_node = -1;
+	static int refine_node = -1;
+	static int refine_vertices = 8000;
+	static int refine_triangles = 1000;
+	static int sideshow_bob = -1;
+	static float area_mult = 0.5f;
+	static float curv_mult = 40.0f;
+	static float threshold = 0.05f;
+
 	m_save_images = false;
 
 	m_path_handler.update(dt);
@@ -449,6 +460,7 @@ void Application::update(const float dt, bool auto_triangulate)
 			if (!m_started_sampling)
 			{
 				m_test_run_time = 0.f;
+				m_last_alg_it_sample_time = 0.f;
 
 				std::unique_lock<std::mutex> lock(cputri::shared_data_lock);
 				cputri::quadtree.generated_triangle_count = 0;
@@ -497,9 +509,12 @@ void Application::update(const float dt, bool auto_triangulate)
 			m_path_handler.follow_path(current_item);
 		}
 
+		// Start testing
 		ImGui::InputText("Test name", m_test_name, 40);
-		if (!m_is_testing && ImGui::Button("Start"))
+		if (!m_is_testing && (ImGui::Button("Start") || m_test_suite.size() != 0))
 		{
+			if (m_test_suite.size() != 0)
+				strcpy_s(m_test_name, 40, m_test_suite.back().test_name.c_str());
 			m_is_testing = true;
 			std::string path = "testresults";
 			CreateDirectory(path.c_str(), NULL);
@@ -514,15 +529,24 @@ void Application::update(const float dt, bool auto_triangulate)
 			m_test_data.reserve(15000);
 			m_fps_data.clear();
 			m_fps_data.reserve(15000);
+			m_alg_it_data.clear();
+			m_alg_it_data.reserve(15000);
 
 			m_started_sampling = false;
-			m_time_to_sample1 = 1.0f; 
-			m_time_to_sample2 = 1.0f + m_sample_rate;
+			m_time_to_sample1 = 2.0f; 
+			m_time_to_sample2 = 2.0f + m_sample_rate;
 
 			m_snapshot_number = 0;
 
 			cputri::clear_terrain();
-			m_path_handler.follow_path(current_item);
+			if (m_test_suite.size() != 0)
+			{
+				threshold = m_test_suite.back().error;
+				m_path_handler.follow_path(m_test_suite.back().path);
+				m_test_suite.pop_back();
+			}
+			else
+				m_path_handler.follow_path(current_item);
 
 			{
 				std::unique_lock<std::mutex> lock(cputri::shared_data_lock);
@@ -532,7 +556,7 @@ void Application::update(const float dt, bool auto_triangulate)
 				cputri::quadtree.new_points_added = 0;
 			}
 
-			m_current_sample = Sample();
+			m_current_sample = BigSample();
 		}
 		else if (m_is_testing && m_path_handler.get_mode() == MODE::NOTHING)
 		{
@@ -550,9 +574,9 @@ void Application::update(const float dt, bool auto_triangulate)
 			out.open("testresults\\" + std::string(m_test_name) + "\\draw.txt");
 			if (out.is_open())
 			{
-				out << "Runtime\t\tGen-N\tDraw-N\tGen-T    \tDraw-T\tNew-P\n";
+				//out << "Runtime\t\tGen-N\tDraw-N\tGen-T    \tDraw-T\tNew-P\n";
 
-				for (Sample s : m_test_data)
+				for (BigSample s : m_test_data)
 				{
 					out.precision(6);
 					out << std::fixed << s.run_time << "      \t"
@@ -563,7 +587,21 @@ void Application::update(const float dt, bool auto_triangulate)
 						<< s.new_points << "\n";
 				}
 				
-				out << "\n\n" << m_test_run_time;
+				//out << "\n\n" << m_test_run_time;
+			}
+			out.close();
+			out.open("testresults\\" + std::string(m_test_name) + "\\alg_its.txt");
+			if (out.is_open())
+			{
+				out.precision(6);
+				for (AlgItSample s : m_alg_it_data)
+				{
+					out << std::fixed << s.total_test_time << "     \t" 
+						<< s.after_generate << "\t"
+						<< s.after_process << "\t"
+						<< s.total_iteration_time << "\t"
+						<< 1.f / s.total_iteration_time << "\n";
+				}
 			}
 			out.close();
 			m_is_testing = false;
@@ -584,18 +622,30 @@ void Application::update(const float dt, bool auto_triangulate)
 
 		ImGui::Checkbox("Update terrain", &m_update_terrain);
 
+		if (ImGui::Button("Run test suite"))
+		{
+			std::ifstream in;
+			in.open("test_suite.txt");
+			if (in.is_open())
+			{
+				std::string path, test_name;
+				int count;
+				float error;
+				in >> path >> count;
+				for (int i = 0; i < count; ++i)
+				{
+					in >> test_name >> error;
+					for (int j = 0; j < 1; ++j)
+					{
+						m_test_suite.push_back({path, test_name + "_" + std::to_string(j + 1), error});
+					}
+				}
+			}
+			in.close();
+		}
+
 		ImGui::End();
 	}
-	
-	static bool show_debug = false;
-	static int show_node = -1;
-	static int refine_node = -1;
-	static int refine_vertices = 8000;
-	static int refine_triangles = 1000;
-	static int sideshow_bob = -1;
-	static float area_mult = 0.5f;
-	static float curv_mult = 40.0f;
-	static float threshold = 0.05f;
 
 	// DEBUG
 	static bool debug_generation = false;
@@ -700,6 +750,13 @@ void Application::update(const float dt, bool auto_triangulate)
 			m_current_sample.gen_nodes += cputri::quadtree.num_generate_nodes_draw;
 			m_current_sample.gen_tris += cputri::quadtree.generated_triangle_count;
 			m_current_sample.new_points += cputri::quadtree.new_points_added;
+
+			std::chrono::duration<float> elapsed_time = std::chrono::system_clock::now() - m_start_time;
+			m_alg_it_data.push_back({ m_test_run_time,
+																m_timings.generate,
+																m_timings.process,
+																elapsed_time.count() });
+			m_last_alg_it_sample_time = m_test_run_time;
 		}
 
 		if (backup)
@@ -818,7 +875,7 @@ void Application::update(const float dt, bool auto_triangulate)
 		m_current_sample.draw_tris /= m_sample_rate;
 
 		m_test_data.push_back(m_current_sample);
-		m_current_sample = Sample();
+		m_current_sample = BigSample();
 
 		std::string number = std::to_string(m_snapshot_number);
 		while (number.length() < 4)
@@ -1256,7 +1313,10 @@ void Application::triangulate_thread()
 		{
 			m_tri_mutex.lock();
 
-			cputri::run(&m_tri_data);
+			m_timings.generate = 0;
+			m_timings.process = 0;
+			m_start_time = std::chrono::system_clock::now();
+			cputri::run(&m_tri_data, m_start_time, m_timings);
 			m_tri_done = true;
 
 			m_tri_mutex.unlock();

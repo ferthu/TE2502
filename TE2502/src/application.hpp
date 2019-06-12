@@ -215,7 +215,7 @@ private:
 		int fps;
 		float time;
 	};
-	struct Sample
+	struct BigSample
 	{
 		uint gen_nodes = 0;
 		uint gen_tris= 0;
@@ -225,19 +225,39 @@ private:
 
 		float run_time = 0.f;
 	};
+	struct AlgItSample
+	{
+		float total_test_time = 0.f;
+		float after_generate = 0.f;
+		float after_process = 0.f;
+		float total_iteration_time = 0.f;
+	};
 	bool m_is_testing = false;
 	bool m_started_sampling;
 	float m_test_run_time = 0.f;
 	char m_test_name[40];
 	float m_time_to_sample1;
 	float m_time_to_sample2;
-	Sample m_current_sample;
+	BigSample m_current_sample;
 	std::vector<Fps> m_fps_data;
-	std::vector<Sample> m_test_data;
+	std::vector<BigSample> m_test_data;
+	cputri::Timings m_timings;
+	std::chrono::time_point<std::chrono::system_clock> m_start_time;
+	float m_last_alg_it_sample_time;
+	std::vector<AlgItSample> m_alg_it_data;
 	const float m_sample_rate = 0.25f;
 	bool m_save_snapshots = false;
 	int m_snapshot_number = 0;
 	std::string m_rast_path;
 	std::string m_ray_path;
+
+	// Test suite
+	struct Test
+	{
+		std::string path;
+		std::string test_name;
+		float error;
+	};
+	std::vector<Test> m_test_suite;
 };
 

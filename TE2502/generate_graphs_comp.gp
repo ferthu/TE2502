@@ -1,8 +1,5 @@
 reset
 
-#set grid
-
-
 tc = 3
 
 terrains = "elev mount rain"

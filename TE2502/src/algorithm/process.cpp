@@ -78,7 +78,6 @@ namespace process
 			if (clip(c0) || clip(c1) || clip(c2))
 			{
 				// Calculate screen space area
-
 				c0 /= c0.w;
 				c1 /= c1.w;
 				c2 /= c2.w;

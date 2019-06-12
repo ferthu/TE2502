@@ -43,7 +43,6 @@ set xlabel "runtime (s)" font ", ".fontsize
 set key font ", ".keysize
 set tics font ", ".ticssize 
 set ytics offset 1.0,-0.2
-	
 
 # generated nodes --------------------------------------------------------------------
 do for [terrain in terrains]{
@@ -55,10 +54,7 @@ do for [terrain in terrains]{
 	set ylabel h[i] font ", ".fontsize offset 0.3,0
 	set yrange [0:50]
 	
-	plot for [f=1:rc-1] 'testresults/'.rasters[f].'/draw.txt' u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
-	
-	
-	#replot
+	plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
 }
 
 
@@ -73,7 +69,7 @@ do for [terrain in terrains]{
 	set yrange [0:140000]
 	set ytics ("0" 0, "28k" 28000, "56k" 56000, "84k" 84000, "112k" 112000, "140k" 140000)
 	
-	plot for [f=1:rc-1] 'testresults/'.rasters[f].'/draw.txt' u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
+	plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
 }
 
 
@@ -89,7 +85,7 @@ do for [terrain in terrains]{
 	set yrange [0:50000]
 	set ytics ("0" 0, "10k" 10000, "20k" 20000, "30k" 30000, "40k" 40000, "50k" 50000)
 	
-	plot for [f=1:rc-1] 'testresults/'.rasters[f].'/draw.txt' u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
+	plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
 }
 i=2
 terrain = "mount"
@@ -100,7 +96,7 @@ set yrange [0:200000]
 set ytics ("0" 0, "40k" 40000, "80k" 80000, "120k" 120000, "160k" 160000, "200k" 200000)
 
 set output 'testresults/'.terrain."-".h2[i].'.png'
-plot for [f=1:rc-1] 'testresults/'.rasters[f].'/draw.txt' u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
+plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
 
 
 # drawn triangles ---------------------------------------------------------------------
@@ -115,7 +111,7 @@ do for [terrain in terrains]{
 	set yrange [0:100000000]
 	set ytics ("0" 0, "20M" 20000000, "40M" 40000000, "60M" 60000000, "80M" 80000000, "100M" 100000000)
 	
-	plot for [f=1:rc-1] 'testresults/'.rasters[f].'/draw.txt' u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
+	plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
 }
 i=4
 terrain = "mount"
@@ -127,7 +123,7 @@ set yrange [0:800000000]
 set ytics ("0" 0, "160M" 160000000, "320M" 320000000, "480M" 480000000, "640M" 640000000, "800M" 800000000)
 
 set output 'testresults/'.terrain."-".h2[i].'.png'
-plot for [f=1:rc-1] 'testresults/'.rasters[f].'/draw.txt' u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
+plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
 
 
 # fps ---------------------------------------------------------------------------------

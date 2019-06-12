@@ -340,3 +340,5 @@ TE2502/imgui\.ini
 TE2502/shaders/spirv-dis\.exe
 TE2502/pieapp/pieapp*
 TE2502/ssim*
+
+TE2502/test_suite\.txt

@@ -5,6 +5,7 @@
 #include "camera.hpp"
 #include "common.hpp"
 
+#include <chrono>
 #include <mutex>
 
 typedef uint32_t uint;
@@ -61,11 +62,18 @@ namespace cputri
 		std::mutex* debug_draw_mutex;
 	};
 
+	struct Timings
+	{
+		float generate;
+		float process;
+		// Triangulate is not needed as that is just process time minus the total time
+	};
+
 	void setup(TFile& tfile, TerrainTexture* terrain_textures);
 
 	void destroy(VulkanContext& context, GPUBuffer& cpu_buffer);
 
-	void run(TriData* tri_data);
+	void run(TriData* tri_data, const std::chrono::time_point<std::chrono::system_clock>& timer, Timings& timings);
 
 	// Draws terrain. Requires an active render pass
 	void draw(GraphicsQueue& queue, GPUBuffer& gpu_buffer, GPUBuffer& cpu_buffer);

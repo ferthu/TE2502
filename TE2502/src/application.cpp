@@ -635,7 +635,7 @@ void Application::update(const float dt, bool auto_triangulate)
 				for (int i = 0; i < count; ++i)
 				{
 					in >> test_name >> error;
-					for (int j = 0; j < 1; ++j)
+					for (int j = 0; j < 5; ++j)
 					{
 						m_test_suite.push_back({path, test_name + "_" + std::to_string(j + 1), error});
 					}

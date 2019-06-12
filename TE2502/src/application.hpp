@@ -245,7 +245,7 @@ private:
 	std::chrono::time_point<std::chrono::system_clock> m_start_time;
 	float m_last_alg_it_sample_time;
 	std::vector<AlgItSample> m_alg_it_data;
-	const float m_sample_rate = 0.25f;
+	const float m_sample_rate = 0.2f;
 	bool m_save_snapshots = false;
 	int m_snapshot_number = 0;
 	std::string m_rast_path;

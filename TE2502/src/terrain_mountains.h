@@ -228,6 +228,8 @@ inline vec3 surface_color(vec3 pos, vec3 cam_pos, float dist)
 
 	mat = apply_fog(mat, dist, dir);
 
+	mat = post_effects(mat);
+
 	return mat;
 }
 
@@ -300,7 +302,7 @@ inline vec3 calc_ray_color(vec3 ro, vec3 rd)
 		vec3 world_pos = ro + rd * dist;
 		color = surface_color(world_pos, ro, dist);
 	}
-	color = post_effects(color);
+
 	return color;
 }
 

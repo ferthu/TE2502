@@ -635,7 +635,7 @@ void Application::update(const float dt, bool auto_triangulate)
 				for (int i = 0; i < count; ++i)
 				{
 					in >> test_name >> error;
-					for (int j = 0; j < 1; ++j)
+					for (int j = 0; j < 5; ++j)
 					{
 						m_test_suite.push_back({path, test_name + "_" + std::to_string(j + 1), error});
 					}
@@ -871,8 +871,8 @@ void Application::update(const float dt, bool auto_triangulate)
 
 		m_current_sample.run_time = m_test_run_time;
 
-		m_current_sample.draw_nodes /= m_sample_rate;
-		m_current_sample.draw_tris /= m_sample_rate;
+		m_current_sample.draw_nodes = (uint)(m_current_sample.draw_nodes / m_sample_rate);
+		m_current_sample.draw_tris = (uint)(m_current_sample.draw_tris / m_sample_rate);
 
 		m_test_data.push_back(m_current_sample);
 		m_current_sample = BigSample();

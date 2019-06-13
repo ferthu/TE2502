@@ -558,8 +558,7 @@ inline vec3 surface_color(vec3 pos, vec3 ro, float t)
 
 		col = fog(col, t, ro, rd);
 
-		res = col;
-		//resT = t;
+		res = post_effects(col);
 	}
 
 	return res;
@@ -599,8 +598,6 @@ inline vec3 calc_ray_color(vec3 ro, vec3 rd)
 		col = renderSky(ro, rd);
 	else
 		col = surface_color(ro + t * rd, ro, t);
-
-	col = post_effects(col);
 
 	return col;
 }

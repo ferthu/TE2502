@@ -33,14 +33,30 @@ layout(set = 0, binding = 3, rgba8) uniform image2D storage_tex3;
 // INTERFACE:
 // THESE FUNCTIONS NEED TO BE DEFINED
 
-// Given a camera position (ray origin) and ray direction, calculate the color for that ray
+// Given a camera position (ray origin) and ray direction, calculate the intersection
+// for the ray and resulting pixel color. Used by the compute shader/ray-marcher.
+// Input:
+//		ro: Ray origin
+//    rd: Ray direction
+// Output:
+//		Resulting color
 vec3 calc_ray_color(vec3 ro, vec3 rd);
-// Given a position on the plane, return the height for that position
+
+// Given a position on the plane, return the height for that position.
+// Input:
+//		p: Point on the horizontal plane
+// Output:
+//		Terrain function height at the given point
 float terrain(vec2 p);
-// Calculate the surface color at the given pos. The function should not use the given y, but rather get y value by using terrain()
+
+// Calculate the surface color at the given world pos. The function should 
+// not use the given y, but rather get y value by using terrain(...) above.
+// Input:
+//		pos: Terrain surface point to color
+//		cam_pos: Camera position in the world
+// Output:
+//		Resulting color.
 vec3 surface_color(vec3 pos, vec3 cam_pos, float dist);
-// Apply post processing effects on the final color
-vec3 post_effects(vec3 rgb);
 
 const vec3 clear_color = vec3(0.4f, 0.5f, 0.7f);
 
@@ -50,5 +66,5 @@ const float fog_start_dist = 300.0f;
 const float fog_end_dist = max_view_dist - 300.0f;
 
 //#include "../src/terrain_mountains.h"
-#include "../src/terrain_rainforest.h"
-//#include "../src/terrain_elevated.h"
+//#include "../src/terrain_rainforest.h"
+#include "../src/terrain_elevated.h"

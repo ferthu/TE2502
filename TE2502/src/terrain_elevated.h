@@ -238,6 +238,8 @@ inline vec3 surface_color(vec3 pos, vec3 ro, float t)
 	// sun scatter
 	//col += 0.3f*vec3(1.0f, 0.7f, 0.3f)*pow(sundot, 8.0f);
 
+	col = post_effects(col);
+
 	return col;
 }
 
@@ -253,87 +255,5 @@ inline vec3 calc_ray_color(vec3 ro, vec3 rd)
 		vec3 pos = ro + t * rd;
 		col = surface_color(pos, ro, t);
 	}
-	col = post_effects(col);
 	return col;
 }
-
-//void mainImage(out vec4 fragColor, in vec2 fragCoord)
-//{
-//	float time = iTime * 0.1f - 0.1f + 0.3f + 4.0f*iMouse.x / iResolution.x;
-//
-//	// camera position
-//	vec3 ro, ta; float cr, fl;
-//	moveCamera(time, ro, ta, cr, fl);
-//
-//	// camera2world transform    
-//	mat3 cam = setCamera(ro, ta, cr);
-//
-//	// pixel
-//	vec2 p = (-iResolution.xy + 2.0f*fragCoord) / iResolution.y;
-//
-//	float t = kMaxT;
-//	vec3 tot = vec3(0.0f);
-//#if AA>1
-//	for (int m = 0; m < AA; m++)
-//		for (int n = 0; n < AA; n++)
-//		{
-//			// pixel coordinates
-//			vec2 o = vec2(float(m), float(n)) / float(AA) - 0.5f;
-//			vec2 s = (-iResolution.xy + 2.0f*(fragCoord + o)) / iResolution.y;
-//#else    
-//	vec2 s = p;
-//#endif
-//
-//	// camera ray    
-//	vec3 rd = cam * normalize(vec3(s, fl));
-//
-//	vec4 res = render(ro, rd);
-//	t = min(t, res.w);
-//
-//	tot += res.xyz;
-//#if AA>1
-//		}
-//tot /= float(AA*AA);
-//#endif
-//
-//
-////-------------------------------------
-//// velocity vectors (through depth reprojection)
-//	//-------------------------------------
-//float vel = 0.0f;
-//if (t < 0.0f)
-//{
-//	vel = -1.0f;
-//}
-//else
-//{
-//
-//	// old camera position
-//	float oldTime = time; // - 0.1f * 1.0f/30.0f; // 1/30 of a second blur
-//	vec3 oldRo, oldTa; float oldCr, oldFl;
-//	moveCamera(oldTime, oldRo, oldTa, oldCr, oldFl);
-//	mat3 oldCam = setCamera(oldRo, oldTa, oldCr);
-//
-//	// world space
-//#if AA>1
-//	vec3 rd = cam * normalize(vec3(p, fl));
-//#endif
-//	vec3 wpos = ro + rd * t;
-//	// camera space
-//	vec3 cpos = vec3(dot(wpos - oldRo, oldCam[0]),
-//		dot(wpos - oldRo, oldCam[1]),
-//		dot(wpos - oldRo, oldCam[2]));
-//	// ndc space
-//	vec2 npos = oldFl * cpos.xy / cpos.z;
-//	// screen space
-//	vec2 spos = 0.5f + 0.5f*npos*vec2(iResolution.y / iResolution.x, 1.0f);
-//
-//
-//	// compress velocity vector in a single float
-//	vec2 uv = fragCoord / iResolution.xy;
-//	spos = clamp(0.5f + 0.5f*(spos - uv) / 0.25f, 0.0f, 1.0f);
-//	vel = floor(spos.x*255.0f) + floor(spos.y*255.0f)*256.0f;
-//}
-//
-//fragColor = vec4(tot, vel);
-//}

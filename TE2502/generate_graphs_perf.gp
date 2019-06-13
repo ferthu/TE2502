@@ -44,6 +44,7 @@ set key font ", ".keysize
 set tics font ", ".ticssize 
 set ytics offset 1.0,-0.2
 
+
 # generated nodes --------------------------------------------------------------------
 do for [terrain in terrains]{
 	rasters[1] = terrain."-rast-0.05"
@@ -58,6 +59,7 @@ do for [terrain in terrains]{
 }
 
 
+
 # generated triangles ----------------------------------------------------------------
 do for [terrain in terrains]{
 	rasters[1] = terrain."-rast-0.05"
@@ -66,54 +68,67 @@ do for [terrain in terrains]{
 	i=3
 	set output 'testresults/'.terrain."-".h2[i].'.png'
 	set ylabel h[i] font ", ".fontsize offset 0.3,0
-	set yrange [0:140000]
-	set ytics ("0" 0, "28k" 28000, "56k" 56000, "84k" 84000, "112k" 112000, "140k" 140000)
+	set yrange [0:200000]
+	set ytics ("0" 0, "40k" 40000, "80k" 80000, "120k" 120000, "160k" 160000, "200k" 200000)
 	
 	plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
 }
+
 
 
 # drawn nodes ---------------------------------------------------------------------
-terrains = "elev rain"
-do for [terrain in terrains]{
-	rasters[1] = terrain."-rast-0.05"
-	rasters[2] = terrain."-rast-0.2"
-	rasters[3] = terrain."-rast-1.0"
-	i=2
-	set output 'testresults/'.terrain."-".h2[i].'.png'
-	set ylabel h[i] font ", ".fontsize offset 0.3,0
-	set yrange [0:50000]
-	set ytics ("0" 0, "10k" 10000, "20k" 20000, "30k" 30000, "40k" 40000, "50k" 50000)
-	
-	plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
-}
 i=2
+set ylabel h[i] font ", ".fontsize offset 0.3,0
+terrain = "elev"
+rasters[1] = terrain."-rast-0.05"
+rasters[2] = terrain."-rast-0.2"
+rasters[3] = terrain."-rast-1.0"
+set output 'testresults/'.terrain."-".h2[i].'.png'
+set yrange [0:120000]
+set ytics ("0" 0, "24k" 24000, "48k" 48000, "72k" 72000, "96k" 96000, "120k" 120000)
+plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
+
+terrain = "rain"
+rasters[1] = terrain."-rast-0.05"
+rasters[2] = terrain."-rast-0.2"
+rasters[3] = terrain."-rast-1.0"
+set output 'testresults/'.terrain."-".h2[i].'.png'
+set yrange [0:70000]
+set ytics ("0" 0, "14k" 14000, "28k" 28000, "42k" 42000, "56k" 56000, "70k" 70000)
+plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
+
 terrain = "mount"
 rasters[1] = terrain."-rast-0.05"
 rasters[2] = terrain."-rast-0.2"
 rasters[3] = terrain."-rast-1.0"
-set yrange [0:200000]
-set ytics ("0" 0, "40k" 40000, "80k" 80000, "120k" 120000, "160k" 160000, "200k" 200000)
-
+set yrange [0:240000]
+set ytics ("0" 0, "48k" 48000, "96k" 96000, "144k" 144000, "192k" 192000, "240k" 240000)
 set output 'testresults/'.terrain."-".h2[i].'.png'
 plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
 
 
+
 # drawn triangles ---------------------------------------------------------------------
-terrains = "elev rain"
-do for [terrain in terrains]{
-	rasters[1] = terrain."-rast-0.05"
-	rasters[2] = terrain."-rast-0.2"
-	rasters[3] = terrain."-rast-1.0"
-	i=4
-	set output 'testresults/'.terrain."-".h2[i].'.png'
-	set ylabel h[i] font ", ".fontsize offset 0.3,0
-	set yrange [0:100000000]
-	set ytics ("0" 0, "20M" 20000000, "40M" 40000000, "60M" 60000000, "80M" 80000000, "100M" 100000000)
-	
-	plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
-}
 i=4
+set ylabel h[i] font ", ".fontsize offset 0.3,0
+terrain = "elev"
+rasters[1] = terrain."-rast-0.05"
+rasters[2] = terrain."-rast-0.2"
+rasters[3] = terrain."-rast-1.0"
+set output 'testresults/'.terrain."-".h2[i].'.png'
+set yrange [0:240000000]
+set ytics ("0" 0, "48M" 48000000, "96M" 96000000, "144M" 144000000, "192M" 192000000, "240M" 240000000)
+plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
+
+terrain = "rain"
+rasters[1] = terrain."-rast-0.05"
+rasters[2] = terrain."-rast-0.2"
+rasters[3] = terrain."-rast-1.0"
+set output 'testresults/'.terrain."-".h2[i].'.png'
+set yrange [0:100000000]
+set ytics ("0" 0, "20M" 20000000, "40M" 40000000, "60M" 60000000, "80M" 80000000, "100M" 100000000)
+plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
+
 terrain = "mount"
 rasters[1] = terrain."-rast-0.05"
 rasters[2] = terrain."-rast-0.2"
@@ -126,29 +141,38 @@ set output 'testresults/'.terrain."-".h2[i].'.png'
 plot for [f=1:rc-1] 'testresults/'.rasters[f].'-final/draw.txt'u 1:i+1 title raster_titles[f] with lines lw linesize linecolor rgb colors[f]
 
 
+
 # fps ---------------------------------------------------------------------------------
-terrains = "elev rain"
-do for [terrain in terrains]{
-	rasters[1] = terrain."-rast-0.05"
-	rasters[2] = terrain."-rast-0.2"
-	rasters[3] = terrain."-rast-1.0"
-	rasters[4] = terrain."-ray"
-	set output 'testresults/'.terrain.'-fps.png'
-	set ylabel "frame rate (Hz)" font ", ".fontsize offset 0.3,0
-	set yrange [0:150]
-	set ytics 0,30,150
-	plot for [f=1:rc] 'testresults/'.rasters[f].'/fps.txt' u 1:2 with lines title raster_titles[f] lw linesize linecolor rgb colors[f]
-}
+set ylabel "frame rate (Hz)" font ", ".fontsize offset 0.3,0
+terrain = "elev"
+rasters[1] = terrain."-rast-0.05"
+rasters[2] = terrain."-rast-0.2"
+rasters[3] = terrain."-rast-1.0"
+rasters[4] = terrain."-ray"
+set output 'testresults/'.terrain.'-fps.png'
+set yrange [0:350]
+set ytics 0,70,350
+plot for [f=1:rc] 'testresults/'.rasters[f].'-final/fps.txt' u 1:2 with lines title raster_titles[f] lw linesize linecolor rgb colors[f]
+
+terrain = "rain"
+rasters[1] = terrain."-rast-0.05"
+rasters[2] = terrain."-rast-0.2"
+rasters[3] = terrain."-rast-1.0"
+rasters[4] = terrain."-ray"
+set output 'testresults/'.terrain.'-fps.png'
+set yrange [0:150]
+set ytics 0,30,150
+plot for [f=1:rc] 'testresults/'.rasters[f].'-final/fps.txt' u 1:2 with lines title raster_titles[f] lw linesize linecolor rgb colors[f]
+
 terrain = "mount"
 rasters[1] = terrain."-rast-0.05"
 rasters[2] = terrain."-rast-0.2"
 rasters[3] = terrain."-rast-1.0"
 rasters[4] = terrain."-ray"
 set output 'testresults/'.terrain.'-fps.png'
-set ylabel "frame rate (Hz)" font ", ".fontsize offset 0.3,0
-set yrange [0:500]
-set ytics 0,100,500
-plot for [f=1:rc] 'testresults/'.rasters[f].'/fps.txt' u 1:2 with lines title raster_titles[f] lw linesize linecolor rgb colors[f]
+set yrange [0:700]
+set ytics 0,140,700
+plot for [f=1:rc] 'testresults/'.rasters[f].'-final/fps.txt' u 1:2 with lines title raster_titles[f] lw linesize linecolor rgb colors[f]
 
 
 

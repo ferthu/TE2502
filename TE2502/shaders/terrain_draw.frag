@@ -22,5 +22,5 @@ void main()
 
 	//float t = (world_pos.y + 100) / 200.0f;
 	//out_color = vec4(t, t, t, 1);
-	out_color = vec4(post_effects(surface_color(world_pos, camera_pos, dist)), 1.0);
+	out_color = vec4(surface_color(world_pos, camera_pos, dist), 1.0);
 }

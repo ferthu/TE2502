@@ -25,13 +25,13 @@ set key font ",18"
 
 set term wxt
 set xrange [0:20]
-set yrange [0:2500]
+set yrange [0:1500]
 set tics font ", 16" 
 set ytics offset 1.0,-0.2
 
-#set ytics 
+set ytics 0,300,1500
 
-plot for [f=1:tc] 'testresults/'.terrains[f].'-simple/fps.txt' u 1:2 every 5 title titles[f] with lines lw 2 linecolor rgb colors[f]
+plot for [f=1:tc] 'testresults/'.terrains[f].'-simple-final/fps.txt' u 1:2 title titles[f] with lines lw 2 linecolor rgb colors[f]
 
 
 set term png

@@ -46,7 +46,8 @@ for file_name in file_names:
 			res_file.write(str(time) + "   \t")
 			
 			if amount == 0:
-				res_file.write("0.0   \t")
+				for k,d in data.items():
+					res_file.write("0.0   \t")
 			else:
 				for k,d in data.items():
 					d /= amount
